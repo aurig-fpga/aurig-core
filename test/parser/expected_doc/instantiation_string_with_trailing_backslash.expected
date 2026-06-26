@@ -1,0 +1,21 @@
+architectures {{assignments {} body_section {begin
+inst_bs : component sub_block
+generic map (
+g_path => "C:\",
+g_id   => 7
+)
+port map (
+clk  => clk_i,
+dout => dout_o
+);
+end architecture rtl;} decl_section {architecture rtl of str_trailing_bs is
+component sub_block is
+generic (
+g_path : string  := "default";
+g_id   : integer := 0
+);
+port (
+clk  : in  std_logic;
+dout : out std_logic
+);
+end component sub_block;} declarations {} entity str_trailing_bs file string_with_trailing_backslash.vhd generates {} instantiations {{architecture {} component sub_block entity {} generics_map {{name g_path value {"C:\"}} {name g_id value 7}} label inst_bs line 32 ports_map {{actual clk_i formal clk} {actual dout_o formal dout}}}} line 20 name rtl processes {}}} comments {line {1 {comment {Regression for PR #35 review round: VHDL string literals do NOT use}} 2 {comment {backslash escapes; a string ending with `\` is still a perfectly valid}} 3 {comment {string. The previous `_split_top_level_commas` / `_grab_paren_block`}} 4 {comment {string-state handling treated `\"` as an escape and skipped the closing}} 5 {comment {quote, leaving the scanner stuck __Q0__ the string and swallowing the}} 6 {comment {following association comma. With VHDL-correct semantics (doubled quotes}} 7 {comment {__Q0__ are the literal-quote escape, `\` is an ordinary character), the}} 8 {comment {generic map below must produce two separate associations even when the}} 9 {comment {first generic value ends with `\`.}}}} entities {{file string_with_trailing_backslash.vhd generics {} line 13 name str_trailing_bs ports {{line 15 mode in name clk_i type std_logic} {line 16 mode out name dout_o type std_logic}}}} libraries {{decl {library ieee;} line 10 name ieee}} meta {file string_with_trailing_backslash.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 11 pkg all selector {}}}

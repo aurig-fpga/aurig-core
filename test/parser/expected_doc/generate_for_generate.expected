@@ -1,0 +1,21 @@
+architectures {{assignments {} body_section {begin
+
+gen_regs: for i in 0 to 7 generate
+process(clk)
+begin
+if rising_edge(clk) then
+stage(i) <= din(i);
+end if;
+end process;
+end generate gen_regs;
+
+dout <= stage;
+end architecture rtl;} decl_section {architecture rtl of for_generate is
+signal stage : std_logic_vector(7 downto 0);} declarations {{args {{type {std_logic_vector(7 downto 0)} init {}} {}} kind signal line 14 name stage}} entity for_generate file for_generate.vhd generates {{body {process(clk)
+begin
+if rising_edge(clk) then
+stage(i) <= din(i);
+end if;
+end process;} condition {i in 0 to 7} end_offset 148 header_end_offset 41 label gen_regs line 17 loop_range {0 to 7} loop_var i scheme for start_offset 7}} instantiations {} line 13 name rtl processes {{body {if rising_edge(clk) then
+stage(i) <= din(i);
+end if;} classification clocked comment {Simple for-generate creating multiple instances} label {} line 18 sensitivity clk}}}} comments {line {1 {comment {Test for-generate statement}} 16 {comment {Simple for-generate creating multiple instances}}}} entities {{file for_generate.vhd generics {} line 5 name for_generate ports {{line 7 mode in name clk type std_logic} {line 8 mode in name din type {std_logic_vector(7 downto 0)}} {line 9 mode out name dout type {std_logic_vector(7 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file for_generate.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

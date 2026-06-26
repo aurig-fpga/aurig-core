@@ -1,0 +1,104 @@
+architectures {} comments {line {1 {comment {Mixed overloads: functions and procedures with operators}} 10 {comment {Overloaded __Q0__ with different return types}} 14 {comment {Regular function overloads}} 6 {comment {Overloaded __Q0__  operator}}}} entities {} libraries {{decl {library ieee;} line 2 name ieee}} meta {file operator_overloads.vhd} package_bodies {{body {function "+"(left, right : std_logic) return std_logic is
+begin
+return left or right;
+end function "+";
+
+function "+"(left : std_logic; right : integer) return std_logic is
+begin
+if right > 0 then
+return left;
+else
+return '0';
+end if;
+end function "+";
+
+function "and"(left, right : std_logic) return std_logic is
+begin
+return left and right;
+end function "and";
+
+function "and"(left, right : std_logic_vector) return std_logic_vector is
+begin
+return left and right;
+end function "and";
+
+function convert(value : std_logic) return integer is
+begin
+if value = '1' then
+return 1;
+else
+return 0;
+end if;
+end function convert;
+
+function convert(value : integer) return std_logic is
+begin
+if value /= 0 then
+return '1';
+else
+return '0';
+end if;
+end function convert;
+
+function convert(value : std_logic_vector) return integer is
+begin
+return value'length;
+end function convert;
+} file operator_overloads.vhd functions {{body {} kind function line 45 name convert params {value : std_logic} purity pure return integer} {body {} kind function line 54 name convert params {value : integer} purity pure return std_logic} {body {} kind function line 63 name convert params {value : std_logic_vector} purity pure return integer}} line 20 name mixed_overload_pkg procedures {}}} package_body {body {function "+"(left, right : std_logic) return std_logic is
+begin
+return left or right;
+end function "+";
+
+function "+"(left : std_logic; right : integer) return std_logic is
+begin
+if right > 0 then
+return left;
+else
+return '0';
+end if;
+end function "+";
+
+function "and"(left, right : std_logic) return std_logic is
+begin
+return left and right;
+end function "and";
+
+function "and"(left, right : std_logic_vector) return std_logic_vector is
+begin
+return left and right;
+end function "and";
+
+function convert(value : std_logic) return integer is
+begin
+if value = '1' then
+return 1;
+else
+return 0;
+end if;
+end function convert;
+
+function convert(value : integer) return std_logic is
+begin
+if value /= 0 then
+return '1';
+else
+return '0';
+end if;
+end function convert;
+
+function convert(value : std_logic_vector) return integer is
+begin
+return value'length;
+end function convert;
+} file_name operator_overloads.vhd line 20 name mixed_overload_pkg} packages {{components {} declarations {{kind function line 15 name convert params {value : std_logic} purity pure return integer} {kind function line 16 name convert params {value : integer} purity pure return std_logic} {kind function line 17 name convert params {value : std_logic_vector} purity pure return integer}} declarative {function "+"(left, right : std_logic) return std_logic;
+function "+"(left : std_logic; right : integer) return std_logic;
+
+
+function "and"(left, right : std_logic) return std_logic;
+function "and"(left, right : std_logic_vector) return std_logic_vector;
+
+
+function convert(value : std_logic) return integer;
+function convert(value : integer) return std_logic;
+function convert(value : std_logic_vector) return integer;
+} file operator_overloads.vhd generics {} line 5 name mixed_overload_pkg ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

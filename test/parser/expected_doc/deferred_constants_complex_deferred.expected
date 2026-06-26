@@ -1,0 +1,23 @@
+architectures {} comments {line {1 {comment {Multiple deferred constants with complex types}} 14 {comment {Mix with non-deferred}} 19 {comment {Complete deferred constants}} 24 {comment {Can add additional non-deferred constants in body}} 9 {comment {Deferred constants of various types}}}} entities {} libraries {{decl {library ieee;} line 2 name ieee}} meta {file complex_deferred.vhd} package_bodies {{body {constant INITIAL_STATE : state_type := IDLE;
+constant DEFAULT_CONFIG : config_array := (10, 20, 30, 40);
+constant ENABLE_MASK : std_logic_vector(7 downto 0) := "11110000";
+
+
+constant INTERNAL_FLAG : boolean := true;
+} file complex_deferred.vhd functions {} line 18 name complex_deferred_pkg procedures {}}} package_body {body {constant INITIAL_STATE : state_type := IDLE;
+constant DEFAULT_CONFIG : config_array := (10, 20, 30, 40);
+constant ENABLE_MASK : std_logic_vector(7 downto 0) := "11110000";
+
+
+constant INTERNAL_FLAG : boolean := true;
+} file_name complex_deferred.vhd line 18 name complex_deferred_pkg} packages {{components {} declarations {{init {} kind constant line 10 name INITIAL_STATE type state_type} {comment {Deferred constants of various types} init {} kind constant line 11 name DEFAULT_CONFIG type config_array} {init {} kind constant line 12 name ENABLE_MASK type {std_logic_vector(7 downto 0)}} {init 1000 kind constant line 15 name TIMEOUT type integer} {kind type line 6 name state_type subtype_kind enumerated} {kind type line 7 name config_array subtype_kind array}} declarative {type state_type is (IDLE, ACTIVE, DONE);
+type config_array is array (0 to 3) of integer;
+
+
+constant INITIAL_STATE : state_type;
+constant DEFAULT_CONFIG : config_array;
+constant ENABLE_MASK : std_logic_vector(7 downto 0);
+
+
+constant TIMEOUT : integer := 1000;
+} file complex_deferred.vhd generics {} line 5 name complex_deferred_pkg ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

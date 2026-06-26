@@ -1,0 +1,45 @@
+architectures {{assignments {} body_section {begin
+
+process(clk)
+begin
+if rising_edge(clk) then
+data_out <= data_in;
+end if;
+end process;
+
+
+gen_parity: if USE_PARITY generate
+process(data_in)
+variable p : std_logic;
+begin
+p := '0';
+for i in 0 to DATA_WIDTH-1 loop
+p := p xor data_in(i);
+end loop;
+parity <= p;
+end process;
+
+parity_out <= parity;
+end generate gen_parity;
+
+gen_no_parity: if not USE_PARITY generate
+parity_out <= '0';
+end generate gen_no_parity;
+end architecture rtl;} decl_section {architecture rtl of complex_if_generate is
+signal parity : std_logic;} declarations {{args {{type std_logic init {}} {}} kind signal line 19 name parity}} entity complex_if_generate file complex_if_generate.vhd generates {{body {process(data_in)
+variable p : std_logic;
+begin
+p := '0';
+for i in 0 to DATA_WIDTH-1 loop
+p := p xor data_in(i);
+end loop;
+parity <= p;
+end process;
+
+parity_out <= parity;} condition USE_PARITY end_offset 324 header_end_offset 129 label gen_parity line 30 scheme if start_offset 95} {body {parity_out <= '0';} condition {not USE_PARITY} end_offset 414 header_end_offset 368 label gen_no_parity line 44 scheme if start_offset 327}} instantiations {} line 18 name rtl processes {{body {if rising_edge(clk) then
+data_out <= data_in;
+end if;} classification clocked label {} line 22 sensitivity clk} {body {p := '0';
+for i in 0 to DATA_WIDTH-1 loop
+p := p xor data_in(i);
+end loop;
+parity <= p;} classification combinational comment {Optional parity generation} declarations {{kind variable name p type std_logic init {} line 32}} label {} line 31 sensitivity data_in}}}} comments {line {1 {comment {Test generate with complex if-else structure}} 21 {comment {Main data path}} 29 {comment {Optional parity generation}}}} entities {{file complex_if_generate.vhd generics {{init 8 line 7 name DATA_WIDTH type integer} {init false line 8 name USE_PARITY type boolean}} line 5 name complex_if_generate ports {{line 11 mode in name clk type std_logic} {line 12 mode in name data_in type {std_logic_vector(DATA_WIDTH-1 downto 0)}} {line 13 mode out name data_out type {std_logic_vector(DATA_WIDTH-1 downto 0)}} {line 14 mode out name parity_out type std_logic}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file complex_if_generate.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

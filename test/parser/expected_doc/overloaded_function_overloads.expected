@@ -1,0 +1,57 @@
+architectures {} comments {line {1 {comment {Package with overloaded functions (same name, different signatures)}} 10 {comment {Second overload: vector}} 13 {comment {Third overload: integer}} 16 {comment {Fourth overload: unsigned}} 7 {comment {First overload: single bit}}}} entities {} libraries {{decl {library ieee;} line 2 name ieee}} meta {file function_overloads.vhd} package_bodies {{body {function to_string(value : std_logic) return string is
+begin
+case value is
+when '0' => return "0";
+when '1' => return "1";
+when others => return "X";
+end case;
+end function to_string;
+
+function to_string(value : std_logic_vector) return string is
+begin
+return "vector of length " & integer'image(value'length);
+end function to_string;
+
+function to_string(value : integer) return string is
+begin
+return integer'image(value);
+end function to_string;
+
+function to_string(value : unsigned) return string is
+begin
+return "unsigned: " & integer'image(to_integer(value));
+end function to_string;
+} file function_overloads.vhd functions {{body {} kind function line 21 name to_string params {value : std_logic} purity pure return string} {body {} kind function line 30 name to_string params {value : std_logic_vector} purity pure return string} {body {} kind function line 35 name to_string params {value : integer} purity pure return string} {body {} kind function line 40 name to_string params {value : unsigned} purity pure return string}} line 20 name overload_pkg procedures {}}} package_body {body {function to_string(value : std_logic) return string is
+begin
+case value is
+when '0' => return "0";
+when '1' => return "1";
+when others => return "X";
+end case;
+end function to_string;
+
+function to_string(value : std_logic_vector) return string is
+begin
+return "vector of length " & integer'image(value'length);
+end function to_string;
+
+function to_string(value : integer) return string is
+begin
+return integer'image(value);
+end function to_string;
+
+function to_string(value : unsigned) return string is
+begin
+return "unsigned: " & integer'image(to_integer(value));
+end function to_string;
+} file_name function_overloads.vhd line 20 name overload_pkg} packages {{components {} declarations {{kind function line 8 name to_string params {value : std_logic} purity pure return string} {kind function line 11 name to_string params {value : std_logic_vector} purity pure return string} {kind function line 14 name to_string params {value : integer} purity pure return string} {kind function line 17 name to_string params {value : unsigned} purity pure return string}} declarative {function to_string(value : std_logic) return string;
+
+
+function to_string(value : std_logic_vector) return string;
+
+
+function to_string(value : integer) return string;
+
+
+function to_string(value : unsigned) return string;
+} file function_overloads.vhd generics {} line 6 name overload_pkg ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}} {decl ieee lib numeric_std line 4 pkg all selector {}}}

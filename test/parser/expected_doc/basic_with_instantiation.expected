@@ -1,0 +1,25 @@
+architectures {{assignments {} body_section {begin
+
+
+u_simple : simple_entity
+port map (
+clk => clk,
+rst => rst,
+data_in => data_in,
+data_out => internal_data
+);
+
+data_out <= internal_data;
+
+end architecture rtl;} decl_section {architecture rtl of with_instantiation is
+
+component simple_entity is
+port (
+clk : in std_logic;
+rst : in std_logic;
+data_in : in std_logic_vector(7 downto 0);
+data_out : out std_logic_vector(7 downto 0)
+);
+end component;
+
+signal internal_data : std_logic_vector(7 downto 0);} declarations {{args {{type {std_logic_vector(7 downto 0)} init {}} {}} kind signal line 25 name internal_data}} entity with_instantiation file with_instantiation.vhd generates {} instantiations {{architecture {} component simple_entity entity {} generics_map {} label u_simple line 29 ports_map {{actual clk formal clk} {actual rst formal rst} {actual data_in formal data_in} {actual internal_data formal data_out}}}} line 14 name rtl processes {}}} comments {line {1 {comment {Entity with component instantiation}} 29 {comment {Component instantiation}}}} entities {{file with_instantiation.vhd generics {} line 5 name with_instantiation ports {{line 7 mode in name clk type std_logic} {line 8 mode in name rst type std_logic} {line 9 mode in name data_in type {std_logic_vector(7 downto 0)}} {line 10 mode out name data_out type {std_logic_vector(7 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file with_instantiation.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

@@ -1,0 +1,27 @@
+architectures {{assignments {} body_section {begin
+
+result <= add4(a, b);
+
+end architecture rtl;} decl_section {architecture rtl of arch_multi is
+
+
+function add4(x, y : std_logic_vector(3 downto 0)) return std_logic_vector is
+variable sum : unsigned(3 downto 0);
+begin
+sum := unsigned(x) + unsigned(y);
+return std_logic_vector(sum);
+end function add4;
+
+
+function sub4(x, y : std_logic_vector(3 downto 0)) return std_logic_vector is
+variable diff : unsigned(3 downto 0);
+begin
+diff := unsigned(x) - unsigned(y);
+return std_logic_vector(diff);
+end function sub4;
+
+
+function is_zero(data : std_logic_vector) return boolean is
+begin
+return unsigned(data) = 0;
+end function is_zero;} declarations {{args {{return std_logic_vector params {x, y : std_logic_vector(3 downto 0)} purity pure} {}} body_declarations {{kind variable name sum type {unsigned(3 downto 0)} init {} line 17}} kind function line 16 name add4} {args {{return std_logic_vector params {x, y : std_logic_vector(3 downto 0)} purity pure} {}} body_declarations {{kind variable name diff type {unsigned(3 downto 0)} init {} line 25}} kind function line 24 name sub4} {args {{return boolean params {data : std_logic_vector} purity pure} {}} kind function line 32 name is_zero}} entity arch_multi file multiple_functions.vhd generates {} instantiations {} line 13 name rtl processes {}}} comments {line {1 {comment {Multiple subprograms in architecture with comments}} 15 {comment {Add two 4-bit vectors}} 23 {comment {Subtract two 4-bit vectors}} 31 {comment {Check if value is zero}}}} entities {{file multiple_functions.vhd generics {} line 6 name arch_multi ports {{line 8 mode in name b type {std_logic_vector(3 downto 0)}} {line 9 mode out name result type {std_logic_vector(3 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file multiple_functions.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}} {decl ieee lib numeric_std line 4 pkg all selector {}}}

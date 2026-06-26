@@ -1,0 +1,45 @@
+architectures {} comments {line {1 {comment {Package body with function implementations}} 12 {comment {Function implementation with local variable}} 20 {comment {Procedure implementation with local constant}}}} entities {} libraries {{decl {library ieee;} line 2 name ieee}} line {18 {type {definition {declaration {procedure {name {set_value {args {{signal data : out std_logic_vector; value : std_logic_vector} {decl_part {{is
+constant ZERO : std_logic_vector(data'range) := (others => '0');
+} {body {if value'length = data'length then
+data <= value;
+else
+data <= ZERO;
+}}}}}}}}}}}}} meta {file with_locals.vhd} package_bodies {{body {function add(a : integer; b : integer) return integer is
+variable result : integer;
+begin
+result := a + b;
+return result;
+end function add;
+
+
+procedure set_value(signal data : out std_logic_vector; value : std_logic_vector) is
+constant ZERO : std_logic_vector(data'range) := (others => '0');
+begin
+if value'length = data'length then
+data <= value;
+else
+data <= ZERO;
+end if;
+end procedure set_value;
+
+} file with_locals.vhd functions {{body {} body_declarations {{kind variable name result type integer init {} line 14}} kind function line 13 name add params {a : integer; b : integer} purity pure return integer}} line 10 name pkg_implementations procedures {{body {} body_declarations {{kind constant name ZERO type std_logic_vector(data'range) init {(others => '0')} line 22}} kind procedure line 22 name set_value params {signal data : out std_logic_vector; value : std_logic_vector}}}}} package_body {body {function add(a : integer; b : integer) return integer is
+variable result : integer;
+begin
+result := a + b;
+return result;
+end function add;
+
+
+procedure set_value(signal data : out std_logic_vector; value : std_logic_vector) is
+constant ZERO : std_logic_vector(data'range) := (others => '0');
+begin
+if value'length = data'length then
+data <= value;
+else
+data <= ZERO;
+end if;
+end procedure set_value;
+
+} file_name with_locals.vhd line 10 name pkg_implementations} packages {{components {} declarations {{kind function line 6 name add params {a : integer; b : integer} purity pure return integer} {kind procedure line 8 name set_value params {signal data : out std_logic_vector; value : std_logic_vector}}} declarative {function add(a : integer; b : integer) return integer;
+procedure set_value(signal data : out std_logic_vector; value : std_logic_vector);
+} file with_locals.vhd generics {} line 5 name pkg_implementations ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

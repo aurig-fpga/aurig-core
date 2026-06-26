@@ -1,0 +1,23 @@
+architectures {{assignments {} body_section {begin
+
+u_add : adder
+port map (
+data,
+x"42",
+'0',
+sum => result,
+cout => carry
+);
+end architecture rtl;} decl_section {architecture rtl of mixed_association is
+component adder is
+port (
+a : in std_logic_vector(7 downto 0);
+b : in std_logic_vector(7 downto 0);
+cin : in std_logic;
+sum : out std_logic_vector(7 downto 0);
+cout : out std_logic
+);
+end component adder;
+
+signal result : std_logic_vector(7 downto 0);
+signal carry : std_logic;} declarations {{args {{type {std_logic_vector(7 downto 0)} init {}} {}} kind signal line 23 name result} {args {{type std_logic init {}} {}} kind signal line 24 name carry}} entity mixed_association file mixed_association.vhd generates {} instantiations {{architecture {} component adder entity {} generics_map {} label u_add line 27 ports_map {{actual data pos 1} {actual x\"42\" pos 2} {actual '0' pos 3} {actual result formal sum} {actual carry formal cout}}}} line 12 name rtl processes {}}} comments {line {1 {comment {Test mixed positional and named association}} 26 {comment {Mixed positional and named (positional must come first)}} 29 {comment {positional: a}} 30 {comment {positional: b}} 31 {comment {positional: cin}} 32 {comment named} 33 {comment named}}} entities {{file mixed_association.vhd generics {} line 5 name mixed_association ports {{line 7 mode in name clk type std_logic} {line 8 mode in name data type {std_logic_vector(7 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file mixed_association.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

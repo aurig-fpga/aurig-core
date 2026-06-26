@@ -1,0 +1,15 @@
+architectures {} comments {line {1 {comment {Function and procedure declarations in package}} 10 {comment {Function with default parameter}} 13 {comment {Simple procedure declaration}} 16 {comment {Procedure with inout mode}} 19 {comment {Function with vector types}} 7 {comment {Simple function declaration}}}} entities {} libraries {{decl {library ieee;} line 2 name ieee}} meta {file simple_declarations.vhd} package_bodies {} packages {{components {} declarations {{kind function line 8 name add params {a : integer; b : integer} purity pure return integer} {kind function line 11 name multiply params {x : integer; factor : integer := 2} purity pure return integer} {kind function line 20 name reverse_bits params {data : std_logic_vector} purity pure return std_logic_vector} {kind procedure line 15 name reset params {signal clk : in std_logic; signal rst : out std_logic}} {kind procedure line 18 name toggle params {signal flag : inout std_logic}}} declarative {function add(a : integer; b : integer) return integer;
+
+
+function multiply(x : integer; factor : integer := 2) return integer;
+
+
+procedure reset(signal clk : in std_logic; signal rst : out std_logic);
+
+
+procedure toggle(signal flag : inout std_logic);
+
+
+function reverse_bits(data : std_logic_vector) return std_logic_vector;
+
+} file simple_declarations.vhd generics {} line 5 name pkg_subprog_decl ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

@@ -1,0 +1,85 @@
+# ============================================================================
+# Extended FPGA project manifest (aurig with board/sim support)
+# ============================================================================
+project_name: demo_util_fifo
+project_root: "examples/demo_util/src"
+top: demo_util_fifo
+debug_paths: false
+
+require_exact_versions: false
+
+# Libraries configuration
+libraries:
+  demo_util_lib: "examples/demo_util/src"
+  ieee: ignore
+  std: ignore
+
+# Tool configuration
+tool:
+  synth:
+    kind: precision
+    version: "2019.2"
+    exe: bin
+    bin_dir: "C:/MentorGraphics/PS2019.2_64-bit/Mgc_home"
+    env_script:
+      linux: ""
+      windows: ""
+  sim:
+    kind: active-hdl
+    exe: BIN
+    bin_dir: "C:/Aldec/Active-HDL-11.1-x64"
+    env_script:
+      linux: ""
+      windows: ""
+
+# Device configuration
+device:
+  vendor: lattice
+  family: ECP5
+  part: FTGS546
+  speed: "2"
+
+# NEW: Board constraints
+board:
+  xdc_files:
+    - constraints/lattice/ecp5_board/pins.xdc
+    - constraints/lattice/ecp5_board/timing.xdc
+  sdc_files:
+    - constraints/lattice/ecp5_board/timing.sdc
+
+# File sets
+file_sets:
+  rtl:
+  - lib: demo_util_lib
+    src:
+      - "examples/demo_util/src/**/*.vhd"
+      - "examples/demo_util/src/**/*.vhdl"
+    include:
+      - "examples/demo_util/src"
+    vhdl_std: "2008"
+
+# NEW: Global include directories
+include_dirs_global:
+  - "examples/demo_util/src"
+  - "examples/demo_util/include"
+
+# NEW: Simulation configuration
+sim:
+  top_tb: tb_demo_util_fifo
+  tb_lib: tb_work
+  run_time: 1us
+
+# Environment and generics
+env:
+  generics:
+    g_almost_empty_limit: "1"
+    g_almost_full_limit: "14"
+    g_dual_clock: "true"
+    g_fwft: "false"
+    g_rd_data_w: "8"
+    g_rd_latency: "1"
+    g_ren_ctrl: "true"
+    g_sanity_check: ""
+    g_wen_ctrl: "true"
+    g_wr_data_w: "8"
+    g_wr_depth: "16"

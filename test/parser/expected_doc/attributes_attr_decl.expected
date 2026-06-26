@@ -1,0 +1,5 @@
+architectures {} comments {line {1 {comment {Test attribute declarations}} 27 {comment {Attribute specifications}} 6 {comment {Declare custom attributes}}}} entities {{file attr_decl.vhd generics {} line 17 name attr_decl ports {{line 19 mode in name clk type std_logic} {line 20 mode in name data type {std_logic_vector(7 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee} {decl {library ieee;} line 13 name ieee}} meta {file attr_decl.vhd} package_bodies {} packages {{components {} declarations {} declarative {attribute ENUM_ENCODING : string;
+attribute MAX_FANOUT : integer;
+attribute TIMING_CONSTRAINT : time;
+attribute IS_CRITICAL : boolean;
+} file attr_decl.vhd generics {} line 5 name attr_pkg ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}} {decl ieee lib std_logic_1164 line 14 pkg all selector {}} {decl work lib attr_pkg line 15 pkg all selector {}}}

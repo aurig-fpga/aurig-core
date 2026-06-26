@@ -1,0 +1,30 @@
+architectures {{assignments {} body_section {begin
+
+u_param : parameterized
+generic map (
+G_WIDTH => 16,
+G_DEPTH => 32,
+G_MODE => "NORMAL"
+)
+port map (
+clk  => clk,
+rst  => rst,
+din  => data_in,
+dout => data_out
+);
+end architecture rtl;} decl_section {architecture rtl of multiline_maps is
+component parameterized is
+generic (
+G_WIDTH : integer;
+G_DEPTH : integer;
+G_MODE : string
+);
+port (
+clk : in std_logic;
+rst : in std_logic;
+din : in std_logic_vector;
+dout : out std_logic_vector
+);
+end component parameterized;
+
+signal data_in, data_out : std_logic_vector(15 downto 0);} declarations {{args {{type {std_logic_vector(15 downto 0)} init {}} {}} kind signal line 27 name data_in} {args {{type {std_logic_vector(15 downto 0)} init {}} {}} kind signal line 27 name data_out}} entity multiline_maps file multiline_maps.vhd generates {} instantiations {{architecture {} component parameterized entity {} generics_map {{name G_WIDTH value 16} {name G_DEPTH value 32} {name G_MODE value {"NORMAL"}}} label u_param line 30 ports_map {{actual clk formal clk} {actual rst formal rst} {actual data_in formal din} {actual data_out formal dout}}}} line 12 name rtl processes {}}} comments {line {1 {comment {Test multi-line generic and port maps with comments}} 29 {comment {Multi-line maps with comments}} 32 {comment {data width}} 33 {comment {fifo depth}} 34 {comment {operating mode}} 37 {comment {system clock}} 38 {comment {active high reset}} 39 {comment {input data bus}} 40 {comment {output data bus}}}} entities {{file multiline_maps.vhd generics {} line 5 name multiline_maps ports {{line 7 mode in name clk type std_logic} {line 8 mode in name rst type std_logic}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file multiline_maps.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

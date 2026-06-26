@@ -1,0 +1,21 @@
+architectures {{assignments {} body_section {begin
+
+process
+begin
+
+assert false report "Message with -- inside" severity note;
+wait;
+end process;
+
+end architecture rtl;} decl_section {architecture rtl of string_not_comment is
+
+
+constant MSG1 : string := "This -- looks like a comment but isn't";
+
+constant MSG2 : string := "No comment here";
+
+
+constant MSG3 : string := "String with -- inside" := "default -- value";
+
+signal test : std_logic;} declarations {{args {{type std_logic init {}} {}} kind signal line 21 name test} {args {{type string init {"This -- looks like a comment but isn't"}} {}} kind constant line 14 name MSG1} {args {{type string init {"No comment here"}} {}} comment {This is a real comment} kind constant line 16 name MSG2} {args {{type string init {"String with -- inside" := "default -- value"}} {}} comment {But this IS a comment} kind constant line 19 name MSG3}} entity string_not_comment file string_not_comment.vhd generates {} instantiations {} line 11 name rtl processes {{body {assert false report "Message with -- inside" severity note;
+wait;} classification unknown comment {Real comment} label {} line 24 sensitivity {}}}}} comments {line {1 {comment {Test comments inside strings must NOT be treated as comments}} 13 {comment {This is a real comment}} 16 {comment {But this IS a comment}} 18 {comment {Real comment before MSG3}} 21 {comment {Real comment}} 27 {comment {Real comment in process}}}} entities {{file string_not_comment.vhd generics {} line 5 name string_not_comment ports {{line 7 mode in name clk type std_logic}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file string_not_comment.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

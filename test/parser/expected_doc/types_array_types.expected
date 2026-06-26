@@ -1,0 +1,28 @@
+architectures {} comments {line {1 {comment {Test array type declarations including array-of-array}} 12 {comment {Constrained array with downto}} 15 {comment {Array of array (2D)}} 18 {comment {Unconstrained array}} 21 {comment {Array with comments and split formatting}} 23 {comment {32 registers}} 24 {comment {64-bit each}} 26 {comment {Array of records}} 6 {comment {Simple 1D array}} 9 {comment {Array with natural range}}}} entities {} libraries {{decl {library ieee;} line 2 name ieee}} meta {file array_types.vhd} package_bodies {} packages {{components {} declarations {{kind type line 7 name byte_array subtype_kind array} {kind type line 10 name int_array subtype_kind array} {kind type line 13 name mem_block subtype_kind array} {kind type line 16 name matrix_4x4 subtype_kind array} {kind type line 19 name data_bus subtype_kind array} {kind type line 22 name register_file subtype_kind array} {kind type line 27 name pixel subtype_kind record} {kind type line 33 name image_row subtype_kind array}} declarative {type byte_array is array (0 to 7) of std_logic_vector(7 downto 0);
+
+
+type int_array is array (natural range <>) of integer;
+
+
+type mem_block is array (15 downto 0) of std_logic_vector(31 downto 0);
+
+
+type matrix_4x4 is array (0 to 3) of std_logic_vector(31 downto 0);
+
+
+type data_bus is array (natural range <>) of std_logic;
+
+
+type register_file is array (
+0 to 31
+) of std_logic_vector(63 downto 0);
+
+
+type pixel is record
+r : std_logic_vector(7 downto 0);
+g : std_logic_vector(7 downto 0);
+b : std_logic_vector(7 downto 0);
+end record pixel;
+
+type image_row is array (0 to 639) of pixel;
+} file array_types.vhd generics {} line 5 name array_pkg ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

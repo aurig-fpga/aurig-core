@@ -1,0 +1,7 @@
+architectures {{assignments {} body_section {begin
+
+block_label: block (clk = '1')
+begin
+data_out <= guarded data_in;
+end block block_label;
+end architecture rtl;} decl_section {architecture rtl of simple_block is} declarations {} entity simple_block file simple_block.vhd generates {} instantiations {} line 13 name rtl processes {}}} comments {line {1 {comment {Simple block statement}} 15 {comment {Block statement with guard}}}} entities {{file simple_block.vhd generics {} line 5 name simple_block ports {{line 7 mode in name clk type std_logic} {line 8 mode in name data_in type std_logic} {line 9 mode out name data_out type std_logic}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file simple_block.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

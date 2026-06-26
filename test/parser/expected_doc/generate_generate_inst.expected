@@ -1,0 +1,23 @@
+architectures {{assignments {} body_section {begin
+
+gen_slices: for i in 0 to 31 generate
+u_slice : reg_slice
+port map (
+clk => clk,
+d => din(i),
+q => dout(i)
+);
+end generate gen_slices;
+end architecture rtl;} decl_section {architecture rtl of generate_with_inst is
+component reg_slice is
+port (
+clk : in std_logic;
+d : in std_logic;
+q : out std_logic
+);
+end component reg_slice;} declarations {} entity generate_with_inst file generate_inst.vhd generates {{body {u_slice : reg_slice
+port map (
+clk => clk,
+d => din(i),
+q => dout(i)
+);} condition {i in 0 to 31} end_offset 140 header_end_offset 44 label gen_slices line 23 loop_range {0 to 31} loop_var i scheme for start_offset 7}} instantiations {{architecture {} comment {Generate creating multiple component instances} component reg_slice entity {} generics_map {} label u_slice line 24 ports_map {{actual clk formal clk} {actual din(i) formal d} {actual dout(i) formal q}}}} line 13 name rtl processes {}}} comments {line {1 {comment {Test generate with component instantiation}} 22 {comment {Generate creating multiple component instances}}}} entities {{file generate_inst.vhd generics {} line 5 name generate_with_inst ports {{line 7 mode in name clk type std_logic} {line 8 mode in name din type {std_logic_vector(31 downto 0)}} {line 9 mode out name dout type {std_logic_vector(31 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file generate_inst.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

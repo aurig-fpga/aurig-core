@@ -1,0 +1,15 @@
+schema_version: "1"
+project_name: overlay_base
+top: base_top
+device:
+  vendor: xilinx
+  family: artix7
+  part: xc7a100t-1csg324
+tool:
+  synth:
+    kind: vivado
+    version: "2023.1"
+external_libraries:
+  unisim: ignore
+generics:
+  WIDTH: 8

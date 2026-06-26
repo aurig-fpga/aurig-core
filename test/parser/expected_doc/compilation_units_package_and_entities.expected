@@ -1,0 +1,31 @@
+architectures {{assignments {} body_section {begin
+process(clk)
+begin
+if rising_edge(clk) then
+if cnt = MAX_COUNT then
+cnt <= 0;
+else
+cnt <= cnt + 1;
+end if;
+end if;
+end process;
+
+count <= cnt;
+end architecture rtl;} decl_section {architecture rtl of counter is
+signal cnt : integer range 0 to MAX_COUNT := 0;} declarations {{args {{type {integer range 0 to MAX_COUNT} init 0} {}} kind signal line 33 name cnt}} entity counter file package_and_entities.vhd generates {} instantiations {} line 32 name rtl processes {{body {if rising_edge(clk) then
+if cnt = MAX_COUNT then
+cnt <= 0;
+else
+cnt <= cnt + 1;
+end if;
+end if;} classification clocked label {} line 35 sensitivity clk}}}} comments {line {1 {comment {Package, package body, and entities in one file}} 17 {comment {Entity after package}}}} entities {{file package_and_entities.vhd generics {{init 8 line 24 name WIDTH type integer}} line 22 name counter ports {{line 27 mode in name clk type std_logic}}}} libraries {{decl {library ieee;} line 2 name ieee} {decl {library ieee;} line 18 name ieee}} meta {file package_and_entities.vhd} package_bodies {{body {function to_bool(value : std_logic) return boolean is
+begin
+return value = '1';
+end function to_bool;
+} file package_and_entities.vhd functions {{body {} kind function line 11 name to_bool params {value : std_logic} purity pure return boolean}} line 10 name util_pkg procedures {}}} package_body {body {function to_bool(value : std_logic) return boolean is
+begin
+return value = '1';
+end function to_bool;
+} file_name package_and_entities.vhd line 10 name util_pkg} packages {{components {} declarations {{comment {Package, package body, and entities in one file} init 255 kind constant line 7 name MAX_COUNT type integer} {kind function line 6 name to_bool params {value : std_logic} purity pure return boolean}} declarative {function to_bool(value : std_logic) return boolean;
+constant MAX_COUNT : integer := 255;
+} file package_and_entities.vhd generics {} line 5 name util_pkg ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}} {decl ieee lib std_logic_1164 line 19 pkg all selector {}} {decl work lib util_pkg line 20 pkg all selector {}}}

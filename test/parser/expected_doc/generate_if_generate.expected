@@ -1,0 +1,26 @@
+architectures {{assignments {} body_section {begin
+
+gen_with_reg: if USE_REGISTER generate
+process(clk)
+begin
+if rising_edge(clk) then
+temp <= din;
+end if;
+end process;
+dout <= temp;
+end generate gen_with_reg;
+
+
+gen_no_reg: if not USE_REGISTER generate
+dout <= din;
+end generate gen_no_reg;
+end architecture rtl;} decl_section {architecture rtl of if_generate is
+signal temp : std_logic_vector(7 downto 0);} declarations {{args {{type {std_logic_vector(7 downto 0)} init {}} {}} kind signal line 17 name temp}} entity if_generate file if_generate.vhd generates {{body {process(clk)
+begin
+if rising_edge(clk) then
+temp <= din;
+end if;
+end process;
+dout <= temp;} condition USE_REGISTER end_offset 163 header_end_offset 45 label gen_with_reg line 20 scheme if start_offset 7} {body {dout <= din;} condition {not USE_REGISTER} end_offset 244 header_end_offset 207 label gen_no_reg line 31 scheme if start_offset 167}} instantiations {} line 16 name rtl processes {{body {if rising_edge(clk) then
+temp <= din;
+end if;} classification clocked comment {If-generate based on generic parameter} label {} line 21 sensitivity clk}}}} comments {line {1 {comment {Test if-generate statement}} 19 {comment {If-generate based on generic parameter}} 30 {comment {Else part of if-generate}}}} entities {{file if_generate.vhd generics {{init true line 7 name USE_REGISTER type boolean}} line 5 name if_generate ports {{line 10 mode in name clk type std_logic} {line 11 mode in name din type {std_logic_vector(7 downto 0)}} {line 12 mode out name dout type {std_logic_vector(7 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file if_generate.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

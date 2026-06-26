@@ -1,0 +1,35 @@
+architectures {{assignments {} body_section {begin
+process(clk)
+begin
+if rising_edge(clk) then
+if rst = '1' then
+internal_reg <= (others => '0');
+else
+internal_reg <= data_in;
+end if;
+end if;
+end process;
+
+data_out <= internal_reg;
+keep_signal <= rst;
+end architecture rtl;} decl_section {architecture rtl of fpga_attributes is
+
+attribute KEEP : string;
+attribute DONT_TOUCH : string;
+attribute MAX_FANOUT : integer;
+attribute IOB : string;
+
+signal internal_reg : std_logic_vector(7 downto 0);
+signal keep_signal : std_logic;
+
+
+attribute KEEP of internal_reg : signal is "TRUE";
+attribute DONT_TOUCH of keep_signal : signal is "TRUE";
+attribute MAX_FANOUT of clk : signal is 50;
+attribute IOB of data_out : signal is "TRUE";} declarations {{args {{type {std_logic_vector(7 downto 0)} init {}} {}} kind signal line 21 name internal_reg} {args {{type std_logic init {}} {}} kind signal line 22 name keep_signal}} entity fpga_attributes file fpga_attributes.vhd generates {} instantiations {} line 14 name rtl processes {{body {if rising_edge(clk) then
+if rst = '1' then
+internal_reg <= (others => '0');
+else
+internal_reg <= data_in;
+end if;
+end if;} classification clocked label {} line 30 sensitivity clk}}}} comments {line {1 {comment {Test common FPGA synthesis attributes}} 15 {comment {Xilinx-style attributes}} 24 {comment {Apply attributes to signals}}}} entities {{file fpga_attributes.vhd generics {} line 5 name fpga_attributes ports {{line 7 mode in name clk type std_logic} {line 8 mode in name rst type std_logic} {line 9 mode in name data_in type {std_logic_vector(7 downto 0)}} {line 10 mode out name data_out type {std_logic_vector(7 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file fpga_attributes.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

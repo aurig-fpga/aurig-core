@@ -1,0 +1,11 @@
+architectures {{assignments {} body_section {begin
+
+temp1 <= a and b;
+temp2 <= temp1 or c;
+result <= temp2;
+
+
+result <= (a and b) or c;
+end architecture rtl;} decl_section {architecture rtl of simple_concurrent is
+signal temp1 : std_logic;
+signal temp2 : std_logic;} declarations {{args {{type std_logic init {}} {}} kind signal line 15 name temp1} {args {{type std_logic init {}} {}} kind signal line 16 name temp2}} entity simple_concurrent file simple_concurrent.vhd generates {} instantiations {} line 14 name rtl processes {}}} comments {line {1 {comment {Test simple concurrent signal assignment}} 18 {comment {Simple concurrent assignments}} 23 {comment {Direct assignment}}}} entities {{file simple_concurrent.vhd generics {} line 5 name simple_concurrent ports {{line 7 mode in name a type std_logic} {line 8 mode in name b type std_logic} {line 9 mode in name c type std_logic} {line 10 mode out name result type std_logic}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file simple_concurrent.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

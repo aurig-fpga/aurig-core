@@ -1,0 +1,3 @@
+architectures {} comments {line {1 {comment {Test comments between tokens in library and use}} 10 {comment {comment after all}} 11 {comment {comment after semicolon}} 2 {comment {comment after library}} 3 {comment {comment after ieee}} 4 {comment {comment after semicolon}} 5 {comment {comment after use}} 6 {comment {comment after ieee}} 7 {comment {comment after dot}} 8 {comment {comment after package name}} 9 {comment {comment after dot}}}} entities {{file inline_lib_use.vhd generics {} line 13 name inline_lib_use ports {{line 15 mode in name data type std_logic}}}} libraries {{decl {library
+ieee
+;} line 2 name ieee}} meta {file inline_lib_use.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 5 pkg all selector {}}}

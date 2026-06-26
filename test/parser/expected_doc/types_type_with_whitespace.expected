@@ -1,0 +1,24 @@
+architectures {} comments {line {1 {comment {Test type declarations with extreme whitespace and comments}} 15 {comment {Record with extreme spacing}} 21 {comment {Array with comment mid-declaration}} 22 {comment {comment here}} 23 {comment {size comment}} 24 {comment {element type}} 26 {comment {Subtype with split constraint}} 6 {comment {Type with tokens split}}}} entities {} libraries {{decl {library ieee;} line 2 name ieee}} meta {file type_with_whitespace.vhd} package_bodies {} packages {{components {} declarations {{kind type line 8 name state_machine subtype_kind enumerated} {kind type line 16 name spaced_rec subtype_kind record} {kind type line 22 name memory subtype_kind array} {kind subtype line 27 name limited_int}} declarative {type
+state_machine
+is (
+RESET,
+INIT,
+RUN
+);
+
+
+type    spaced_rec    is    record
+field1    :    std_logic;
+field2    :    integer;
+end    record    spaced_rec;
+
+
+type memory is array
+(0 to 255)
+of std_logic_vector(7 downto 0);
+
+
+subtype limited_int is integer
+range 0
+to 100;
+} file type_with_whitespace.vhd generics {} line 5 name whitespace_pkg ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

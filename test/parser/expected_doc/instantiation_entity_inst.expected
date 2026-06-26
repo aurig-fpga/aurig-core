@@ -1,0 +1,9 @@
+architectures {{assignments {} body_section {begin
+
+u_buffer : entity work.data_buffer
+port map (
+clk => clk,
+din => data_in,
+dout => data_out
+);
+end architecture rtl;} decl_section {architecture rtl of entity_inst is} declarations {} entity entity_inst file entity_inst.vhd generates {} instantiations {{architecture {} component {} entity work.data_buffer generics_map {} label u_buffer line 16 ports_map {{actual clk formal clk} {actual data_in formal din} {actual data_out formal dout}}}} line 13 name rtl processes {}}} comments {line {1 {comment {Test entity instantiation (direct instantiation)}} 15 {comment {Direct entity instantiation}}}} entities {{file entity_inst.vhd generics {} line 5 name entity_inst ports {{line 7 mode in name clk type std_logic} {line 8 mode in name data_in type {std_logic_vector(15 downto 0)}} {line 9 mode out name data_out type {std_logic_vector(15 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file entity_inst.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

@@ -1,0 +1,17 @@
+schema_version: "1"
+project_name: fixture_legacy
+project_root: "."
+top: top_entity
+device:
+  vendor: altera
+  family: cyclonev
+  part: 5CEBA4F23C7
+file_sets:
+  rtl:
+    - lib: work
+      vhdl_std: "2008"
+      src:
+        - src/*.vhd
+libraries:
+  unisim: ignore
+  mylib: /opt/precompiled/mylib

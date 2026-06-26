@@ -1,0 +1,25 @@
+architectures {{assignments {} body_section {begin
+
+process(clk)
+begin
+if rising_edge(clk) then
+if rst = '1' then
+reg <= (others => '0');
+else
+reg <= data_in;
+end if;
+end if;
+end process;
+
+
+data_out <= reg;
+
+end architecture rtl;} decl_section {architecture rtl of comment_test is
+
+signal reg : std_logic_vector(7 downto 0);} declarations {{args {{type {std_logic_vector(7 downto 0)} init {}} {}} kind signal line 23 name reg}} entity comment_test file comment_test.vhd generates {} instantiations {} line 21 name rtl processes {{body {if rising_edge(clk) then
+if rst = '1' then
+reg <= (others => '0');
+else
+reg <= data_in;
+end if;
+end if;} classification clocked comment Register label {} line 26 sensitivity clk}}}} comments {line {1 {comment {Testing various comment styles and positions}} 11 {comment {Clock input}} 12 {comment {Active high reset}} 13 {comment {Data interface}} 14 {comment {Input data bus}} 15 {comment {Output data bus}} 16 {comment {More comments here}} 18 {comment {End of entity}} 20 {comment {Architecture begins}} 22 {comment {Internal signals}} 23 {comment Register} 25 {comment {Main process}} 26 {comment {Synchronous process}} 28 {comment {On clock edge}} 29 {comment {Reset condition}} 30 {comment {Clear register}} 32 {comment {Load data}} 35 {comment {End of process}} 37 {comment {Output assignment}} 38 {comment {Drive output}} 40 {comment {End of architecture}} 5 {comment {This is a header comment}} 6 {comment {It spans multiple lines}} 7 {comment {And describes the entity}}}} entities {{file comment_test.vhd generics {} line 9 name comment_test ports {{comment {Clock input} line 11 mode in name clk type std_logic} {comment {Active high reset} line 12 mode in name rst type std_logic} {comment {Input data bus} line 14 mode in name data_in type {std_logic_vector(7 downto 0)}} {comment {Output data bus} line 15 mode out name data_out type {std_logic_vector(7 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file comment_test.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

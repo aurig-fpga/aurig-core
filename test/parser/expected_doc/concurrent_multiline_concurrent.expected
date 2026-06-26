@@ -1,0 +1,11 @@
+architectures {{assignments {} body_section {begin
+
+processed <=
+data_in                     when enable = '1' and mode = "00" else
+data_in(14 downto 0) & '0'  when enable = '1' and mode = "01" else
+'0' & data_in(15 downto 1)  when enable = '1' and mode = "10" else
+(others => '0');
+
+data_out <= processed;
+end architecture rtl;} decl_section {architecture rtl of multiline_concurrent is
+signal processed : std_logic_vector(15 downto 0);} declarations {{args {{type {std_logic_vector(15 downto 0)} init {}} {}} kind signal line 15 name processed}} entity multiline_concurrent file multiline_concurrent.vhd generates {} instantiations {} line 14 name rtl processes {}}} comments {line {1 {comment {Test concurrent assignments with comments and multi-line}} 17 {comment {Multi-line conditional with comments}} 19 {comment {pass through}} 20 {comment {shift left}} 21 {comment {shift right}} 22 {comment default}}} entities {{file multiline_concurrent.vhd generics {} line 5 name multiline_concurrent ports {{line 7 mode in name enable type std_logic} {line 8 mode in name mode type {std_logic_vector(1 downto 0)}} {line 9 mode in name data_in type {std_logic_vector(15 downto 0)}} {line 10 mode out name data_out type {std_logic_vector(15 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file multiline_concurrent.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

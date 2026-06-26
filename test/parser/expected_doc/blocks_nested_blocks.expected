@@ -1,0 +1,26 @@
+architectures {{assignments {} body_section {begin
+outer_block: block
+signal outer_sig : std_logic;
+begin
+outer_sig <= data;
+
+inner_block: block
+signal inner_sig : std_logic;
+begin
+inner_sig <= outer_sig;
+
+process(clk, rst)
+begin
+if rst = '1' then
+data <= '0';
+elsif rising_edge(clk) then
+data <= inner_sig;
+end if;
+end process;
+end block inner_block;
+end block outer_block;
+end architecture rtl;} decl_section {architecture rtl of nested_blocks is} declarations {} entity nested_blocks file nested_blocks.vhd generates {} instantiations {} line 13 name rtl processes {{body {if rst = '1' then
+data <= '0';
+elsif rising_edge(clk) then
+data <= inner_sig;
+end if;} classification clocked label {} line 25 sensitivity {clk rst}}}}} comments {line {1 {comment {Nested blocks}}}} entities {{file nested_blocks.vhd generics {} line 5 name nested_blocks ports {{line 7 mode in name clk type std_logic} {line 8 mode in name rst type std_logic} {line 9 mode inout name data type std_logic}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file nested_blocks.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

@@ -1,0 +1,14 @@
+schema_version: "1"
+project_name: fixture_topfile_missing
+project_root: "."
+top: top_entity
+top_file: src/does_not_exist.vhd
+device:
+  vendor: xilinx
+  family: artix7
+  part: xc7a100t-1csg324
+file_sets:
+  rtl:
+    - lib: work
+      src:
+        - src/*.vhd

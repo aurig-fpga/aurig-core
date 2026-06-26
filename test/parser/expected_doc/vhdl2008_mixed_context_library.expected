@@ -1,0 +1,11 @@
+architectures {{assignments {} body_section {begin
+process(clk)
+begin
+if rising_edge(clk) then
+valid <= internal;
+end if;
+end process;
+end architecture rtl;} decl_section {architecture rtl of mixed_syntax is
+signal internal : std_logic;} declarations {{args {{type std_logic init {}} {}} kind signal line 20 name internal}} entity mixed_syntax file mixed_context_library.vhd generates {} instantiations {} line 19 name rtl processes {{body {if rising_edge(clk) then
+valid <= internal;
+end if;} classification clocked label {} line 22 sensitivity clk}}}} comments {line {1 {comment {Mixed VHDL-93 and VHDL-2008 syntax}} 5 {comment {This context should be ignored/skipped}}}} entities {{file mixed_context_library.vhd generics {{init 8 line 10 name WIDTH type integer}} line 8 name mixed_syntax ports {{line 13 mode in name clk type std_logic} {line 14 mode in name data type {std_logic_vector(WIDTH-1 downto 0)}} {line 15 mode out name valid type std_logic}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file mixed_context_library.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

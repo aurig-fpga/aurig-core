@@ -1,0 +1,12 @@
+architectures {{assignments {} body_section {begin
+
+output <= a when sel = "00" else
+b when sel = "01" else
+c when sel = "10" else
+d;
+
+
+output <= x"FF" when sel = "11" else
+x"00" when sel = "00" else
+a;
+end architecture rtl;} decl_section {architecture rtl of when_else is} declarations {} entity when_else file when_else.vhd generates {} instantiations {} line 16 name rtl processes {}}} comments {line {1 {comment {Test conditional signal assignment (when/else)}} 18 {comment {Conditional signal assignment with when/else}} 24 {comment {Another example with conditions}}}} entities {{file when_else.vhd generics {} line 5 name when_else ports {{line 7 mode in name sel type {std_logic_vector(1 downto 0)}} {line 8 mode in name a type {std_logic_vector(7 downto 0)}} {line 9 mode in name b type {std_logic_vector(7 downto 0)}} {line 10 mode in name c type {std_logic_vector(7 downto 0)}} {line 11 mode in name d type {std_logic_vector(7 downto 0)}} {line 12 mode out name output type {std_logic_vector(7 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file when_else.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

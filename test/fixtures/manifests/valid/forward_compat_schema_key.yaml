@@ -1,0 +1,9 @@
+$schema: "https://aurig.dev/schema/manifest-v1.json"
+schema_version: "1"
+project_name: forward_compat
+top: top
+device:
+  vendor: xilinx
+  family: artix7
+  part: xc7a100t-1csg324
+future_unknown_key: "tolerated by forward-compat"

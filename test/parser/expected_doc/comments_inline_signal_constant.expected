@@ -1,0 +1,49 @@
+architectures {{assignments {} body_section {begin
+
+process(clk)
+begin
+if rising_edge(clk) then
+data_reg <= INIT_VALUE;
+end if;
+end process;
+
+end architecture rtl;} decl_section {architecture rtl of inline_signal_constant is
+
+constant
+INIT_VALUE
+:
+std_logic_vector
+(
+7
+downto
+0
+)
+:=
+x"00"
+;
+
+signal
+data_reg
+:
+std_logic_vector
+(
+7
+downto
+0
+)
+;
+
+signal
+counter : integer range 0 to 255;} declarations {{args {{type {std_logic_vector
+(
+7
+downto
+0
+)} init {}} {}} kind signal line 27 name data_reg} {args {{type {integer range 0 to 255} init {}} {}} kind signal line 38 name counter} {args {{type {std_logic_vector
+(
+7
+downto
+0
+)} init x\"00\"} {}} kind constant line 14 name INIT_VALUE}} entity inline_signal_constant file inline_signal_constant.vhd generates {} instantiations {} line 11 name rtl processes {{body {if rising_edge(clk) then
+data_reg <= INIT_VALUE;
+end if;} classification clocked comment {end of line comment} label {} line 41 sensitivity clk}}}} comments {line {1 {comment {Test comments inside signal and constant declarations}} 13 {comment {comment between constant and name}} 14 {comment {comment between name and colon}} 15 {comment {comment between colon and type}} 16 {comment {comment between type and range}} 17 {comment {comment after opening paren}} 18 {comment {comment between bounds}} 19 {comment {comment after downto}} 20 {comment {comment before closing paren}} 21 {comment {comment between paren and assign}} 22 {comment {comment between assign and value}} 23 {comment {comment after value}} 24 {comment {comment after semicolon}} 26 {comment {comment between signal and name}} 27 {comment {comment between name and colon}} 28 {comment {comment between colon and type}} 29 {comment {comment between type and range}} 30 {comment {comment after opening paren}} 31 {comment {comment between bounds}} 32 {comment {comment after downto}} 33 {comment {comment before closing paren}} 34 {comment {comment after paren}} 35 {comment {comment after semicolon}} 37 {comment {comment after signal}} 38 {comment {end of line comment}}}} entities {{file inline_signal_constant.vhd generics {} line 5 name inline_signal_constant ports {{line 7 mode in name clk type std_logic}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file inline_signal_constant.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

@@ -1,0 +1,36 @@
+architectures {} comments {line {1 {comment {Test complex nested type declarations}} 17 {comment {Array of records}} 20 {comment {Record containing array}} 28 {comment {Subtype of record}} 31 {comment {Complex nested: record -> array -> record}} 6 {comment {Record containing vectors}}}} entities {} libraries {{decl {library ieee;} line 2 name ieee}} meta {file nested_types.vhd} package_bodies {} packages {{components {} declarations {{kind type line 7 name axi_master subtype_kind record} {kind type line 18 name axi_array subtype_kind array} {kind type line 21 name fifo_status subtype_kind record} {kind subtype line 29 name input_fifo} {kind type line 32 name inner_rec subtype_kind record} {kind type line 36 name inner_array subtype_kind array} {kind type line 38 name outer_rec subtype_kind record}} declarative {type axi_master is record
+awaddr  : std_logic_vector(31 downto 0);
+awvalid : std_logic;
+awready : std_logic;
+wdata   : std_logic_vector(31 downto 0);
+wstrb   : std_logic_vector(3 downto 0);
+wvalid  : std_logic;
+wready  : std_logic;
+end record axi_master;
+
+
+type axi_array is array (0 to 3) of axi_master;
+
+
+type fifo_status is record
+full    : std_logic;
+empty   : std_logic;
+count   : integer range 0 to 15;
+data    : std_logic_vector(7 downto 0);
+end record fifo_status;
+
+
+subtype input_fifo is fifo_status;
+
+
+type inner_rec is record
+val : integer;
+end record inner_rec;
+
+type inner_array is array (0 to 3) of inner_rec;
+
+type outer_rec is record
+id    : integer;
+items : inner_array;
+end record outer_rec;
+} file nested_types.vhd generics {} line 5 name nested_pkg ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

@@ -1,0 +1,15 @@
+architectures {{assignments {} body_section {begin
+inst_attr_bit : component sub_block
+port map (
+clk      => clk_i,
+data_in  => din_i(din_i'left),
+data_out => dout_o
+);
+end architecture rtl;} decl_section {architecture rtl of attr_in_pm is
+component sub_block is
+port (
+clk     : in  std_logic;
+data_in : in  std_logic;
+data_out : out std_logic
+);
+end component sub_block;} declarations {} entity attr_in_pm file attribute_in_port_map.vhd generates {} instantiations {{architecture {} component sub_block entity {} generics_map {} label inst_attr_bit line 27 ports_map {{actual clk_i formal clk} {actual din_i(din_i'left) formal data_in} {actual dout_o formal data_out}}}} line 18 name rtl processes {}}} comments {line {1 {comment {Regression: an entity instantiation whose port map uses an attribute}} 2 {comment {selector (`signal'left`, `signal'range`, ...) inside an indexed actual.}} 3 {comment {The previous `_grab_paren_block` treated the lone `'` as a character}} 4 {comment {literal opener and scanned past the matching `)` of the port map looking}} 5 {comment {for a closing `'` that never came. Mirrored on the Era RAT}} 6 {comment {`ces_math_fix_to_fpu_sig.vhd` pattern.}}}} entities {{file attribute_in_port_map.vhd generics {} line 10 name attr_in_pm ports {{line 12 mode in name clk_i type std_logic} {line 13 mode in name din_i type {std_logic_vector(7 downto 0)}} {line 14 mode out name dout_o type std_logic}}}} libraries {{decl {library ieee;} line 7 name ieee}} meta {file attribute_in_port_map.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 8 pkg all selector {}}}

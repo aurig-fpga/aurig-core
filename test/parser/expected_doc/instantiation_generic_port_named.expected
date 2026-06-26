@@ -1,0 +1,34 @@
+architectures {{assignments {} body_section {begin
+
+u_fifo : fifo
+generic map (
+DEPTH => 16,
+WIDTH => 32
+)
+port map (
+clk => clk,
+wr_en => wr_en,
+rd_en => rd_en,
+din => data,
+dout => data,
+full => full,
+empty => empty
+);
+end architecture rtl;} decl_section {architecture rtl of generic_port_map is
+component fifo is
+generic (
+DEPTH : integer;
+WIDTH : integer
+);
+port (
+clk : in std_logic;
+wr_en : in std_logic;
+rd_en : in std_logic;
+din : in std_logic_vector;
+dout : out std_logic_vector;
+full : out std_logic;
+empty : out std_logic
+);
+end component fifo;
+
+signal wr_en, rd_en, full, empty : std_logic;} declarations {{args {{type std_logic init {}} {}} kind signal line 29 name wr_en} {args {{type std_logic init {}} {}} kind signal line 29 name rd_en} {args {{type std_logic init {}} {}} kind signal line 29 name full} {args {{type std_logic init {}} {}} kind signal line 29 name empty}} entity generic_port_map file generic_port_named.vhd generates {} instantiations {{architecture {} component fifo entity {} generics_map {{name DEPTH value 16} {name WIDTH value 32}} label u_fifo line 32 ports_map {{actual clk formal clk} {actual wr_en formal wr_en} {actual rd_en formal rd_en} {actual data formal din} {actual data formal dout} {actual full formal full} {actual empty formal empty}}}} line 12 name rtl processes {}}} comments {line {1 {comment {Test generic and port map with named association}} 31 {comment {Instantiation with both generic map and port map (named)}}}} entities {{file generic_port_named.vhd generics {} line 5 name generic_port_map ports {{line 7 mode in name clk type std_logic} {line 8 mode inout name data type {std_logic_vector(31 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file generic_port_named.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

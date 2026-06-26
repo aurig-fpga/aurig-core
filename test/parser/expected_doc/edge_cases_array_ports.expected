@@ -1,0 +1,31 @@
+architectures {{assignments {} body_section {begin
+
+gen_channels : for i in 0 to NUM_CHANNELS-1 generate
+process(clk)
+begin
+if rising_edge(clk) then
+if enables(i) = '1' then
+data_regs(i) <= data_in((i+1)*DATA_WIDTH-1 downto i*DATA_WIDTH);
+end if;
+end if;
+end process;
+
+data_out((i+1)*DATA_WIDTH-1 downto i*DATA_WIDTH) <= data_regs(i);
+end generate;
+
+end architecture rtl;} decl_section {architecture rtl of array_ports is
+type data_array_t is array (0 to NUM_CHANNELS-1) of std_logic_vector(DATA_WIDTH-1 downto 0);
+signal data_regs : data_array_t;} declarations {{args {{type data_array_t init {}} {}} kind signal line 24 name data_regs} {args {{subtype_kind array} {}} kind type line 23 name data_array_t}} entity array_ports file array_ports.vhd generates {{body {process(clk)
+begin
+if rising_edge(clk) then
+if enables(i) = '1' then
+data_regs(i) <= data_in((i+1)*DATA_WIDTH-1 downto i*DATA_WIDTH);
+end if;
+end if;
+end process;
+
+data_out((i+1)*DATA_WIDTH-1 downto i*DATA_WIDTH) <= data_regs(i);} condition {i in 0 to NUM_CHANNELS-1} end_offset 302 header_end_offset 59 label gen_channels line 27 loop_range {0 to NUM_CHANNELS-1} loop_var i scheme for start_offset 7}} instantiations {} line 22 name rtl processes {{body {if rising_edge(clk) then
+if enables(i) = '1' then
+data_regs(i) <= data_in((i+1)*DATA_WIDTH-1 downto i*DATA_WIDTH);
+end if;
+end if;} classification clocked label {} line 28 sensitivity clk}}}} comments {line {1 {comment {Testing array types in ports}} 13 {comment {Array of std_logic}} 16 {comment {Array of vectors (2D array)}}}} entities {{file array_ports.vhd generics {{init 4 line 7 name NUM_CHANNELS type integer} {init 8 line 8 name DATA_WIDTH type integer}} line 5 name array_ports ports {{line 11 mode in name clk type std_logic} {comment {Array of std_logic} line 14 mode in name enables type {std_logic_vector(NUM_CHANNELS-1 downto 0)}} {comment {Array of vectors (2D array)} line 17 mode in name data_in type {std_logic_vector(NUM_CHANNELS*DATA_WIDTH-1 downto 0)}} {comment {Array of vectors (2D array)} line 18 mode out name data_out type {std_logic_vector(NUM_CHANNELS*DATA_WIDTH-1 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file array_ports.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

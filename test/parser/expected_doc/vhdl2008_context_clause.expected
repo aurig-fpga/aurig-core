@@ -1,0 +1,3 @@
+architectures {{assignments {} body_section {begin
+
+end architecture rtl;} decl_section {architecture rtl of test_context is} declarations {} entity test_context file context_clause.vhd generates {} instantiations {} line 11 name rtl processes {}}} comments {line {1 {comment {VHDL-2008 context clause (should be safely ignored by VHDL-93 parser)}} 13 {comment {architecture content}}}} entities {{file context_clause.vhd generics {} line 4 name test_context ports {{line 6 mode in name clk type std_logic} {line 7 mode in name data type {std_logic_vector(7 downto 0)}}}}} libraries {} meta {file context_clause.vhd} package_bodies {} packages {} uses {}

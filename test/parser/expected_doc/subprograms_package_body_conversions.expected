@@ -1,0 +1,37 @@
+architectures {} comments {line {1 {comment {Package body with complex implementations}} 13 {comment {Convert integer to std_logic_vector}} 21 {comment {Convert std_logic_vector to integer}}}} entities {} libraries {{decl {library ieee;} line 2 name ieee}} meta {file conversions.vhd} package_bodies {{body {function to_slv(value : integer; width : integer) return std_logic_vector is
+variable temp : unsigned(width-1 downto 0);
+begin
+temp := to_unsigned(value, width);
+return std_logic_vector(temp);
+end function to_slv;
+
+
+function from_slv(data : std_logic_vector) return integer is
+variable temp : unsigned(data'length-1 downto 0);
+variable result : integer;
+begin
+temp := unsigned(data);
+result := to_integer(temp);
+return result;
+end function from_slv;
+
+} file conversions.vhd functions {{body {} body_declarations {{kind variable name temp type {unsigned(width-1 downto 0)} init {} line 15}} kind function line 14 name to_slv params {value : integer; width : integer} purity pure return std_logic_vector} {body {} body_declarations {{kind variable name temp type {unsigned(data'length-1 downto 0)} init {} line 23} {kind variable name result type integer init {} line 24}} kind function line 22 name from_slv params {data : std_logic_vector} purity pure return integer}} line 11 name pkg_complex procedures {}}} package_body {body {function to_slv(value : integer; width : integer) return std_logic_vector is
+variable temp : unsigned(width-1 downto 0);
+begin
+temp := to_unsigned(value, width);
+return std_logic_vector(temp);
+end function to_slv;
+
+
+function from_slv(data : std_logic_vector) return integer is
+variable temp : unsigned(data'length-1 downto 0);
+variable result : integer;
+begin
+temp := unsigned(data);
+result := to_integer(temp);
+return result;
+end function from_slv;
+
+} file_name conversions.vhd line 11 name pkg_complex} packages {{components {} declarations {{kind function line 7 name to_slv params {value : integer; width : integer} purity pure return std_logic_vector} {kind function line 8 name from_slv params {data : std_logic_vector} purity pure return integer}} declarative {function to_slv(value : integer; width : integer) return std_logic_vector;
+function from_slv(data : std_logic_vector) return integer;
+} file conversions.vhd generics {} line 6 name pkg_complex ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}} {decl ieee lib numeric_std line 4 pkg all selector {}}}

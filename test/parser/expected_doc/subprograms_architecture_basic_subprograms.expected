@@ -1,0 +1,36 @@
+architectures {{assignments {} body_section {begin
+
+process(clk)
+begin
+if rising_edge(clk) then
+data_out <= reverse_byte(data_in);
+end if;
+end process;
+
+end architecture rtl;} decl_section {architecture rtl of arch_subprog_entity is
+
+
+function reverse_byte(data : std_logic_vector(7 downto 0)) return std_logic_vector is
+variable result : std_logic_vector(7 downto 0);
+begin
+for i in 0 to 7 loop
+result(i) := data(7-i);
+end loop;
+return result;
+end function reverse_byte;
+
+
+procedure latch_data(
+signal clk : in std_logic;
+signal input : in std_logic_vector(7 downto 0);
+signal output : out std_logic_vector(7 downto 0)
+) is
+begin
+if rising_edge(clk) then
+output <= input;
+end if;
+end procedure latch_data;} declarations {{args {{return std_logic_vector params {data : std_logic_vector(7 downto 0)} purity pure} {}} body_declarations {{kind variable name result type {std_logic_vector(7 downto 0)} init {} line 17}} kind function line 16 name reverse_byte} {args {{params {signal clk : in std_logic;
+signal input : in std_logic_vector(7 downto 0);
+signal output : out std_logic_vector(7 downto 0)}} {}} kind procedure line 27 name latch_data}} entity arch_subprog_entity file basic_subprograms.vhd generates {} instantiations {} line 13 name rtl processes {{body {if rising_edge(clk) then
+data_out <= reverse_byte(data_in);
+end if;} classification clocked label {} line 38 sensitivity clk}}}} comments {line {1 {comment {Subprograms in architecture declarative region}} 15 {comment {Function declared in architecture}} 25 {comment {Procedure declared in architecture}}}} entities {{file basic_subprograms.vhd generics {} line 5 name arch_subprog_entity ports {{line 7 mode in name clk type std_logic} {line 8 mode in name data_in type {std_logic_vector(7 downto 0)}} {line 9 mode out name data_out type {std_logic_vector(7 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file basic_subprograms.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

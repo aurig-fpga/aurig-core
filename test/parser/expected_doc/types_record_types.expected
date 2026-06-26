@@ -1,0 +1,32 @@
+architectures {} comments {line {1 {comment {Test record type declarations}} 14 {comment {Record with mixed types}} 22 {comment {Nested record}} 33 {comment {Record with comments}} 35 {comment {enable bit}} 36 {comment {reset bit}} 37 {comment {mode selection}} 7 {comment {Simple record}}}} entities {} libraries {{decl {library ieee;} line 2 name ieee}} meta {file record_types.vhd} package_bodies {} packages {{components {} declarations {{kind type line 8 name pixel subtype_kind record} {kind type line 15 name packet subtype_kind record} {kind type line 23 name address_info subtype_kind record} {kind type line 28 name person subtype_kind record} {kind type line 34 name control_reg subtype_kind record}} declarative {type pixel is record
+red   : std_logic_vector(7 downto 0);
+green : std_logic_vector(7 downto 0);
+blue  : std_logic_vector(7 downto 0);
+end record pixel;
+
+
+type packet is record
+valid  : std_logic;
+data   : std_logic_vector(31 downto 0);
+length : integer range 0 to 1023;
+parity : std_logic;
+end record packet;
+
+
+type address_info is record
+street : integer;
+city   : integer;
+end record address_info;
+
+type person is record
+age     : integer range 0 to 120;
+address : address_info;
+end record person;
+
+
+type control_reg is record
+enable : std_logic;
+reset  : std_logic;
+mode   : std_logic_vector(1 downto 0);
+end record control_reg;
+} file record_types.vhd generics {} line 6 name record_pkg ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}} {decl ieee lib numeric_std line 4 pkg all selector {}}}

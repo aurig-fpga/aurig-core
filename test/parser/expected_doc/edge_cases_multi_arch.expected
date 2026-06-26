@@ -1,0 +1,7 @@
+architectures {{assignments {} body_section {begin
+y <= a and b;
+end architecture and_gate;} decl_section {architecture and_gate of multi_arch is} declarations {} entity multi_arch file multi_arch.vhd generates {} instantiations {} line 14 name and_gate processes {}} {assignments {} body_section {begin
+y <= a or b;
+end architecture or_gate;} decl_section {architecture or_gate of multi_arch is} declarations {} entity multi_arch file multi_arch.vhd generates {} instantiations {} line 20 name or_gate processes {}} {assignments {} body_section {begin
+y <= a xor b;
+end architecture xor_gate;} decl_section {architecture xor_gate of multi_arch is} declarations {} entity multi_arch file multi_arch.vhd generates {} instantiations {} line 26 name xor_gate processes {}}} comments {line {1 {comment {Multiple architectures for the same entity}} 13 {comment {First architecture - AND gate}} 19 {comment {Second architecture - OR gate}} 25 {comment {Third architecture - XOR gate}}}} entities {{file multi_arch.vhd generics {} line 5 name multi_arch ports {{line 7 mode in name a type std_logic} {line 8 mode in name b type std_logic} {line 9 mode out name y type std_logic}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file multi_arch.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

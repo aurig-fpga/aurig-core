@@ -1,0 +1,36 @@
+architectures {} comments {line {1 {comment {Simple package declaration}} 11 {comment {Type declarations}} 15 {comment {Function declaration}} 18 {comment {Procedure declaration}} 7 {comment Constants}}} entities {} libraries {{decl {library ieee;} line 2 name ieee}} line {28 {type {definition {declaration {procedure {name {reset_data {args {{signal data : out std_logic_vector} {decl_part {{is
+} {body {data <= (others => '0');
+}}}}}}}}}}}}} meta {file simple_package.vhd} package_bodies {{body {function increment(value : integer) return integer is
+begin
+return value + 1;
+end function increment;
+
+procedure reset_data(signal data : out std_logic_vector) is
+begin
+data <= (others => '0');
+end procedure reset_data;
+
+} file simple_package.vhd functions {{body {} kind function line 25 name increment params {value : integer} purity pure return integer}} line 23 name simple_package procedures {{body {} kind procedure line 31 name reset_data params {signal data : out std_logic_vector}}}}} package_body {body {function increment(value : integer) return integer is
+begin
+return value + 1;
+end function increment;
+
+procedure reset_data(signal data : out std_logic_vector) is
+begin
+data <= (others => '0');
+end procedure reset_data;
+
+} file_name simple_package.vhd line 23 name simple_package} packages {{components {} declarations {{init 8 kind constant line 8 name DATA_WIDTH type integer} {comment Constants init 10 kind constant line 9 name ADDR_WIDTH type integer} {kind function line 16 name increment params {value : integer} purity pure return integer} {kind type line 12 name state_type subtype_kind enumerated} {kind type line 13 name data_array subtype_kind array} {kind procedure line 20 name reset_data params {signal data : out std_logic_vector}}} declarative {constant DATA_WIDTH : integer := 8;
+constant ADDR_WIDTH : integer := 10;
+
+
+type state_type is (IDLE, ACTIVE, DONE);
+type data_array is array (natural range <>) of std_logic_vector(DATA_WIDTH-1 downto 0);
+
+
+function increment(value : integer) return integer;
+
+
+procedure reset_data(signal data : out std_logic_vector);
+
+} file simple_package.vhd generics {} line 5 name simple_package ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

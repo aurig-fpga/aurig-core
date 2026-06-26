@@ -1,0 +1,4 @@
+architectures {{assignments {} body_section {begin
+temp <= clk and data
+end architecture rtl;} decl_section {architecture rtl of missing_semicolons is
+signal temp : std_logic} declarations {} entity missing_semicolons file missing_semicolons.vhd generates {} instantiations {} line 12 name rtl processes {}}} comments {line {1 {comment {Invalid: missing semicolons}} 13 {comment {missing semicolon}} 16 {comment {missing semicolon before end}} 3 {comment {missing semicolon}} 8 {comment {missing semicolon}}}} entities {{file missing_semicolons.vhd generics {} line 5 name missing_semicolons ports {{line 7 mode in name data type std_logic}}}} libraries {} meta {file missing_semicolons.vhd} package_bodies {} packages {} uses {}

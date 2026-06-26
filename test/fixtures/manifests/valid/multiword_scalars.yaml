@@ -1,0 +1,12 @@
+schema_version: "1"
+project_name: "Foo Bar"
+top: top
+device:
+  vendor: xilinx
+  family: "Artix 7"
+  part: "xc7a100t-1csg324"
+sim:
+  options: "fast mode"
+generics:
+  MODE: "fast mode"
+  WIDTH: 8

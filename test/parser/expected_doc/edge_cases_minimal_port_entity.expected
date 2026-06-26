@@ -1,0 +1,4 @@
+architectures {{assignments {} body_section {begin
+internal <= dummy;
+end architecture rtl;} decl_section {architecture rtl of empty_entity is
+signal internal : std_logic;} declarations {{args {{type std_logic init {}} {}} kind signal line 12 name internal}} entity empty_entity file minimal_port_entity.vhd generates {} instantiations {} line 11 name rtl processes {}}} comments {line {1 {comment {Entity with minimal port}}}} entities {{file minimal_port_entity.vhd generics {} line 5 name empty_entity ports {{line 7 mode in name dummy type std_logic}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file minimal_port_entity.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

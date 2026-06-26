@@ -1,0 +1,40 @@
+architectures {{assignments {} body_section {begin
+
+process(clk)
+begin
+if rising_edge(clk) then
+data_reg     <=     data     ;
+counter   <=   counter   +   1   ;
+end if;
+end process;
+
+end architecture rtl;} decl_section {architecture rtl of whitespace_extreme is
+
+constant    INIT_VALUE    :    std_logic_vector    (    7    downto    0    )    :=    x"00"    ;
+
+constant
+MAX_COUNT
+:
+integer
+:=
+255
+;
+
+signal      data_reg      :      std_logic_vector      (      7      downto      0      )      ;
+
+signal
+counter
+:
+integer
+range
+0
+to
+MAX_COUNT
+;} declarations {{args {{type {std_logic_vector      (      7      downto      0      )} init {}} {}} kind signal line 24 name data_reg} {args {{type {integer
+range
+0
+to
+MAX_COUNT} init {}} {}} kind signal line 27 name counter} {args {{type {std_logic_vector    (    7    downto    0    )} init x\"00\"} {}} kind constant line 14 name INIT_VALUE} {args {{type integer init 255} {}} kind constant line 17 name MAX_COUNT}} entity whitespace_extreme file whitespace_extreme.vhd generates {} instantiations {} line 12 name rtl processes {{body {if rising_edge(clk) then
+data_reg     <=     data     ;
+counter   <=   counter   +   1   ;
+end if;} classification clocked label {} line 37 sensitivity clk}}}} comments {line {1 {comment {Test signal and constant declarations with extreme whitespace}}}} entities {{file whitespace_extreme.vhd generics {} line 5 name whitespace_extreme ports {{line 7 mode in name clk type std_logic} {line 8 mode in name data type {std_logic_vector(7 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file whitespace_extreme.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

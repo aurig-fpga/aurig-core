@@ -1,0 +1,8 @@
+project_root: .
+top: test_file
+file_sets:
+  rtl:
+    - lib: work
+      src:
+        - "src/**/test/*.vhd"
+      vhdl_std: "2008"

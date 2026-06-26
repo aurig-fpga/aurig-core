@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+
+# Normalize all text files to LF in the repository and on checkout, on every
+# platform. Prevents CRLF drift on Windows working trees.
+* text=auto eol=lf
+
+# Binary assets: never normalize.
+*.png binary
+
+# The vendored canonical contract MUST stay byte-identical to aurig-build's
+# source of truth. Mark it binary so git never applies EOL normalization on
+# checkout/commit -- otherwise CRLF conversion would change the bytes, break
+# cross-repo parity, and trip the in-tree SHA-256 drift guard.
+schema/manifest-v1.json -text

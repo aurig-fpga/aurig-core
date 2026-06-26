@@ -1,0 +1,9 @@
+schema_version: "1"
+project_name: synth_empty
+top: top
+tool:
+  synth: {}
+device:
+  vendor: xilinx
+  family: artix7
+  part: xc7a100t

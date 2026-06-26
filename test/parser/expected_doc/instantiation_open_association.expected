@@ -1,0 +1,26 @@
+architectures {{assignments {} body_section {begin
+
+u_block : complex_block
+port map (
+clk => clk,
+rst => '0',
+enable => '1',
+data_in => input,
+data_out => output,
+status => status_sig,
+debug => open
+);
+end architecture rtl;} decl_section {architecture rtl of open_others is
+component complex_block is
+port (
+clk : in std_logic;
+rst : in std_logic;
+enable : in std_logic;
+data_in : in std_logic_vector(7 downto 0);
+data_out : out std_logic_vector(7 downto 0);
+status : out std_logic_vector(3 downto 0);
+debug : out std_logic_vector(15 downto 0)
+);
+end component complex_block;
+
+signal status_sig : std_logic_vector(3 downto 0);} declarations {{args {{type {std_logic_vector(3 downto 0)} init {}} {}} kind signal line 26 name status_sig}} entity open_others file open_association.vhd generates {} instantiations {{architecture {} component complex_block entity {} generics_map {} label u_block line 29 ports_map {{actual clk formal clk} {actual '0' formal rst} {actual '1' formal enable} {actual input formal data_in} {actual output formal data_out} {actual status_sig formal status} {actual open formal debug}}}} line 13 name rtl processes {}}} comments {line {1 {comment {Test port map with 'open' and 'others =>' association}} 28 {comment {Instantiation with 'open' for unused outputs}} 37 {comment {unused output}}}} entities {{file open_association.vhd generics {} line 5 name open_others ports {{line 7 mode in name clk type std_logic} {line 8 mode in name input type {std_logic_vector(7 downto 0)}} {line 9 mode out name output type {std_logic_vector(7 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file open_association.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

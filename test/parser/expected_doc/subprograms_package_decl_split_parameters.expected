@@ -1,0 +1,26 @@
+architectures {} comments {line {1 {comment {Function and procedure with split parameter lists}} 14 {comment {Procedure with mixed line breaks}} 21 {comment {Function with return type on new line}} 7 {comment {Function with parameters split across lines}}}} entities {} libraries {{decl {library ieee;} line 2 name ieee}} meta {file split_parameters.vhd} package_bodies {} packages {{components {} declarations {{kind function line 8 name compute params {a : integer;
+b : integer;
+c : integer} purity pure return integer} {kind function line 22 name get_max params {x : integer;
+y : integer} purity pure return integer} {kind procedure line 16 name process_data params {signal input : in std_logic_vector;
+signal output : out std_logic_vector;
+constant width : in integer := 8}}} declarative {function compute(
+a : integer;
+b : integer;
+c : integer
+) return integer;
+
+
+procedure process_data(
+signal input : in std_logic_vector;
+signal output : out std_logic_vector;
+constant width : in integer := 8
+);
+
+
+function get_max(
+x : integer;
+y : integer
+)
+return integer;
+
+} file split_parameters.vhd generics {} line 5 name pkg_split_params ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

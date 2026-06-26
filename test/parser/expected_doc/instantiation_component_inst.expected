@@ -1,0 +1,21 @@
+architectures {{assignments {} body_section {begin
+
+u_reg : my_register
+port map (
+clk,
+rst,
+data_in,
+data_out
+);
+end architecture rtl;} decl_section {architecture rtl of comp_inst is
+
+component my_register is
+port (
+clk : in std_logic;
+rst : in std_logic;
+d   : in std_logic_vector(7 downto 0);
+q   : out std_logic_vector(7 downto 0)
+);
+end component my_register;
+
+signal internal_data : std_logic_vector(7 downto 0);} declarations {{args {{type {std_logic_vector(7 downto 0)} init {}} {}} kind signal line 25 name internal_data}} entity comp_inst file component_inst.vhd generates {} instantiations {{architecture {} component my_register entity {} generics_map {} label u_reg line 28 ports_map {{actual clk pos 1} {actual rst pos 2} {actual data_in pos 3} {actual data_out pos 4}}}} line 14 name rtl processes {}}} comments {line {1 {comment {Test component declaration and instantiation}} 15 {comment {Component declaration}} 27 {comment {Component instantiation with positional association}}}} entities {{file component_inst.vhd generics {} line 5 name comp_inst ports {{line 7 mode in name clk type std_logic} {line 8 mode in name rst type std_logic} {line 9 mode in name data_in type {std_logic_vector(7 downto 0)}} {line 10 mode out name data_out type {std_logic_vector(7 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file component_inst.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

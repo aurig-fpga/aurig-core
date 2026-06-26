@@ -1,0 +1,87 @@
+architectures {} comments {line {1 {comment {Overloaded functions with different signatures}} 11 {comment {Overloaded print procedure}} 7 {comment {Overloaded to_integer function}}}} entities {} libraries {{decl {library ieee;} line 2 name ieee}} line {39 {type {definition {declaration {procedure {name {print {args {{message : string} {decl_part {{is
+} {body {report message;
+}}}}}}}}}}}} 44 {type {definition {declaration {procedure {name {print {args {{value : integer} {decl_part {{is
+} {body {report "Value: " & integer'image(value);
+}}}}}}}}}}}} 49 {type {definition {declaration {procedure {name {print {args {{data : std_logic_vector} {decl_part {{is
+} {body {report "Vector length: " & integer'image(data'length);
+}}}}}}}}}}}}} meta {file overloaded.vhd} package_bodies {{body {function to_integer(data : std_logic) return integer is
+begin
+if data = '1' then
+return 1;
+else
+return 0;
+end if;
+end function to_integer;
+
+function to_integer(data : std_logic_vector) return integer is
+variable result : integer := 0;
+begin
+for i in data'range loop
+result := result * 2;
+if data(i) = '1' then
+result := result + 1;
+end if;
+end loop;
+return result;
+end function to_integer;
+
+procedure print(message : string) is
+begin
+report message;
+end procedure print;
+
+procedure print(value : integer) is
+begin
+report "Value: " & integer'image(value);
+end procedure print;
+
+procedure print(data : std_logic_vector) is
+begin
+report "Vector length: " & integer'image(data'length);
+end procedure print;
+
+} file overloaded.vhd functions {{body {} kind function line 20 name to_integer params {data : std_logic} purity pure return integer} {body {} body_declarations {{kind variable name result type integer init 0 line 30}} kind function line 29 name to_integer params {data : std_logic_vector} purity pure return integer}} line 18 name pkg_overload procedures {{body {} kind procedure line 42 name print params {message : string}} {body {} kind procedure line 47 name print params {value : integer}} {body {} kind procedure line 52 name print params {data : std_logic_vector}}}}} package_body {body {function to_integer(data : std_logic) return integer is
+begin
+if data = '1' then
+return 1;
+else
+return 0;
+end if;
+end function to_integer;
+
+function to_integer(data : std_logic_vector) return integer is
+variable result : integer := 0;
+begin
+for i in data'range loop
+result := result * 2;
+if data(i) = '1' then
+result := result + 1;
+end if;
+end loop;
+return result;
+end function to_integer;
+
+procedure print(message : string) is
+begin
+report message;
+end procedure print;
+
+procedure print(value : integer) is
+begin
+report "Value: " & integer'image(value);
+end procedure print;
+
+procedure print(data : std_logic_vector) is
+begin
+report "Vector length: " & integer'image(data'length);
+end procedure print;
+
+} file_name overloaded.vhd line 18 name pkg_overload} packages {{components {} declarations {{kind function line 8 name to_integer params {data : std_logic} purity pure return integer} {kind function line 9 name to_integer params {data : std_logic_vector} purity pure return integer} {kind procedure line 13 name print params {message : string}} {kind procedure line 14 name print params {value : integer}} {kind procedure line 15 name print params {data : std_logic_vector}}} declarative {function to_integer(data : std_logic) return integer;
+function to_integer(data : std_logic_vector) return integer;
+
+
+procedure print(message : string);
+procedure print(value : integer);
+procedure print(data : std_logic_vector);
+
+} file overloaded.vhd generics {} line 5 name pkg_overload ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

@@ -1,0 +1,76 @@
+architectures {} comments {line {1 {comment {Overloaded procedures with different parameter modes}} 12 {comment {Third overload: with enable}} 18 {comment {Fourth overload: inout parameter}} 6 {comment {First overload: single output}} 9 {comment {Second overload: vector output}}}} entities {} libraries {{decl {library ieee;} line 2 name ieee}} line {22 {type {definition {declaration {procedure {name {reset {args {{signal sig : out std_logic} {decl_part {{is
+} {body {sig <= '0';
+}}}}}}}}}}}} 27 {type {definition {declaration {procedure {name {reset {args {{signal vec : out std_logic_vector} {decl_part {{is
+} {body {vec <= (others => '0');
+}}}}}}}}}}}} 32 {type {definition {declaration {procedure {name {reset {args {{
+signal sig : out std_logic;
+enable : in boolean
+} {decl_part {{is
+} {body {if enable then
+sig <= '0';
+}}}}}}}}}}}} 42 {type {definition {declaration {procedure {name {reset {args {{signal counter : inout integer} {decl_part {{is
+} {body {counter <= 0;
+}}}}}}}}}}}}} meta {file procedure_overloads.vhd} package_bodies {{body {procedure reset(signal sig : out std_logic) is
+begin
+sig <= '0';
+end procedure reset;
+
+procedure reset(signal vec : out std_logic_vector) is
+begin
+vec <= (others => '0');
+end procedure reset;
+
+procedure reset(
+signal sig : out std_logic;
+enable : in boolean
+) is
+begin
+if enable then
+sig <= '0';
+end if;
+end procedure reset;
+
+procedure reset(signal counter : inout integer) is
+begin
+counter <= 0;
+end procedure reset;
+} file procedure_overloads.vhd functions {} line 22 name proc_overload_pkg procedures {{body {} kind procedure line 24 name reset params {signal sig : out std_logic}} {body {} kind procedure line 29 name reset params {signal vec : out std_logic_vector}} {body {} kind procedure line 34 name reset params {signal sig : out std_logic;
+enable : in boolean}} {body {} kind procedure line 44 name reset params {signal counter : inout integer}}}}} package_body {body {procedure reset(signal sig : out std_logic) is
+begin
+sig <= '0';
+end procedure reset;
+
+procedure reset(signal vec : out std_logic_vector) is
+begin
+vec <= (others => '0');
+end procedure reset;
+
+procedure reset(
+signal sig : out std_logic;
+enable : in boolean
+) is
+begin
+if enable then
+sig <= '0';
+end if;
+end procedure reset;
+
+procedure reset(signal counter : inout integer) is
+begin
+counter <= 0;
+end procedure reset;
+} file_name procedure_overloads.vhd line 22 name proc_overload_pkg} packages {{components {} declarations {{kind procedure line 8 name reset params {signal sig : out std_logic}} {kind procedure line 11 name reset params {signal vec : out std_logic_vector}} {kind procedure line 14 name reset params {signal sig : out std_logic;
+enable : in boolean}} {kind procedure line 20 name reset params {signal counter : inout integer}}} declarative {procedure reset(signal sig : out std_logic);
+
+
+procedure reset(signal vec : out std_logic_vector);
+
+
+procedure reset(
+signal sig : out std_logic;
+enable : in boolean
+);
+
+
+procedure reset(signal counter : inout integer);
+} file procedure_overloads.vhd generics {} line 5 name proc_overload_pkg ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

@@ -1,0 +1,21 @@
+architectures {{assignments {} body_section {begin
+
+for i in 0 to 3 generate
+process(clk)
+begin
+if rising_edge(clk) then
+reg_data(i) <= data(i);
+end if;
+end process;
+end generate;
+
+data <= reg_data;
+end architecture rtl;} decl_section {architecture rtl of unlabeled_generate is
+signal reg_data : std_logic_vector(3 downto 0);} declarations {{args {{type {std_logic_vector(3 downto 0)} init {}} {}} kind signal line 13 name reg_data}} entity unlabeled_generate file unlabeled_generate.vhd generates {{body {process(clk)
+begin
+if rising_edge(clk) then
+reg_data(i) <= data(i);
+end if;
+end process;} condition {i in 0 to 3} end_offset 133 header_end_offset 31 label {} line 16 loop_range {0 to 3} loop_var i scheme for start_offset 7}} instantiations {} line 12 name rtl processes {{body {if rising_edge(clk) then
+reg_data(i) <= data(i);
+end if;} classification clocked comment {Unlabeled for-generate (optional label)} label {} line 17 sensitivity clk}}}} comments {line {1 {comment {Test unlabeled generate statements}} 15 {comment {Unlabeled for-generate (optional label)}}}} entities {{file unlabeled_generate.vhd generics {} line 5 name unlabeled_generate ports {{line 7 mode in name clk type std_logic} {line 8 mode inout name data type {std_logic_vector(3 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file unlabeled_generate.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

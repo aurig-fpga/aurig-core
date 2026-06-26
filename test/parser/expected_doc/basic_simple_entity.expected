@@ -1,0 +1,14 @@
+architectures {{assignments {} body_section {begin
+process(clk, rst)
+begin
+if rst = '1' then
+data_out <= (others => '0');
+elsif rising_edge(clk) then
+data_out <= data_in;
+end if;
+end process;
+end architecture rtl;} decl_section {architecture rtl of simple_entity is} declarations {} entity simple_entity file simple_entity.vhd generates {} instantiations {} line 14 name rtl processes {{body {if rst = '1' then
+data_out <= (others => '0');
+elsif rising_edge(clk) then
+data_out <= data_in;
+end if;} classification clocked label {} line 16 sensitivity {clk rst}}}}} comments {line {1 {comment {Simple entity with basic ports}}}} entities {{file simple_entity.vhd generics {} line 5 name simple_entity ports {{line 7 mode in name clk type std_logic} {line 8 mode in name rst type std_logic} {line 9 mode in name data_in type {std_logic_vector(7 downto 0)}} {line 10 mode out name data_out type {std_logic_vector(7 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file simple_entity.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

@@ -1,0 +1,36 @@
+architectures {{assignments {} body_section {begin
+
+process(clk)
+
+function swap_nibbles(data : std_logic_vector(7 downto 0)) return std_logic_vector is
+variable result : std_logic_vector(7 downto 0);
+begin
+result(7 downto 4) := data(3 downto 0);
+result(3 downto 0) := data(7 downto 4);
+return result;
+end function swap_nibbles;
+
+
+procedure increment_by_one(
+variable value : inout std_logic_vector(7 downto 0)
+) is
+begin
+value := std_logic_vector(unsigned(value) + 1);
+end procedure increment_by_one;
+
+variable temp : std_logic_vector(7 downto 0);
+begin
+if rising_edge(clk) then
+temp := input;
+temp := swap_nibbles(temp);
+increment_by_one(temp);
+output <= temp;
+end if;
+end process;
+
+end architecture rtl;} decl_section {architecture rtl of process_subprog is} declarations {} entity process_subprog file process_local.vhd generates {} instantiations {} line 13 name rtl processes {{body {if rising_edge(clk) then
+temp := input;
+temp := swap_nibbles(temp);
+increment_by_one(temp);
+output <= temp;
+end if;} classification clocked declarations {{kind variable name temp type {std_logic_vector(7 downto 0)} init {} line 34}} label {} line 16 sensitivity clk}}}} comments {line {1 {comment {Subprograms declared inside process}} 17 {comment {Function declared inside process}} 26 {comment {Procedure declared inside process}}}} entities {{file process_local.vhd generics {} line 5 name process_subprog ports {{line 7 mode in name clk type std_logic} {line 8 mode in name input type {std_logic_vector(7 downto 0)}} {line 9 mode out name output type {std_logic_vector(7 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file process_local.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

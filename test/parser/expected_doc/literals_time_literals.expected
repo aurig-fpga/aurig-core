@@ -1,0 +1,23 @@
+architectures {{assignments {} body_section {begin
+
+delayed_sig <= '1' after 10 ns, '0' after 20 ns;
+end architecture rtl;} decl_section {architecture rtl of time_literals is
+
+constant T1 : time := 10 ns;
+constant T2 : time := 1 us;
+constant T3 : time := 50 ms;
+constant T4 : time := 2 sec;
+
+
+constant T5 : time := 1_000 ns;
+constant T6 : time := 100_000_000 ps;
+
+
+constant T7 : time := 1.5 ns;
+constant T8 : time := 0.1 us;
+
+
+constant T9 : time := 1 fs;
+constant T10 : time := 1 hr;
+
+signal delayed_sig : std_logic;} declarations {{args {{type std_logic init {}} {}} kind signal line 27 name delayed_sig} {args {{type time init {10 ns}} {}} kind constant line 10 name T1} {args {{type time init {1 us}} {}} comment {Standard time literals} kind constant line 11 name T2} {args {{type time init {50 ms}} {}} kind constant line 12 name T3} {args {{type time init {2 sec}} {}} kind constant line 13 name T4} {args {{type time init {1_000 ns}} {}} kind constant line 16 name T5} {args {{type time init {100_000_000 ps}} {}} comment {Time with underscores} kind constant line 17 name T6} {args {{type time init {1.5 ns}} {}} kind constant line 20 name T7} {args {{type time init {0.1 us}} {}} comment {Fractional time} kind constant line 21 name T8} {args {{type time init {1 fs}} {}} kind constant line 24 name T9} {args {{type time init {1 hr}} {}} comment {Edge cases} kind constant line 25 name T10}} entity time_literals file time_literals.vhd generates {} instantiations {} line 8 name rtl processes {}}} comments {line {1 {comment {Time literals and physical types (tests empty entity)}} 15 {comment {Time with underscores}} 19 {comment {Fractional time}} 23 {comment {Edge cases}} 24 {comment femtoseconds} 25 {comment hours} 29 {comment {Use in signal assignment with delay}} 9 {comment {Standard time literals}}}} entities {{file time_literals.vhd generics {} line 5 name time_literals ports {}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file time_literals.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

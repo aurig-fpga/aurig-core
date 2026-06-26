@@ -1,0 +1,27 @@
+architectures {} comments {line {1 {comment {Deferred constants with dependencies}} 12 {comment {Non-deferred that can be computed from deferred (illegal in declaration)}} 6 {comment {First deferred constant}} 9 {comment {Second deferred constant that depends on first (in body)}}}} entities {} libraries {{decl {library ieee;} line 2 name ieee}} meta {file dependent_deferred.vhd} package_bodies {{body {constant BASE_ADDR : integer := 16#1000#;
+constant END_ADDR : integer := BASE_ADDR + 255;
+
+constant FULL_RANGE : addr_range := (
+start => BASE_ADDR,
+finish => END_ADDR
+);
+} file dependent_deferred.vhd functions {} line 21 name dependent_deferred_pkg procedures {}}} package_body {body {constant BASE_ADDR : integer := 16#1000#;
+constant END_ADDR : integer := BASE_ADDR + 255;
+
+constant FULL_RANGE : addr_range := (
+start => BASE_ADDR,
+finish => END_ADDR
+);
+} file_name dependent_deferred.vhd line 21 name dependent_deferred_pkg} packages {{components {} declarations {{comment {Deferred constants with dependencies} init {} kind constant line 7 name BASE_ADDR type integer} {comment {First deferred constant} init {} kind constant line 10 name END_ADDR type integer} {comment {Non-deferred that can be computed from deferred (illegal in declaration)} init {} kind constant line 18 name FULL_RANGE type addr_range} {kind type line 13 name addr_range subtype_kind record}} declarative {constant BASE_ADDR : integer;
+
+
+constant END_ADDR : integer;
+
+
+type addr_range is record
+start : integer;
+finish : integer;
+end record;
+
+constant FULL_RANGE : addr_range;
+} file dependent_deferred.vhd generics {} line 5 name dependent_deferred_pkg ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

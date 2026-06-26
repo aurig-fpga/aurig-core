@@ -1,0 +1,18 @@
+architectures {{assignments {} body_section {begin
+processing_block: block
+
+constant OFFSET : integer := 4;
+signal temp : std_logic_vector(7 downto 0);
+begin
+temp <= input;
+
+process(clk)
+begin
+if rising_edge(clk) then
+output <= temp(7-OFFSET downto 0) & temp(7 downto 8-OFFSET);
+end if;
+end process;
+end block processing_block;
+end architecture rtl;} decl_section {architecture rtl of block_with_declarations is} declarations {} entity block_with_declarations file block_with_declarations.vhd generates {} instantiations {} line 13 name rtl processes {{body {if rising_edge(clk) then
+output <= temp(7-OFFSET downto 0) & temp(7 downto 8-OFFSET);
+end if;} classification clocked label {} line 22 sensitivity clk}}}} comments {line {1 {comment {Block with declarations}} 16 {comment {Declarations within block}}}} entities {{file block_with_declarations.vhd generics {} line 5 name block_with_declarations ports {{line 7 mode in name clk type std_logic} {line 8 mode in name input type {std_logic_vector(7 downto 0)}} {line 9 mode out name output type {std_logic_vector(7 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file block_with_declarations.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

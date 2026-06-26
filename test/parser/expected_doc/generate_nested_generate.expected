@@ -1,0 +1,28 @@
+architectures {{assignments {} body_section {begin
+
+gen_rows: for row in 0 to 3 generate
+gen_cols: for col in 0 to 3 generate
+process(clk)
+begin
+if rising_edge(clk) then
+matrix(row, col) <= matrix_in(row * 4 + col);
+end if;
+end process;
+
+matrix_out(row * 4 + col) <= matrix(row, col);
+end generate gen_cols;
+end generate gen_rows;
+end architecture rtl;} decl_section {architecture rtl of nested_generate is
+type matrix_type is array (0 to 3, 0 to 3) of std_logic;
+signal matrix : matrix_type;} declarations {{args {{type matrix_type init {}} {}} kind signal line 15 name matrix} {args {{subtype_kind array} {}} kind type line 14 name matrix_type}} entity nested_generate file nested_generate.vhd generates {{body {gen_cols: for col in 0 to 3 generate
+process(clk)
+begin
+if rising_edge(clk) then
+matrix(row, col) <= matrix_in(row * 4 + col);
+end if;
+end process;
+
+matrix_out(row * 4 + col) <= matrix(row, col);
+end generate gen_cols;} condition {row in 0 to 3} end_offset 284 header_end_offset 43 label gen_rows line 18 loop_range {0 to 3} loop_var row scheme for start_offset 7}} instantiations {} line 13 name rtl processes {{body {if rising_edge(clk) then
+matrix(row, col) <= matrix_in(row * 4 + col);
+end if;} classification clocked comment {Nested for-generate creating 2D array of registers} label {} line 20 sensitivity clk}}}} comments {line {1 {comment {Test nested generate statements}} 17 {comment {Nested for-generate creating 2D array of registers}}}} entities {{file nested_generate.vhd generics {} line 5 name nested_generate ports {{line 7 mode in name clk type std_logic} {line 8 mode in name matrix_in type {std_logic_vector(15 downto 0)}} {line 9 mode out name matrix_out type {std_logic_vector(15 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file nested_generate.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

@@ -1,0 +1,22 @@
+architectures {{assignments {} body_section {begin
+important <= critical_sig(0);
+end architecture rtl;} decl_section {architecture rtl of multiple_attributes is
+
+attribute KEEP : string;
+attribute DONT_TOUCH : string;
+attribute MAX_FANOUT : integer;
+attribute PRIORITY : string;
+attribute TIMING : time;
+
+signal important : std_logic;
+
+
+attribute KEEP of important : signal is "TRUE";
+attribute DONT_TOUCH of important : signal is "YES";
+attribute MAX_FANOUT of important : signal is 10;
+attribute PRIORITY of important : signal is "HIGH";
+attribute TIMING of important : signal is 5 ns;
+
+
+attribute KEEP of critical_sig : signal is "TRUE";
+attribute MAX_FANOUT of critical_sig : signal is 20;} declarations {{args {{type std_logic init {}} {}} kind signal line 19 name important}} entity multiple_attributes file multiple_attributes.vhd generates {} instantiations {} line 11 name rtl processes {}}} comments {line {1 {comment {Test multiple attributes on same object}} 12 {comment {Declare multiple attributes}} 21 {comment {Multiple attributes on same signal}} 28 {comment {Multiple attributes on port}}}} entities {{file multiple_attributes.vhd generics {} line 5 name multiple_attributes ports {{line 7 mode in name critical_sig type {std_logic_vector(15 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file multiple_attributes.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

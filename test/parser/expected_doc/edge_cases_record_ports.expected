@@ -1,0 +1,27 @@
+architectures {{assignments {} body_section {begin
+process(clk)
+begin
+if rising_edge(clk) then
+master_out.address <= (others => '0');
+master_out.data <= master_in.data;
+master_out.valid <= master_in.ready;
+end if;
+end process;
+end architecture rtl;} decl_section {architecture rtl of record_ports is} declarations {} entity record_ports file record_ports.vhd generates {} instantiations {} line 33 name rtl processes {{body {if rising_edge(clk) then
+master_out.address <= (others => '0');
+master_out.data <= master_in.data;
+master_out.valid <= master_in.ready;
+end if;} classification clocked label {} line 35 sensitivity clk}}}} comments {line {1 {comment {Testing record types in ports}}}} entities {{file record_ports.vhd generics {} line 25 name record_ports ports {{line 27 mode in name clk type std_logic} {line 28 mode out name master_out type bus_master_out} {line 29 mode in name master_in type bus_master_in}}}} libraries {{decl {library ieee;} line 2 name ieee} {decl {library ieee;} line 21 name ieee}} meta {file record_ports.vhd} package_bodies {} packages {{components {} declarations {{kind type line 6 name bus_master_out subtype_kind record} {kind type line 14 name bus_master_in subtype_kind record}} declarative {type bus_master_out is record
+address : std_logic_vector(31 downto 0);
+data : std_logic_vector(31 downto 0);
+write_enable : std_logic;
+read_enable : std_logic;
+valid : std_logic;
+end record;
+
+type bus_master_in is record
+data : std_logic_vector(31 downto 0);
+ready : std_logic;
+error : std_logic;
+end record;
+} file record_ports.vhd generics {} line 5 name record_pkg ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}} {decl ieee lib std_logic_1164 line 22 pkg all selector {}} {decl work lib record_pkg line 23 pkg all selector {}}}

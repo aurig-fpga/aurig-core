@@ -1,0 +1,48 @@
+architectures {} comments {line {1 {comment {Functions and procedures with misleading content in strings/comments}} 11 {comment {Procedure with __Q0__ in comment}} 14 {comment {Function name contains keyword-like text}} 24 {comment {Comment with keywords: function procedure return signal}} 7 {comment {Function with __Q0__ in comment}} 8 {comment {This is not a procedure, it's a function}}}} entities {} libraries {{decl {library ieee;} line 2 name ieee}} line {26 {type {definition {declaration {procedure {name {not_a_function {args {{signal data : out std_logic} {decl_part {{is
+constant RESET : string := "function return in string";
+} {body {data <= '0';
+}}}}}}}}}}}}} meta {file tricky_keywords.vhd} package_bodies {{body {function not_a_procedure(x : integer) return integer is
+constant MSG : string := "procedure inside string";
+begin
+
+return x + 1;
+end function not_a_procedure;
+
+procedure not_a_function(signal data : out std_logic) is
+constant RESET : string := "function return in string";
+begin
+data <= '0';
+end procedure not_a_function;
+
+function end_of_data(data : std_logic_vector) return boolean is
+begin
+return data = (data'range => '0');
+end function end_of_data;
+
+} file tricky_keywords.vhd functions {{body {} kind function line 21 name not_a_procedure params {x : integer} purity pure return integer} {body {} kind function line 34 name end_of_data params {data : std_logic_vector} purity pure return boolean}} line 19 name pkg_tricky procedures {{body {} kind procedure line 29 name not_a_function params {signal data : out std_logic}}}}} package_body {body {function not_a_procedure(x : integer) return integer is
+constant MSG : string := "procedure inside string";
+begin
+
+return x + 1;
+end function not_a_procedure;
+
+procedure not_a_function(signal data : out std_logic) is
+constant RESET : string := "function return in string";
+begin
+data <= '0';
+end procedure not_a_function;
+
+function end_of_data(data : std_logic_vector) return boolean is
+begin
+return data = (data'range => '0');
+end function end_of_data;
+
+} file_name tricky_keywords.vhd line 19 name pkg_tricky} packages {{components {} declarations {{kind function line 9 name not_a_procedure params {x : integer} purity pure return integer} {kind function line 15 name end_of_data params {data : std_logic_vector} purity pure return boolean} {kind procedure line 13 name not_a_function params {signal data : out std_logic}}} declarative {function not_a_procedure(x : integer) return integer;
+
+
+procedure not_a_function(signal data : out std_logic);
+
+
+function end_of_data(data : std_logic_vector) return boolean;
+
+} file tricky_keywords.vhd generics {} line 5 name pkg_tricky ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

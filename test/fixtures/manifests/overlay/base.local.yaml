@@ -1,0 +1,12 @@
+# Per-machine overlay: deep-merges over base.yaml.
+top: overridden_top
+tool:
+  synth:
+    version: "2024.2"
+external_libraries:
+  mylib: /opt/precompiled/mylib
+generics:
+  WIDTH: 16
+  ENABLE: true
+device:
+  family: ""

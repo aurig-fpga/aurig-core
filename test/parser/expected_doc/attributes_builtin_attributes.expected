@@ -1,0 +1,18 @@
+architectures {{assignments {} body_section {begin
+
+left_idx <= data'left;
+right_idx <= data'right;
+length_val <= data'length;
+range_val <= data'range;
+
+
+bit_val <= '1' when data'event else '0';
+
+
+bit_val <= data(index);
+end architecture rtl;} decl_section {architecture rtl of builtin_attributes is
+signal bit_val : std_logic;
+signal left_idx : integer;
+signal right_idx : integer;
+signal length_val : integer;
+signal range_val : integer;} declarations {{args {{type std_logic init {}} {}} kind signal line 13 name bit_val} {args {{type integer init {}} {}} kind signal line 14 name left_idx} {args {{type integer init {}} {}} kind signal line 15 name right_idx} {args {{type integer init {}} {}} kind signal line 16 name length_val} {args {{type integer init {}} {}} kind signal line 17 name range_val}} entity builtin_attributes file builtin_attributes.vhd generates {} instantiations {} line 12 name rtl processes {}}} comments {line {1 {comment {Test built-in VHDL attributes usage}} 19 {comment {Using built-in attributes}} 25 {comment {Event attribute}} 28 {comment {Array attribute with index}}}} entities {{file builtin_attributes.vhd generics {} line 5 name builtin_attributes ports {{line 7 mode in name data type {std_logic_vector(7 downto 0)}} {line 8 mode in name index type integer}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file builtin_attributes.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

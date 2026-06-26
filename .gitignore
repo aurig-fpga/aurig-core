@@ -1,0 +1,8 @@
+# Test scratch / runtime artifacts
+test/build/
+test/_tmp_*
+**/_tmp_*
+*.bak
+
+# Claude Code local workspace
+.claude/

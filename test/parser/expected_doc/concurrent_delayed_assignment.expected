@@ -1,0 +1,10 @@
+architectures {{assignments {} body_section {begin
+
+transport_out <= transport input after 10 ns;
+
+
+inertial_out <= input after 5 ns;
+
+
+inertial_out <= reject 2 ns inertial input after 5 ns;
+end architecture rtl;} decl_section {architecture rtl of delayed_assignment is} declarations {} entity delayed_assignment file delayed_assignment.vhd generates {} instantiations {} line 13 name rtl processes {}}} comments {line {1 {comment {Test concurrent assignments with transport and inertial delay}} 15 {comment {Concurrent assignment with transport delay}} 18 {comment {Concurrent assignment with inertial delay (default)}} 21 {comment {Explicit inertial delay with reject}}}} entities {{file delayed_assignment.vhd generics {} line 5 name delayed_assignment ports {{line 7 mode in name input type std_logic} {line 8 mode out name transport_out type std_logic} {line 9 mode out name inertial_out type std_logic}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file delayed_assignment.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

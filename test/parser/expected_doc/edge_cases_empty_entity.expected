@@ -1,0 +1,4 @@
+architectures {{assignments {} body_section {begin
+internal <= '1';
+end architecture rtl;} decl_section {architecture rtl of empty_entity is
+signal internal : std_logic := '0';} declarations {{args {{type std_logic init '0'} {}} kind signal line 9 name internal}} entity empty_entity file empty_entity.vhd generates {} instantiations {} line 8 name rtl processes {}}} comments {line {1 {comment {Entity with no generics and no ports (valid VHDL, common in testbenches)}}}} entities {{file empty_entity.vhd generics {} line 5 name empty_entity ports {}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file empty_entity.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

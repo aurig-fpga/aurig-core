@@ -1,0 +1,14 @@
+architectures {} comments {line {1 {comment {Subprogram declarations with comments}} 11 {comment {Reset procedure}} 12 {comment {Active high reset}} 14 {comment {Function with inline parameter comments}} 16 {comment {Input value}} 17 {comment {Scale factor}} 7 {comment {This function adds two integers}} 8 {comment {Returns the sum}}}} entities {} libraries {{decl {library ieee;} line 2 name ieee}} meta {file with_comments.vhd} package_bodies {} packages {{components {} declarations {{kind function line 9 name add params {a : integer; b : integer} purity pure return integer} {kind function line 15 name scale params {value : integer;
+factor : integer := 10} purity pure return integer} {comment {Reset procedure
+Active high reset} kind procedure line 13 name reset params {signal rst : out std_logic}}} declarative {function add(a : integer; b : integer) return integer;
+
+
+procedure reset(signal rst : out std_logic);
+
+
+function scale(
+value : integer;
+factor : integer := 10
+) return integer;
+
+} file with_comments.vhd generics {} line 5 name pkg_with_comments ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

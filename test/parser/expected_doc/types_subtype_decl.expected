@@ -1,0 +1,18 @@
+architectures {} comments {line {1 {comment {Test subtype declarations with various constraints}} 10 {comment {Subtype with downto range}} 13 {comment {Subtype of std_logic_vector}} 16 {comment {Subtype with constrained array}} 19 {comment {Subtype without constraint (just renaming)}} 22 {comment {Multiple subtypes with comments}} 23 {comment {signed byte}} 24 {comment control} 7 {comment {Basic subtype with range constraint}}}} entities {} libraries {{decl {library ieee;} line 2 name ieee}} meta {file subtype_decl.vhd} package_bodies {} packages {{components {} declarations {{kind subtype line 8 name byte} {kind subtype line 11 name nibble} {kind subtype line 14 name data_word} {kind subtype line 17 name addr_bus} {kind subtype line 20 name my_logic} {kind subtype line 23 name small_int} {kind subtype line 24 name control_bits}} declarative {subtype byte is integer range 0 to 255;
+
+
+subtype nibble is integer range 15 downto 0;
+
+
+subtype data_word is std_logic_vector(31 downto 0);
+
+
+subtype addr_bus is unsigned(15 downto 0);
+
+
+subtype my_logic is std_logic;
+
+
+subtype small_int is integer range -128 to 127;
+subtype control_bits is std_logic_vector(3 downto 0);
+} file subtype_decl.vhd generics {} line 6 name subtype_pkg ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}} {decl ieee lib numeric_std line 4 pkg all selector {}}}

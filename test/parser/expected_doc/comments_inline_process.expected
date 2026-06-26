@@ -1,0 +1,62 @@
+architectures {{assignments {} body_section {begin
+
+process
+(
+clk
+,
+rst
+)
+begin
+if
+rst
+=
+'1'
+then
+reg
+<=
+(
+others
+=>
+'0'
+)
+;
+elsif
+rising_edge
+(
+clk
+)
+then
+reg <= data_in;
+end
+if
+;
+end
+process
+;
+
+data_out <= reg;
+
+end architecture rtl;} decl_section {architecture rtl of inline_process is
+signal reg : std_logic_vector(7 downto 0);} declarations {{args {{type {std_logic_vector(7 downto 0)} init {}} {}} kind signal line 15 name reg}} entity inline_process file inline_process.vhd generates {} instantiations {} line 14 name rtl processes {{body {if
+rst
+=
+'1'
+then
+reg
+<=
+(
+others
+=>
+'0'
+)
+;
+elsif
+rising_edge
+(
+clk
+)
+then
+reg <= data_in;
+end
+if
+;} classification clocked label {} line 18 sensitivity {clk rst}}}}} comments {line {1 {comment {Test comments in process headers and bodies}} 18 {comment {comment after process}} 19 {comment {comment after opening paren}} 20 {comment {comment after clk}} 21 {comment {comment after comma}} 22 {comment {comment after rst}} 23 {comment {comment after closing paren}} 24 {comment {comment after begin}} 25 {comment {comment after if}} 26 {comment {comment after rst}} 27 {comment {comment after equals}} 28 {comment {comment after value}} 29 {comment {comment after then}} 30 {comment {comment before assignment}} 31 {comment {comment after assignment}} 32 {comment {comment after opening paren}} 33 {comment {comment after others}} 34 {comment {comment after arrow}} 35 {comment {comment after value}} 36 {comment {comment after closing paren}} 37 {comment {comment after semicolon}} 38 {comment {comment after elsif}} 39 {comment {comment after rising_edge}} 40 {comment {comment after opening paren}} 41 {comment {comment inside function call}} 42 {comment {comment after closing paren}} 43 {comment {comment after then}} 44 {comment {end of line comment}} 45 {comment {comment after end}} 46 {comment {comment after if}} 47 {comment {comment after semicolon}} 48 {comment {comment after end}} 49 {comment {comment after process}} 50 {comment {comment after semicolon}}}} entities {{file inline_process.vhd generics {} line 5 name inline_process ports {{line 7 mode in name clk type std_logic} {line 8 mode in name rst type std_logic} {line 9 mode in name data_in type {std_logic_vector(7 downto 0)}} {line 10 mode out name data_out type {std_logic_vector(7 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file inline_process.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

@@ -1,0 +1,20 @@
+architectures {{assignments {} body_section {begin
+
+process
+begin
+assert false report "Error message with -- comment chars" severity note;
+assert true report "Message: ""quoted text"" inside" severity note;
+wait;
+end process;
+
+end architecture rtl;} decl_section {architecture rtl of string_test is
+
+constant MSG1 : string := "This string contains -- but it's not a comment";
+constant MSG2 : string := "Another string with ; semicolon";
+constant MSG3 : string := "Quotes: ""nested quotes"" here";
+constant MSG4 : string := "Special chars: @#$%^&*()";
+
+
+signal test : std_logic;} declarations {{args {{type std_logic init {}} {}} kind signal line 19 name test} {args {{type string init {"This string contains -- but it's not a comment"}} {}} kind constant line 13 name MSG1} {args {{type string init {"Another string with ; semicolon"}} {}} comment {String with comment-like content} kind constant line 14 name MSG2} {args {{type string init {"Quotes: ""nested quotes"" here"}} {}} kind constant line 15 name MSG3} {args {{type string init {"Special chars: @#$%^&*()"}} {}} kind constant line 16 name MSG4}} entity string_test file string_test.vhd generates {} instantiations {} line 11 name rtl processes {{body {assert false report "Error message with -- comment chars" severity note;
+assert true report "Message: ""quoted text"" inside" severity note;
+wait;} classification unknown label {} line 22 sensitivity {}}}}} comments {line {1 {comment {Testing strings with special characters}} 12 {comment {String with comment-like content}} 18 {comment {Report statements with strings}}}} entities {{file string_test.vhd generics {} line 5 name string_test ports {{line 7 mode in name data type std_logic}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file string_test.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

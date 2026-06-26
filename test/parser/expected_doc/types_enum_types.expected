@@ -1,0 +1,23 @@
+architectures {} comments {line {1 {comment {Test enumerated type declarations}} 12 {comment {Enumeration with single value}} 15 {comment {Enumeration with comments}} 17 {comment primary} 18 {comment primary} 19 {comment primary} 22 {comment {Enumeration with split formatting}} 6 {comment {Simple enumeration}} 9 {comment {Enumeration with many values}}}} entities {} libraries {{decl {library ieee;} line 2 name ieee}} meta {file enum_types.vhd} package_bodies {} packages {{components {} declarations {{kind type line 7 name state_type subtype_kind enumerated} {kind type line 10 name opcode subtype_kind enumerated} {kind type line 13 name singleton subtype_kind enumerated} {kind type line 16 name color subtype_kind enumerated} {kind type line 23 name direction subtype_kind enumerated}} declarative {type state_type is (IDLE, ACTIVE, DONE);
+
+
+type opcode is (ADD, SUB, MUL, DIV, AND_OP, OR_OP, XOR_OP, NOT_OP);
+
+
+type singleton is (ONLY_ONE);
+
+
+type color is (
+RED,
+GREEN,
+BLUE
+);
+
+
+type direction is (
+NORTH,
+SOUTH,
+EAST,
+WEST
+);
+} file enum_types.vhd generics {} line 5 name enum_pkg ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

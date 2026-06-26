@@ -1,0 +1,15 @@
+architectures {{assignments {} body_section {begin
+
+with sel select output <=
+a when "00",
+b when "01",
+c when "10",
+d when "11",
+x"00" when others;
+
+
+with sel select output <=
+a when "00",
+b when "01",
+(others => '0') when others;
+end architecture rtl;} decl_section {architecture rtl of with_select is} declarations {} entity with_select file with_select.vhd generates {} instantiations {} line 16 name rtl processes {}}} comments {line {1 {comment {Test selected signal assignment (with/select)}} 18 {comment {Selected signal assignment with with/select}} 26 {comment {Another example with expressions}}}} entities {{file with_select.vhd generics {} line 5 name with_select ports {{line 7 mode in name sel type {std_logic_vector(1 downto 0)}} {line 8 mode in name a type {std_logic_vector(7 downto 0)}} {line 9 mode in name b type {std_logic_vector(7 downto 0)}} {line 10 mode in name c type {std_logic_vector(7 downto 0)}} {line 11 mode in name d type {std_logic_vector(7 downto 0)}} {line 12 mode out name output type {std_logic_vector(7 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file with_select.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

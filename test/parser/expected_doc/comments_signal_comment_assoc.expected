@@ -1,0 +1,28 @@
+architectures {{assignments {} body_section {begin
+
+process(clk)
+begin
+if rising_edge(clk) then
+data_reg <= data;
+end if;
+end process;
+
+end architecture rtl;} decl_section {architecture rtl of signal_comment_assoc is
+
+
+constant INIT_VALUE : std_logic_vector(7 downto 0) := x"00";
+
+constant MAX_COUNT : integer := 255;
+
+
+
+signal data_reg : std_logic_vector(7 downto 0);
+
+signal counter : integer range 0 to MAX_COUNT;
+
+signal enable : std_logic;
+
+
+signal state : integer;} declarations {{args {{type {std_logic_vector(7 downto 0)} init {}} {}} comment {This is the data register} kind signal line 21 name data_reg} {args {{type {integer range 0 to MAX_COUNT} init {}} {}} kind signal line 23 name counter} {args {{type std_logic init {}} {}} comment {Counter signal} kind signal line 25 name enable} {args {{type integer init {}} {}} kind signal line 28 name state} {args {{type {std_logic_vector(7 downto 0)} init x\"00\"} {}} kind constant line 15 name INIT_VALUE} {args {{type integer init 255} {}} comment {Initial value constant} kind constant line 17 name MAX_COUNT}} entity signal_comment_assoc file signal_comment_assoc.vhd generates {} instantiations {} line 12 name rtl processes {{body {if rising_edge(clk) then
+data_reg <= data;
+end if;} classification clocked label {} line 31 sensitivity clk}}}} comments {line {1 {comment {Test comment association with signals and constants}} 14 {comment {Initial value constant}} 17 {comment {Maximum counter value}} 19 {comment {This is the data register}} 20 {comment {It stores the input data}} 23 {comment {Counter signal}} 27 {comment {State machine state}}}} entities {{file signal_comment_assoc.vhd generics {} line 5 name signal_comment_assoc ports {{line 7 mode in name clk type std_logic} {line 8 mode in name data type {std_logic_vector(7 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file signal_comment_assoc.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

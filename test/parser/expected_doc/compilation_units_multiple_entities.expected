@@ -1,0 +1,12 @@
+architectures {{assignments {} body_section {begin
+process(clk)
+begin
+if rising_edge(clk) then
+
+end if;
+end process;
+end architecture rtl;} decl_section {architecture rtl of first_entity is} declarations {} entity first_entity file multiple_entities.vhd generates {} instantiations {} line 12 name rtl processes {{body {if rising_edge(clk) then
+
+end if;} classification clocked label {} line 14 sensitivity clk}}} {assignments {} body_section {begin
+data_out <= '0' when rst = '1' else '1';
+end architecture rtl;} decl_section {architecture rtl of second_entity is} declarations {} entity second_entity file multiple_entities.vhd generates {} instantiations {} line 33 name rtl processes {}}} comments {line {1 {comment {Multiple entities and architectures in one file}} 17 {comment {first entity logic}} 22 {comment {Second entity in same file}}}} entities {{file multiple_entities.vhd generics {} line 5 name first_entity ports {{line 7 mode in name clk type std_logic} {line 8 mode in name data_in type std_logic}}} {file multiple_entities.vhd generics {} line 26 name second_entity ports {{line 28 mode in name rst type std_logic} {line 29 mode out name data_out type std_logic}}}} libraries {{decl {library ieee;} line 2 name ieee} {decl {library ieee;} line 23 name ieee}} meta {file multiple_entities.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}} {decl ieee lib std_logic_1164 line 24 pkg all selector {}}}

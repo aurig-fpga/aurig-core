@@ -1,0 +1,9 @@
+architectures {{assignments {} body_section {begin
+process(data
+begin
+temp <= data(7 downto 0;
+result <= temp & data((3 downto 0);
+end process;
+end architecture rtl;} decl_section {architecture rtl of mismatched_parens is
+signal temp : std_logic_vector((7 downto 0);} declarations {} entity mismatched_parens file mismatched_parens.vhd generates {} instantiations {} line 13 name rtl processes {{body {temp <= data(7 downto 0;
+result <= temp & data((3 downto 0);} classification combinational comment {mismatched: (( vs );} label {} line 16 sensitivity {{data begin temp <= data(7 downto 0; result <= temp & data((3 downto 0}}}}}} comments {line {1 {comment {Invalid: mismatched parentheses and brackets}} 14 {comment {mismatched: (( vs );}} 17 {comment {missing closing paren on process sensitivity list}} 18 {comment {missing closing paren}} 19 {comment {extra opening paren}} 7 {comment OK} 8 {comment {extra closing paren}} 9 {comment {missing closing paren}}}} entities {{file mismatched_parens.vhd generics {} line 5 name mismatched_parens ports {{comment OK line 7 mode in name data type {std_logic_vector(7 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file mismatched_parens.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

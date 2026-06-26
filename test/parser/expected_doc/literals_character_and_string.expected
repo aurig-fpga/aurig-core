@@ -1,0 +1,36 @@
+architectures {{assignments {} body_section {begin
+process
+begin
+wait;
+end process;
+end architecture rtl;} decl_section {architecture rtl of character_literals is
+
+type char_state is ('A', 'B', 'C', 'X', 'Z');
+signal state : char_state := 'A';
+
+
+constant MSG1 : string := "This has -- inside but not comment";
+constant MSG2 : string := "Contains ; semicolon";
+constant MSG3 : string := "Multiple -- markers -- here";
+constant MSG4 : string := "End with ;";
+constant MSG5 : string := "; starts with semicolon";
+
+
+constant MSG6 : string := "He said ""hello"" to me";
+constant MSG7 : string := """quoted""";
+
+
+constant MSG8 : string := "Mix: -- and ; and ""quotes""";
+
+
+constant BIT_STR1 : bit_vector := B"1010";
+constant BIT_STR2 : bit_vector := O"377";
+constant BIT_STR3 : bit_vector := X"FF";
+
+
+constant BIT_STR4 : bit_vector := B"1111_0000";
+constant BIT_STR5 : bit_vector := X"DEAD_BEEF";
+
+
+constant SPACE_CHAR : character := ' ';
+constant QUOTE_CHAR : character := ''';} declarations {{args {{type char_state init 'A'} {}} comment {Enumeration with character literals} kind signal line 11 name state} {args {{type string init {"This has -- inside but not comment"}} {}} comment {Enumeration with character literals} kind constant line 14 name MSG1} {args {{type string init {"Contains ; semicolon"}} {}} comment {Strings with embedded comment markers and semicolons} kind constant line 15 name MSG2} {args {{type string init {"Multiple -- markers -- here"}} {}} kind constant line 16 name MSG3} {args {{type string init {"End with ;"}} {}} kind constant line 17 name MSG4} {args {{type string init {"; starts with semicolon"}} {}} kind constant line 18 name MSG5} {args {{type string init {"He said ""hello"" to me"}} {}} kind constant line 21 name MSG6} {args {{type string init {"""quoted"""}} {}} comment {String with quotes (escaped)} kind constant line 22 name MSG7} {args {{type string init {"Mix: -- and ; and ""quotes"""}} {}} kind constant line 25 name MSG8} {args {{type bit_vector init B\"1010\"} {}} comment {Mixed special characters} kind constant line 28 name BIT_STR1} {args {{type bit_vector init O\"377\"} {}} comment {Bit string literals} kind constant line 29 name BIT_STR2} {args {{type bit_vector init X\"FF\"} {}} kind constant line 30 name BIT_STR3} {args {{type bit_vector init B\"1111_0000\"} {}} kind constant line 33 name BIT_STR4} {args {{type bit_vector init X\"DEAD_BEEF\"} {}} comment {Bit strings with underscores} kind constant line 34 name BIT_STR5} {args {{type character init {' '}} {}} kind constant line 37 name SPACE_CHAR} {args {{type character init '''} {}} comment {Character literal edge cases} kind constant line 38 name QUOTE_CHAR} {args {{subtype_kind enumerated} {}} kind type line 10 name char_state}} entity character_literals file character_and_string.vhd generates {} instantiations {} line 8 name rtl processes {{body {wait;} classification unknown comment {single quote} label {} line 40 sensitivity {}}}}} comments {line {1 {comment {Character literals in enumerations and strings with special content (tests empty entity)}} 13 {comment {Strings with embedded comment markers and semicolons}} 20 {comment {String with quotes (escaped)}} 24 {comment {Mixed special characters}} 27 {comment {Bit string literals}} 32 {comment {Bit strings with underscores}} 36 {comment {Character literal edge cases}} 38 {comment {single quote}} 9 {comment {Enumeration with character literals}}}} entities {{file character_and_string.vhd generics {} line 5 name character_literals ports {}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file character_and_string.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

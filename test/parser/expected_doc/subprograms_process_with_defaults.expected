@@ -1,0 +1,53 @@
+architectures {{assignments {} body_section {begin
+
+main_proc: process(clk, rst)
+
+function mask_bits(
+value : std_logic_vector(15 downto 0);
+mask : std_logic_vector(15 downto 0) := x"00FF"
+) return std_logic_vector is
+begin
+return value and mask;
+end function mask_bits;
+
+
+procedure set_bit(
+variable data : inout std_logic_vector;
+constant index : in natural
+) is
+begin
+if index < data'length then
+data(index) := '1';
+end if;
+end procedure set_bit;
+
+
+function count_ones(value : std_logic_vector) return integer is
+variable count : integer := 0;
+begin
+for i in value'range loop
+if value(i) = '1' then
+count := count + 1;
+end if;
+end loop;
+return count;
+end function count_ones;
+
+variable internal : std_logic_vector(15 downto 0);
+begin
+if rst = '1' then
+data <= (others => '0');
+elsif rising_edge(clk) then
+internal := data;
+set_bit(internal, 5);
+data <= mask_bits(internal);
+end if;
+end process main_proc;
+
+end architecture rtl;} decl_section {architecture rtl of process_complex is} declarations {} entity process_complex file with_defaults.vhd generates {} instantiations {} line 13 name rtl processes {{body {if rst = '1' then
+data <= (others => '0');
+elsif rising_edge(clk) then
+internal := data;
+set_bit(internal, 5);
+data <= mask_bits(internal);
+end if;} classification clocked declarations {{kind variable name internal type {std_logic_vector(15 downto 0)} init {} line 49}} label main_proc line 16 sensitivity {clk rst}}}}} comments {line {1 {comment {Complex process with multiple subprograms}} 17 {comment {Helper function with default parameter}} 26 {comment {Procedure to set specific bits}} 37 {comment {Function to count ones}}}} entities {{file with_defaults.vhd generics {} line 6 name process_complex ports {{line 8 mode in name rst type std_logic} {line 9 mode inout name data type {std_logic_vector(15 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file with_defaults.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}} {decl ieee lib numeric_std line 4 pkg all selector {}}}

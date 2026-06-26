@@ -1,0 +1,9 @@
+architectures {{assignments {} body_section {begin
+
+guard_sig <= enable = '1';
+
+
+data_out <= guarded data_in when guard_sig else
+(others => '0');
+end architecture rtl;} decl_section {architecture rtl of guarded_assignment is
+signal guard_sig : boolean;} declarations {{args {{type boolean init {}} {}} kind signal line 15 name guard_sig}} entity guarded_assignment file guarded_assignment.vhd generates {} instantiations {} line 14 name rtl processes {}}} comments {line {1 {comment {Test concurrent assignments with guarded signals}} 17 {comment {Guarded block}} 20 {comment {Guarded concurrent assignment}}}} entities {{file guarded_assignment.vhd generics {} line 5 name guarded_assignment ports {{line 7 mode in name clk type std_logic} {line 8 mode in name enable type std_logic} {line 9 mode in name data_in type {std_logic_vector(7 downto 0)}} {line 10 mode out name data_out type {std_logic_vector(7 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file guarded_assignment.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

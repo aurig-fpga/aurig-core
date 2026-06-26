@@ -1,0 +1,25 @@
+architectures {{assignments {} body_section {begin
+gen_x : if g_en generate
+function f return integer;
+type t_my is array (0 to 7) of integer;
+signal s : t_my;
+begin
+proc1 : process(clk_i)
+begin
+if rising_edge(clk_i) then
+dout_o <= '1';
+end if;
+end process proc1;
+end generate gen_x;
+end architecture rtl;} decl_section {architecture rtl of gen_proto_then_type is} declarations {} entity gen_proto_then_type file generate_subprog_prototype_then_type.vhd generates {{body {function f return integer;
+type t_my is array (0 to 7) of integer;
+signal s : t_my;
+begin
+proc1 : process(clk_i)
+begin
+if rising_edge(clk_i) then
+dout_o <= '1';
+end if;
+end process proc1;} condition g_en end_offset 237 header_end_offset 30 label gen_x line 23 scheme if start_offset 6}} instantiations {} line 21 name rtl processes {{body {if rising_edge(clk_i) then
+dout_o <= '1';
+end if;} classification clocked label proc1 line 28 sensitivity clk_i}}}} comments {line {1 {comment {Regression: a generate declarative section that contains a subprogram}} 2 {comment {prototype (`function f return integer;`) followed by another declaration}} 3 {comment {whose right-hand side uses `is` (e.g. `type t is array (...) of ...`).}} 4 {comment {The previous Phase 2 scanner armed `sub_pending` on the first `is` after}} 5 {comment {seeing `function`, without checking whether a `;` had already closed the}} 6 {comment {prototype. As a result, the generate body's `begin` was misclassified as a}} 7 {comment {subprogram body opener and `split_arch_decl_body` finished one depth high.}}}} entities {{file generate_subprog_prototype_then_type.vhd generics {{init true line 13 name g_en type boolean}} line 11 name gen_proto_then_type ports {{line 16 mode in name clk_i type std_logic} {line 17 mode out name dout_o type std_logic}}}} libraries {{decl {library ieee;} line 8 name ieee}} meta {file generate_subprog_prototype_then_type.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 9 pkg all selector {}}}

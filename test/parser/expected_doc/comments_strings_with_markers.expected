@@ -1,0 +1,42 @@
+architectures {{assignments {} body_section {begin
+
+process
+begin
+
+assert false report "Error: -- not a comment" severity note;
+
+
+assert test = '1' report "Value is; not what expected" severity warning;
+
+
+assert true report "Message: -- ; -- all in string" severity note;
+
+wait;
+end process;
+
+end architecture rtl;} decl_section {architecture rtl of strings_with_markers is
+
+constant MSG1 : string := "This has -- in it but it's not a comment";
+
+
+constant MSG2 : string := "This has ; in it";
+
+
+constant MSG3 : string := "Both -- and ; are here";
+
+
+constant MSG4 : string := "-- This looks like a comment but isn't";
+
+
+constant MSG5 : string := "First part --";
+constant MSG6 : string := "-- Second part";
+
+signal test : std_logic;} declarations {{args {{type std_logic init {}} {}} kind signal line 28 name test} {args {{type string init {"This has -- in it but it's not a comment"}} {}} kind constant line 13 name MSG1} {args {{type string init {"This has ; in it"}} {}} comment {String with double dash} kind constant line 16 name MSG2} {args {{type string init {"Both -- and ; are here"}} {}} comment {String with semicolon} kind constant line 19 name MSG3} {args {{type string init {"-- This looks like a comment but isn't"}} {}} comment {String with both} kind constant line 22 name MSG4} {args {{type string init {"First part --"}} {}} comment {String with comment-like content} kind constant line 25 name MSG5} {args {{type string init {"-- Second part"}} {}} comment {Multiple strings} kind constant line 26 name MSG6}} entity strings_with_markers file strings_with_markers.vhd generates {} instantiations {} line 11 name rtl processes {{body {assert false report "Error: -- not a comment" severity note;
+
+
+assert test = '1' report "Value is; not what expected" severity warning;
+
+
+assert true report "Message: -- ; -- all in string" severity note;
+
+wait;} classification unknown label {} line 31 sensitivity {}}}}} comments {line {1 {comment {Test strings containing comment markers and semicolons}} 12 {comment {String with double dash}} 15 {comment {String with semicolon}} 18 {comment {String with both}} 21 {comment {String with comment-like content}} 24 {comment {Multiple strings}} 34 {comment {Assert with string containing --}} 37 {comment {Assert with string containing ;}} 40 {comment {Report with mixed markers}}}} entities {{file strings_with_markers.vhd generics {} line 5 name strings_with_markers ports {{line 7 mode in name clk type std_logic}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file strings_with_markers.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

@@ -1,0 +1,14 @@
+architectures {{assignments {} body_section {begin
+process(clk, rst)
+begin
+if rst = '1' then
+data_out <= '0';
+elsif rising_edge(clk) then
+data_out <= '1';
+end if;
+end process;
+end architecture rtl;} decl_section {architecture rtl of my_entity is} declarations {} entity my_entity file entity_name_split.vhd generates {} instantiations {} line 17 name rtl processes {{body {if rst = '1' then
+data_out <= '0';
+elsif rising_edge(clk) then
+data_out <= '1';
+end if;} classification clocked label {} line 19 sensitivity {clk rst}}}}} comments {line {1 {comment {XFAIL: Parser cannot handle entity name split across lines}} 2 {comment {Expected: Should parse entity name as __Q0__}} 3 {comment {Actual: Parser fails to recognize entity declaration}}}} entities {} libraries {{decl {library ieee;} line 5 name ieee}} meta {file entity_name_split.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 6 pkg all selector {}}}

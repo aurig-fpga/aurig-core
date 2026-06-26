@@ -1,0 +1,25 @@
+architectures {{assignments {} body_section {begin
+
+process(clk)
+begin
+if rising_edge(clk) then
+data_reg <= data_in;
+counter <= counter + 1;
+end if;
+end process;
+
+
+data_out <= data_reg when enable = '1' else INIT_VALUE;
+
+end architecture rtl;} decl_section {architecture rtl of internal_signals is
+
+constant INIT_VALUE : std_logic_vector(7 downto 0) := x"00";
+constant MAX_COUNT : integer := 255;
+
+
+signal data_reg : std_logic_vector(7 downto 0);
+signal counter : integer range 0 to MAX_COUNT;
+signal enable : std_logic;} declarations {{args {{type {std_logic_vector(7 downto 0)} init {}} {}} kind signal line 19 name data_reg} {args {{type {integer range 0 to MAX_COUNT} init {}} {}} comment Signals kind signal line 20 name counter} {args {{type std_logic init {}} {}} kind signal line 21 name enable} {args {{type {std_logic_vector(7 downto 0)} init x\"00\"} {}} kind constant line 15 name INIT_VALUE} {args {{type integer init 255} {}} comment Constants kind constant line 16 name MAX_COUNT}} entity internal_signals file internal_signals.vhd generates {} instantiations {} line 13 name rtl processes {{body {if rising_edge(clk) then
+data_reg <= data_in;
+counter <= counter + 1;
+end if;} classification clocked label {} line 24 sensitivity clk}}}} comments {line {1 {comment {Architecture with internal signals and constants}} 14 {comment Constants} 18 {comment Signals} 24 {comment {Synchronous process}} 33 {comment Combinational}}} entities {{file internal_signals.vhd generics {} line 5 name internal_signals ports {{line 7 mode in name clk type std_logic} {line 8 mode in name data_in type {std_logic_vector(7 downto 0)}} {line 9 mode out name data_out type {std_logic_vector(7 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file internal_signals.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}

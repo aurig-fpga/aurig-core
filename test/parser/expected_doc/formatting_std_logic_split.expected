@@ -1,0 +1,3 @@
+architectures {{assignments {} body_section {begin
+data <= clk;
+end architecture rtl;} decl_section {architecture rtl of type_split is} declarations {} entity type_split file std_logic_split.vhd generates {} instantiations {} line 17 name rtl processes {}}} comments {line {1 {comment {XFAIL: Parser cannot handle type names split across lines}} 2 {comment {Expected: Should recognize __Q0__ as the type}} 3 {comment {Actual: Parser fails to parse type correctly}}}} entities {{file std_logic_split.vhd generics {} line 8 name type_split ports {}}} libraries {{decl {library ieee;} line 5 name ieee}} meta {file std_logic_split.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 6 pkg all selector {}}}

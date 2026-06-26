@@ -1,0 +1,22 @@
+architectures {} comments {line {1 {comment {Deferred constant in package declaration, defined in package body}} 10 {comment {Regular constant for comparison}} 17 {comment {Deferred constants completed here}} 6 {comment {Deferred constant (no value here)}}}} entities {} libraries {{decl {library ieee;} line 2 name ieee}} meta {file simple_deferred.vhd} package_bodies {{body {constant MAX_VALUE : integer := 255;
+constant MIN_VALUE : integer := 0;
+
+function get_range return integer is
+begin
+return MAX_VALUE - MIN_VALUE;
+end function get_range;
+} file simple_deferred.vhd functions {{body {} kind function line 21 name get_range purity pure return integer}} line 16 name deferred_pkg procedures {}}} package_body {body {constant MAX_VALUE : integer := 255;
+constant MIN_VALUE : integer := 0;
+
+function get_range return integer is
+begin
+return MAX_VALUE - MIN_VALUE;
+end function get_range;
+} file_name simple_deferred.vhd line 16 name deferred_pkg} packages {{components {} declarations {{comment {Deferred constant in package declaration, defined in package body} init {} kind constant line 7 name MAX_VALUE type integer} {comment {Deferred constant (no value here)} init {} kind constant line 8 name MIN_VALUE type integer} {init 128 kind constant line 11 name MID_VALUE type integer} {kind function line 13 name get_range params {} purity pure return integer}} declarative {constant MAX_VALUE : integer;
+constant MIN_VALUE : integer;
+
+
+constant MID_VALUE : integer := 128;
+
+function get_range return integer;
+} file simple_deferred.vhd generics {} line 5 name deferred_pkg ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}
