@@ -81,25 +81,25 @@ proc checkSection {iniDict section keys} {
 if {[catch {
     # Read converted INI
     set convertedIni [::aurig::core::util::readIni $iniOut]
-    
+
     puts "\n  Checking \[board\] section:"
     foreach line [checkSection $convertedIni board {xdc_files sdc_files}] {
         puts "    $line"
     }
-    
+
     puts "\n  Checking \[sim\] section:"
     foreach line [checkSection $convertedIni sim {top_tb tb_lib run_time}] {
         puts "    $line"
     }
-    
+
     puts "\n  Checking \[includes\] section:"
     foreach line [checkSection $convertedIni includes {global}] {
         puts "    $line"
     }
-    
+
     # Read converted YAML
     set convertedYaml [::aurig::core::util::readYaml $yamlOut]
-    
+
     puts "\n  Checking YAML board section:"
     if {[dict exists $convertedYaml board]} {
         set board [dict get $convertedYaml board]
@@ -112,7 +112,7 @@ if {[catch {
     } else {
         puts "    board section: MISSING"
     }
-    
+
     puts "\n  Checking YAML sim section:"
     if {[dict exists $convertedYaml sim]} {
         set sim [dict get $convertedYaml sim]
@@ -124,14 +124,14 @@ if {[catch {
     } else {
         puts "    sim section: MISSING"
     }
-    
+
     puts "\n  Checking YAML include_dirs_global:"
     if {[dict exists $convertedYaml include_dirs_global]} {
         puts "    include_dirs_global: [dict get $convertedYaml include_dirs_global]"
     } else {
         puts "    include_dirs_global: MISSING"
     }
-    
+
 } err]} {
     puts "  ✗ ERROR during validation: $err"
     puts $::errorInfo

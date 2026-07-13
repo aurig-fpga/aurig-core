@@ -3,20 +3,20 @@
 --=============================================================================
 -- Module Name :
 -- Library     :
--- Project     : 
+-- Project     :
 -- Company     :
--- Author      : 
+-- Author      :
 -------------------------------------------------------------------------------
 -- Description  :
--- 
--- 
+--
+--
 -------------------------------------------------------------------------------
 -- Revision History:
 -- Date        Version  Author         Description
--- 
--- 
+--
+--
 --=============================================================================
-library 
+library
 ieee
 ;
 
@@ -31,8 +31,8 @@ all
 ;
 
 
-entity test_entity is 
-generic 
+entity test_entity is
+generic
 ( g_1 : integer :=
 9;
 g_2 : std_logic_vector(1 downto 0)
@@ -64,13 +64,13 @@ architecture a_test of test_entity is -- comment in a_test line
     return v_myvar;
   end;
   constant C_TEST : integer := 19; -- a cnstant
-  
+
   -- tes comment signal s_2
   signal s_2 : std_logic_vector(14 downto 0) := "--0"&x"ACB"; --comment in s_2 line
   --
   signal s_3 : std_logic_vector(1 downto 0);
   shared variable v_myvar2 : std_logic_vector(1 downto 0) := "10";
-  
+
   component my_test_com_decl is
     generic (
       G_COM_1 : integer := 5
@@ -79,7 +79,7 @@ architecture a_test of test_entity is -- comment in a_test line
           p_b : out std_logic_vector(3 downto 0));
   end component;
 begin
-  
+
   -- test comment process
   proc_test: process(p_2)
    variable v_1 : boolean := true; -- test comment in v_1 -- line
@@ -94,7 +94,7 @@ begin
   end process proc_test;
 
   assert false report "-- this is a string not a comment" severity note; -- this is a comment in report line
-      
+
 
 	process(s_1)
 		function test(test : in std_logic := '0'; test2 : boolean) return std_logic_vector is
@@ -113,7 +113,7 @@ begin
 		end;
 	begin
 		s_3 <= test(s_1,false);
-	end process;	
+	end process;
 
   -- instantiation section
   u_my_test_com_inst : my_test_com_decl
@@ -124,7 +124,7 @@ begin
       p_a => s_1,
       p_b => s_3
     );
-		
+
     -- direct instantiation
     u_my_test_com_inst2 : entity work.my_test_direct_inst
       generic map (
@@ -135,6 +135,6 @@ begin
         p_a => s_2(0),
         p_b => s_3
       );
-  
+
 end; -- architecture a_test
 --=============================================================================

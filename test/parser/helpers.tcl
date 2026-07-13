@@ -20,7 +20,7 @@ namespace eval ::aurig::core::test::parser {
     proc normalize_parse_dict {parseDict} {
         return [normalize_dict_recursive $parseDict {}]
     }
-    
+
     proc _path_matches {path pattern} {
         if {[llength $path] != [llength $pattern]} {
             return 0
@@ -162,24 +162,24 @@ namespace eval ::aurig::core::test::parser {
             }
         }
     }
-    
+
     # Convert dictionary to canonical string format (sorted, indented)
     # for diff-friendly output
     proc dict_to_canonical_string {d {indent 0}} {
         set result ""
         set prefix [string repeat "  " $indent]
-        
+
         if {![string is list $d] || [llength $d] % 2 != 0} {
             return $d
         }
-        
+
         if {[catch {dict keys $d}]} {
             return $d
         }
-        
+
         foreach key [lsort [dict keys $d]] {
             set value [dict get $d $key]
-            
+
             # Check if value is a nested dict
             set is_nested_dict 0
             if {[string is list $value] && [llength $value] % 2 == 0} {
@@ -187,7 +187,7 @@ namespace eval ::aurig::core::test::parser {
                     set is_nested_dict 1
                 }
             }
-            
+
             if {$is_nested_dict} {
                 append result "${prefix}${key} \{\n"
                 append result [dict_to_canonical_string $value [expr {$indent + 1}]]
@@ -198,51 +198,51 @@ namespace eval ::aurig::core::test::parser {
                 append result "${prefix}${key} ${escaped_value}\n"
             }
         }
-        
+
         return $result
     }
-    
+
     # Find all VHDL fixture files recursively
     proc find_fixture_files {fixtures_dir} {
         set files [list]
-        
+
         # Recursively find all .vhd files
         foreach file [glob -nocomplain -types f [file join $fixtures_dir *.vhd]] {
             lappend files $file
         }
-        
+
         # Check subdirectories
         foreach dir [glob -nocomplain -types d [file join $fixtures_dir *]] {
             set subfiles [find_fixture_files $dir]
             set files [concat $files $subfiles]
         }
-        
+
         return [lsort $files]
     }
-    
+
     # Get the expected output filename for a given fixture
     proc get_expected_filename {fixture_path fixtures_dir expected_dir} {
         # Get relative path from fixtures dir
         set rel_path [file_relative_to $fixture_path $fixtures_dir]
-        
+
         # Replace .vhd with .expected
         set expected_name [file rootname $rel_path].expected
-        
+
         # Replace directory separators with underscores to flatten structure
         set expected_name [string map {/ _ \\ _} $expected_name]
-        
+
         return [file join $expected_dir $expected_name]
     }
-    
+
     # Calculate relative path
     proc file_relative_to {path base} {
         set path [string map {\\ /} $path]
         set base [string map {\\ /} $base]
-        
+
         # Convert to lists of path components
         set path_parts [file split $path]
         set base_parts [file split $base]
-        
+
         # Find common prefix
         set common 0
         foreach p $path_parts b $base_parts {
@@ -252,54 +252,54 @@ namespace eval ::aurig::core::test::parser {
                 break
             }
         }
-        
+
         # Build relative path
         set rel_parts [lrange $path_parts $common end]
         return [eval file join $rel_parts]
     }
-    
+
     # Compare two dictionaries and return detailed differences
     proc compare_dicts {dict1 dict2 {path ""}} {
         set differences [list]
-        
+
         # Get all keys from both dicts
         set all_keys [lsort -unique [concat [dict keys $dict1] [dict keys $dict2]]]
-        
+
         foreach key $all_keys {
             set current_path [expr {$path eq "" ? $key : "${path}.${key}"}]
-            
+
             set has_key1 [dict exists $dict1 $key]
             set has_key2 [dict exists $dict2 $key]
-            
+
             if {!$has_key1} {
                 lappend differences "Missing in actual: $current_path"
                 continue
             }
-            
+
             if {!$has_key2} {
                 lappend differences "Extra in actual: $current_path"
                 continue
             }
-            
+
             set val1 [dict get $dict1 $key]
             set val2 [dict get $dict2 $key]
-            
+
             # Check if both are dicts
             set is_dict1 0
             set is_dict2 0
-            
+
             if {[string is list $val1] && [llength $val1] % 2 == 0} {
                 if {![catch {dict keys $val1}]} {
                     set is_dict1 1
                 }
             }
-            
+
             if {[string is list $val2] && [llength $val2] % 2 == 0} {
                 if {![catch {dict keys $val2}]} {
                     set is_dict2 1
                 }
             }
-            
+
             if {$is_dict1 && $is_dict2} {
                 # Recursively compare nested dicts
                 set nested_diffs [compare_dicts $val1 $val2 $current_path]
@@ -308,47 +308,47 @@ namespace eval ::aurig::core::test::parser {
                 lappend differences "Mismatch at $current_path:\n  Expected: $val2\n  Actual:   $val1"
             }
         }
-        
+
         return $differences
     }
-    
+
     # Load expected results from file
     proc load_expected {filename} {
         if {![file exists $filename]} {
             error "Expected file not found: $filename"
         }
-        
+
         set fh [open $filename r]
         set content [read $fh]
         close $fh
-        
+
         # Content is a Tcl dict; normalize it too so legacy expected files do
         # not encode launch-environment-specific absolute paths.
         return [normalize_parse_dict $content]
     }
-    
+
     # Parse canonical string format back to dictionary
     proc string_to_dict {content} {
         set result [dict create]
         set lines [split $content "\n"]
         set stack [list $result]
         set key_stack [list]
-        
+
         foreach line $lines {
             if {[string trim $line] eq ""} continue
-            
+
             # Count indentation
             set indent [expr {[string length $line] - [string length [string trimleft $line]]}]
             set level [expr {$indent / 2}]
             set trimmed [string trim $line]
-            
+
             # Handle closing braces
             if {$trimmed eq "\}"} {
                 set stack [lrange $stack 0 end-1]
                 set key_stack [lrange $key_stack 0 end-1]
                 continue
             }
-            
+
             # Parse key-value or key with nested dict
             if {[regexp {^(\S+)\s+\{$} $trimmed -> key]} {
                 # Start of nested dict
@@ -364,10 +364,10 @@ namespace eval ::aurig::core::test::parser {
                 dict set [lindex $stack end] $key $actual_value
             }
         }
-        
+
         return $result
     }
-    
+
     # Save expected results to file
     proc save_expected {filename normalized_dict} {
         # Simply save the dict as a Tcl list (most reliable format)
@@ -375,11 +375,11 @@ namespace eval ::aurig::core::test::parser {
         puts $fh $normalized_dict
         close $fh
     }
-    
+
     # Print test results in a clear format
     proc print_test_result {fixture_name status {details ""}} {
         set status_str [format "%-6s" $status]
-        
+
         if {$status eq "PASS"} {
             puts "  \[✓\] $status_str $fixture_name"
         } elseif {$status eq "FAIL"} {
@@ -396,7 +396,7 @@ namespace eval ::aurig::core::test::parser {
             }
         }
     }
-    
+
     # Summary report
     proc print_summary {total passed failed skipped {xfail 0} {xpass 0} {strict_mode 0}} {
         puts "\n=========================================="
@@ -413,13 +413,13 @@ namespace eval ::aurig::core::test::parser {
         }
         puts "Skipped: $skipped"
         puts "=========================================="
-        
+
         # In strict mode, XFAIL counts as real failures
         set effective_failures $failed
         if {$strict_mode} {
             set effective_failures [expr {$failed + $xfail}]
         }
-        
+
         if {$effective_failures == 0 && $xpass == 0} {
             puts "✓ All tests passed!"
             return 0
@@ -436,78 +436,78 @@ namespace eval ::aurig::core::test::parser {
             return 1
         }
     }
-    
+
     # Check if a fixture is a known failure
     proc is_known_failure {fixture_path} {
         set normalized_path [file normalize $fixture_path]
         return [string match "*known_failures*" $normalized_path]
     }
-    
+
     # Check if a fixture is invalid syntax (should be rejected by parser)
     proc is_invalid_syntax {fixture_path} {
         set normalized_path [file normalize $fixture_path]
         return [string match "*invalid_syntax*" $normalized_path]
     }
-    
+
     # Extract XFAIL reason from fixture file
     proc get_xfail_reason {fixture_path} {
         set fh [open $fixture_path r]
         set first_line [gets $fh]
         close $fh
-        
+
         # Look for XFAIL: marker in first line
         if {[regexp {^--\s*XFAIL:\s*(.+)$} $first_line -> reason]} {
             return [string trim $reason]
         }
-        
+
         return "No reason specified"
     }
-    
+
     # Extract invalid syntax reason from fixture file
     proc get_invalid_syntax_reason {fixture_path} {
         set fh [open $fixture_path r]
         set first_line [gets $fh]
         close $fh
-        
+
         # Look for INVALID_SYNTAX: marker in first line
         if {[regexp {^--\s*INVALID_SYNTAX:\s*(.+)$} $first_line -> reason]} {
             return [string trim $reason]
         }
-        
+
         return "Invalid VHDL syntax"
     }
-    
+
     # Print XFAIL result
     proc print_xfail_result {fixture_name reason} {
         puts "  \[X\] XFAIL  $fixture_name"
         puts "        Reason: $reason"
     }
-    
+
     # Print XPASS result
     proc print_xpass_result {fixture_name reason} {
         puts "  \[!\] XPASS  $fixture_name"
         puts "        This test was expected to fail but passed!"
         puts "        Reason: $reason"
     }
-    
+
     # Print invalid syntax result (parser correctly rejected)
     proc print_invalid_syntax_pass {fixture_name reason} {
         puts "  \[✓\] PASS   $fixture_name (invalid syntax rejected)"
     }
-    
+
     # Print invalid syntax failure (parser accepted invalid syntax)
     proc print_invalid_syntax_fail {fixture_name reason} {
         puts "  \[✗\] FAIL   $fixture_name"
         puts "        Parser accepted invalid VHDL syntax (should reject)"
         puts "        Reason: $reason"
     }
-    
+
     # Verify comment association for a specific declaration
     # Returns 1 if comment exists, 0 if not
     # This helper can be used for custom assertions about comment presence
     proc has_comment {parsed_dict path_list} {
         set current $parsed_dict
-        
+
         # Navigate through the path
         foreach key $path_list {
             if {![dict exists $current $key]} {
@@ -515,7 +515,7 @@ namespace eval ::aurig::core::test::parser {
             }
             set current [dict get $current $key]
         }
-        
+
         # Check if current location has a comment field
         if {[string is list $current] && [llength $current] % 2 == 0} {
             if {![catch {dict keys $current}]} {
@@ -523,15 +523,15 @@ namespace eval ::aurig::core::test::parser {
                 return [dict exists $current comment]
             }
         }
-        
+
         return 0
     }
-    
+
     # Extract comment text from a declaration
     # Returns empty string if no comment exists
     proc get_comment {parsed_dict path_list} {
         set current $parsed_dict
-        
+
         # Navigate through the path
         foreach key $path_list {
             if {![dict exists $current $key]} {
@@ -539,7 +539,7 @@ namespace eval ::aurig::core::test::parser {
             }
             set current [dict get $current $key]
         }
-        
+
         # Get comment if it exists
         if {[string is list $current] && [llength $current] % 2 == 0} {
             if {![catch {dict keys $current}]} {
@@ -548,7 +548,7 @@ namespace eval ::aurig::core::test::parser {
                 }
             }
         }
-        
+
         return ""
     }
 

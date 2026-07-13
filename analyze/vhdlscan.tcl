@@ -27,7 +27,7 @@ namespace eval ::aurig::core::analyze {
 		upvar 1 $parseDict localDict
 		if {![dict exists $localDict comments]} {return}
 		if {![dict exists $localDict comments line]} {return}
-		
+
 		set author ""
 		set module_name ""
 		set library ""
@@ -38,20 +38,20 @@ namespace eval ::aurig::core::analyze {
 		set in_header 1
 		set in_desc 0
 		set in_notes 0
-		
+
 		# Iterate through comments by line number
 		set comment_dict [dict get $localDict comments line]
 		set sorted_lines [lsort -integer [dict keys $comment_dict]]
 		foreach line $sorted_lines {
 			if {$line > 50} break ;# Only check first 50 lines for header
 			set cmt [dict get $comment_dict $line comment]
-			
+
 			# Check for end of header (long separator or library keyword)
 			if {[regexp {^[-=]{10,}} $cmt] && [string length $description] > 0} {
 				set in_header 0
 				break
 			}
-			
+
 			if {$in_header} {
 				if {[regexp -nocase {^[\s*]*Module Name\s*:\s*(.+)$} $cmt -> val]} {
 					set module_name [string trim $val]
@@ -96,14 +96,14 @@ namespace eval ::aurig::core::analyze {
 				}
 			}
 		}
-		
+
 		# Store metadata in parseDict
 		if {$author ne ""} {dict set localDict metadata author $author}
 		if {$module_name ne ""} {dict set localDict metadata module_name $module_name}
 		if {$library ne ""} {dict set localDict metadata library $library}
 		if {$project ne ""} {dict set localDict metadata project $project}
 		if {$company ne ""} {dict set localDict metadata company $company}
-		
+
 		# Combine description and notes
 		set full_description ""
 		if {$description ne ""} {
@@ -467,26 +467,26 @@ namespace eval ::aurig::core::analyze {
 			puts "ACARSER: VHDL parser, parsing input file $vhdFile, verbosity $verbose, linting $lint_msg"
 			puts "started [clock format $systemTime -format %D] at [clock format $systemTime -format %H:%M:%S]"
 		}
-		
+
 		# initialize dictionary
 		# set parseDict [dict create]
 		set parseDict [::aurig::core::analyze::init $vhdFile]
-		
+
 		# read input file into a string
 		if {[catch {set fh [open $vhdFile r]} err] } {
 			error "ERROR: Could not open file $vhdFile: $err"
 			return
-		} 
+		}
 		set content [read $fh]
 		close $fh
 
 		if {$lint_enabled} {
 			::aurig::core::analyze::_validate_vhdl_lint_syntax $content $vhdFile
 		}
-		
+
 		# init line number
 		set linenum 0
-		
+
 		# REMOVE TRAILING WHITESACES FROM EACH LINE
 		# split the line in multiple lines
 		set records [split $content "\n"]
@@ -543,14 +543,14 @@ namespace eval ::aurig::core::analyze {
 		# a entity declaration
 		# and so on
 		# lets try it
-		
+
 		while {[string length $file4parser] > 0} {
 			# comments
 			# non-greedy regexp, we want to find the first match (TCL seems to use
 			# non-greedy if you put a non greedy \s*? at the beginning)
 			# to parse multiline comments i searched for a \n without a --
-		
-	
+
+
 			if {[regexp -nocase -- "$::aurig::core::util::re::re_library_decl" $file4parser -> res libraryName]} {
 				if {$verbose >= 2} {puts "library $libraryName at $linenum"}
 				parse_library file4parser $res parseDict linenum $libraryName $lint
@@ -577,7 +577,7 @@ namespace eval ::aurig::core::analyze {
 			} else {
 				# parse a single line
 				regexp {(.*?)\n} $file4parser -> res
-				incr linenum	
+				incr linenum
 				# update line counter and trim file string of the parsed part
 				update_buffer file4parser 1
 			}
@@ -585,29 +585,29 @@ namespace eval ::aurig::core::analyze {
 			#set lineincr [expr {[update_line $res] + 1}]
 			#set linenum  [expr {$linenum + $lineincr}]
 			#set file4parser [update_buffer $file4parser $lineincr]
-			
+
 		}
 		return $parseDict
 	}
 
-		
+
 	proc parse_declarative_part {parseDict declarative_part lint verbose n {commentDict {}} {context "architecture"}} {
 		#upvar 1 $linenum n
 		upvar 1 $parseDict localDict
-		
+
 		# Determine which add function to use based on context
 		if {$context eq "package"} {
 			set add_decl_func "::aurig::core::analyze::add_decl_pkg"
 		} else {
 			set add_decl_func "::aurig::core::analyze::add_decl"
 		}
-		
+
 		# scan for signals declarations
 		set sig_dict [::aurig::core::analyze::_scan_architecture_signals $declarative_part $n $commentDict]
 		# update dictionary
 		foreach item $sig_dict {
 			set l_list {}
-			lappend l_list type [dict get $item type] 
+			lappend l_list type [dict get $item type]
 			lappend l_list init [dict get $item init]
 			if {[dict exists $item comment]} {
 				lappend l_list comment [dict get $item comment]
@@ -619,9 +619,9 @@ namespace eval ::aurig::core::analyze {
 		# update dictionary
 		foreach item $var_dict {
 			set l_list {}
-			lappend l_list type [dict get $item type] 
-			lappend l_list init [dict get $item init] 
-			lappend l_list 
+			lappend l_list type [dict get $item type]
+			lappend l_list init [dict get $item init]
+			lappend l_list
 			{*}$add_decl_func localDict "variable" [dict get $item name] [dict get $item line] {*}$l_list
 		}
 		# scan  for constants declarations
@@ -629,15 +629,15 @@ namespace eval ::aurig::core::analyze {
 		# update dictionary
 		foreach item $const_dict {
 			set l_list {}
-			lappend l_list type [dict get $item type] 
+			lappend l_list type [dict get $item type]
 			lappend l_list init [dict get $item init]
 			if {[dict exists $item comment]} {
 				lappend l_list comment [dict get $item comment]
 			}
-			lappend l_list 
+			lappend l_list
 			{*}$add_decl_func localDict "constant" [dict get $item name] [dict get $item line] {*}$l_list
 		}
-		
+
 		# scan for function declarations
 		set func_dict [::aurig::core::analyze::_scan_functions $declarative_part $n $commentDict]
 		# update dictionary
@@ -685,7 +685,7 @@ namespace eval ::aurig::core::analyze {
 
 
 	}
-		
+
 	#the parseGenerics procedure expects a "port" construct in the input text string, which is the case with entity or component declarations, might not be te case with testbenches
 	proc parseGenerics {text} {
 		if {[regexp -nocase {[\s\n]*?generic[\s\n]*\((.*)(?:\)[\s\n]*;[\s\n]*port|\)[\s\n]*;[\s\n]*end)} $text -> genericList]} {
@@ -694,7 +694,7 @@ namespace eval ::aurig::core::analyze {
 			set generics {}
 			set lines [split $genericList "\n"]
 			set current_item ""
-			
+
 			foreach line $lines {
 				set trimmed [string trim $line]
 				# If line is a comment or part of declaration, accumulate
@@ -727,7 +727,7 @@ namespace eval ::aurig::core::analyze {
 			set ports {}
 			set lines [split $portList "\n"]
 			set current_item ""
-			
+
 			foreach line $lines {
 				set trimmed [string trim $line]
 				# If line is a comment or part of declaration, accumulate
@@ -750,7 +750,7 @@ namespace eval ::aurig::core::analyze {
 		}
 		return $ports
 	}
-		
+
 
 	proc parse_package_body_content {parseDict package_body lint verbose n} {
 			# upvar 1 $linenum n
@@ -819,7 +819,7 @@ namespace eval ::aurig::core::analyze {
 		set n  [expr {$n + $lineincr}]
 		update_buffer localBuffer $lineincr
 		# if linting is active, check for library name
-		
+
 	}
 	proc parse_library_use {fileBuffer buffer parseDict linenum libraryName packageUsed suffix} {
 		# this procedure read the whole current fileBuffer
@@ -843,26 +843,26 @@ namespace eval ::aurig::core::analyze {
 		set lineincr [expr {[update_line $buffer] + 1}]
 		set n  [expr {$n + $lineincr}]
 		update_buffer localBuffer $lineincr
-		
+
 	}
 	proc parse_package_decl {fileBuffer buffer parseDict linenum packageName pkgDeclPart filename} {
 		# this procedure read the whole current fileBuffer
 		# remove the buffer from the beginning of the fileBuffer
 		# update parseDict adding a package item
-		# <package>       <name>          packageName 
+		# <package>       <name>          packageName
 		#                 <file>          packageFile
-		#                 <declarative>   pkgDeclPart 
+		#                 <declarative>   pkgDeclPart
 		# update linenum, considering the parsed lines in buffer
 		upvar 1 $linenum n
 		upvar 1 $fileBuffer localBuffer
 		upvar 1 $parseDict localDict
-		
+
 		# Extract comment dict from localDict for use in parsing
 		set commentDict {}
 		if {[dict exists $localDict comments line]} {
 			set commentDict [dict get $localDict comments line]
 		}
-		
+
 		# Calculate the actual starting line of pkgDeclPart
 		# The regex captures everything after "package name is", but $n is at "package"
 		# We need to count newlines in the buffer up to where pkgDeclPart starts
@@ -875,7 +875,7 @@ namespace eval ::aurig::core::analyze {
 			# Fallback if we can't find it (shouldn't happen)
 			set declStartLine $n
 		}
-		
+
 		# update dictionary using add_package function
 		::aurig::core::analyze::add_package localDict $packageName $filename $n $pkgDeclPart
 		# extract info from declarative part with comment dict - use corrected line number
@@ -884,7 +884,7 @@ namespace eval ::aurig::core::analyze {
 		set lineincr [expr {[update_line $buffer] + 1}]
 		set n  [expr {$n + $lineincr}]
 		update_buffer localBuffer $lineincr
-		
+
 	}
 
 	proc parse_package_body {fileBuffer buffer parseDict linenum packageName pkgBodyPart filename verbose} {
@@ -995,9 +995,9 @@ namespace eval ::aurig::core::analyze {
 		# this procedure read the whole current fileBuffer
 		# remove the buffer from the beginning of the fileBuffer
 		# update parseDict adding a package item
-		# <package>       <name>          packageName 
+		# <package>       <name>          packageName
 		#                 <file>          packageFile
-		#                 <body>   		  pkgBodyPart 
+		#                 <body>   		  pkgBodyPart
 		# update linenum, considering the parsed lines in buffer
 		upvar 1 $linenum n
 		upvar 1 $fileBuffer localBuffer
@@ -1005,7 +1005,7 @@ namespace eval ::aurig::core::analyze {
 		# search for packageName in the dictionary (should have been defined)
 		# if not present create a new instance
 		# else update info with the package body
-		
+
 		# Capture entity comment from previous lines (look back up to 10 lines)
 		set entity_comment ""
 		if {[dict exists $localDict comments line]} {
@@ -1031,23 +1031,23 @@ namespace eval ::aurig::core::analyze {
 				}
 			}
 		}
-		
+
 		::aurig::core::analyze::begin_entity localDict $entityName $filename $n $entity_comment
 
 		# update dictionary
 		# dict set localDict entity name $entityName
 		# dict set localDict entity file_name [file normalize [info script]]
 		# dict set localDict entity line $n
-		
+
 		# update line counter and trim file string of the parsed part
 		set entity_start_line $n
 		set lineincr [expr {[update_line $buffer] + 1}]
 		set n  [expr {$n + $lineincr}]
 		update_buffer localBuffer $lineincr
-		
+
 		# Build a mapping from generic/port text to their line numbers
 		# by counting newlines in the entity header
-		
+
 		set localGenericList [parseGenerics $buffer]
 		set localPortList [parsePorts $buffer]
 		# set component entry in dictionary
@@ -1086,7 +1086,7 @@ namespace eval ::aurig::core::analyze {
 				set text_before [string range $buffer 0 $gen_pos]
 				set newline_count [regexp -all {\n} $text_before]
 				set actual_line [expr {$entity_start_line + $newline_count}]
-				
+
 				# Look for comment on the line before
 				if {[dict exists $localDict comments line]} {
 					set comment_dict [dict get $localDict comments line]
@@ -1105,7 +1105,7 @@ namespace eval ::aurig::core::analyze {
 					}
 				}
 			}
-			
+
 			# LINT-PARSER-DEBT-037: optionally consume `in` mode keyword
 			# between `:` and `<type>`. VHDL allows generics to declare
 			# mode (`in` only, since `out`/`inout` generics are exotic
@@ -1140,7 +1140,7 @@ namespace eval ::aurig::core::analyze {
 				} else {
 					set genericInitValue ""
 				}
-				
+
 				::aurig::core::analyze::add_generic localDict $genericName $genericType $actual_line $genericInitValue $generic_comment
 				# dict set localDict line $n type "entity" name $entityName generic $genericName genericType $genericType genericInit $genericInitValue
 
@@ -1165,7 +1165,7 @@ namespace eval ::aurig::core::analyze {
 				set text_before [string range $buffer 0 $port_pos]
 				set newline_count [regexp -all {\n} $text_before]
 				set actual_line [expr {$entity_start_line + $newline_count}]
-				
+
 				# Look for comment on the line before
 				if {[dict exists $localDict comments line]} {
 					set comment_dict [dict get $localDict comments line]
@@ -1184,7 +1184,7 @@ namespace eval ::aurig::core::analyze {
 					}
 				}
 			}
-			
+
 			# parse port item - modified regex to allow optional semicolon for last port
 			set port_regex {([a-zA-Z]+[a-zA-Z0-9_]*)[\s\n]*:[\s\n]*(in|out|inout|buffer)[\s\n]+([a-zA-Z]+[a-zA-Z0-9_]*|[a-zA-Z]+[a-zA-Z0-9_]*\([a-zA-Z0-9_'\" \+\*-\/]*\))[\s\n]*(;|:=[\s\n]*([a-zA-Z0-9_'" =><\+\*-\/\(\)]*)|[\s\n]*$)}
 			if {[regexp $port_regex $port -> portName portMode portType portInit]} {
@@ -1210,9 +1210,9 @@ namespace eval ::aurig::core::analyze {
 		# remove the buffer from the beginning of the fileBuffer
 		# update parseDict adding a package item
 		# <architecture>  <name>          arch_name
-		# 				  <entity>        name of associated entity  
-		#                 <decl_section>  declaration_section 
-		#                 <body_section>  arch_body_section 
+		# 				  <entity>        name of associated entity
+		#                 <decl_section>  declaration_section
+		#                 <body_section>  arch_body_section
 		# update linenum, considering the parsed lines in buffer
 		upvar 1 $linenum n
 		upvar 1 $fileBuffer localBuffer
@@ -1220,13 +1220,13 @@ namespace eval ::aurig::core::analyze {
 		# search for packageName in the dictionary (should have been defined)
 		# if not present create a new instance
 		# else update info with the package body
-	
+
 		# Extract comment dict from localDict for use in parsing
 		set commentDict {}
 		if {[dict exists $localDict comments line]} {
 			set commentDict [dict get $localDict comments line]
 		}
-	
+
 		# update dictionary
 		# dict set localDict architecture $architectureName
 		# dict set localDict architecture $architectureName file_name [file normalize [info script]]
@@ -1251,25 +1251,25 @@ namespace eval ::aurig::core::analyze {
 		set lineincr [expr {[update_line $archBody] + 1}]
 		set n  [expr {$n + $lineincr}]
 		update_buffer localBuffer $lineincr
-	}	
-		
+	}
+
 	proc match_parenthesis {instring} {
-		
+
 		# the procedure return a string from the first opening parenthesis to the corresponding closing one
 		# it can be used to parse procedures, functions, entities, components declarations
 		# the regex matching \(((.*)\); cant be used as fìlter might be a port with std_logic_vector(1 downto ); in between
 		# and the non-greedy regexp might fail
-		
+
 		# serahc indexes of the opening parenthesis in the input string
 		set b [regexp -all -indices -inline \\( $instring]
 		# the closing ones
 		set c [regexp -all -indices -inline \\) $instring]
-		
+
 		# initialize with all zeros, then put a +1 when a parenthesis is opened and a -1 when it is closed
 		set n [split [string repeat 0 [string length $instring]] {}]
 		foreach x $b { lset n [lindex $x 0] +1 }
 		foreach x $c { lset n [lindex $x 0] -1 }
-		
+
 		# increase a counter when a +1 is detected, decrease it when a -1 is encountered
 		# is this way we might find parenthesis matching looking at zeros
 		set l 0
@@ -1277,7 +1277,7 @@ namespace eval ::aurig::core::analyze {
 		foreach x $n {
 			append r [incr l $x]
 		}
-		
+
 		# search from first parenthesis to end
 		set r_cut [string range $r [string first 1 $r] [string length $r]]
 		set stop_idx_tmp [string first 0 $r_cut]
@@ -1286,7 +1286,7 @@ namespace eval ::aurig::core::analyze {
 		set rem [string range $instring [expr $stop_idx_tmp + $first_par_indx + 1] [string length $instring]]
 		set close_idx [string first ";" $rem]
 		return [string range $instring 0 [expr $stop_idx_tmp + $first_par_indx + $close_idx + 1]]
-	
+
 	}
 
 	# update line counter, counts the number of \n in the parsed string
@@ -1325,7 +1325,7 @@ namespace eval ::aurig::core::analyze {
 		# Usage: print_dict dictionaryValue ?nest_level? ?verbosity?
 		# where dictionaryValue is the result of parsing, passed by value
 		# verbosity: controls output level (default 1)
-		
+
 		# check if argument is a dictionary
 		if {![isDict $my_dict]} {
 			error "ERROR: argument is not a dictionary"
@@ -1356,5 +1356,3 @@ namespace eval ::aurig::core::analyze {
 	namespace export vhdlscan
 
 }
-
-

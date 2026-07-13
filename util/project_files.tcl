@@ -20,23 +20,23 @@ proc ::aurig::core::util::_norm {p} {
 }
 proc ::aurig::core::util::_rel {full root} {
     if {$root eq ""} { return $full }
-    
+
     # Normalize separators for comparison without depending on file normalize.
     set fullN [string map {\\ /} $full]
     set rootN [string map {\\ /} $root]
-    
+
     # Try tcllib fileutil::relative if available
     if {![catch {package require fileutil}]} {
         if {![catch {fileutil::relative $rootN $fullN} rel]} {
             return [file join {*}[file split $rel]]
         }
     }
-    
+
     # Fallback: manual relative path calculation
     # Convert to lowercase for case-insensitive comparison on Windows
     set fullL [string tolower $fullN]
     set rootL [string tolower $rootN]
-    
+
     # Check if full path starts with root
     if {[string match "${rootL}*" $fullL]} {
         set cut [string length $rootN]
@@ -45,7 +45,7 @@ proc ::aurig::core::util::_rel {full root} {
         set rel [string trimleft $rel {/\\}]
         return $rel
     }
-    
+
     # If not under root, return just the filename
     return [file tail $fullN]
 }
@@ -408,13 +408,13 @@ proc ::aurig::core::util::_collect_from_ise_xise {xisePath root} {
 
     # ISE uses <file xil_pn:name="..." xil_pn:type="FILE_*">
     set fileRE {<file\s+xil_pn:name="([^"]+)"\s+xil_pn:type="([^"]+)"[^>]*>}
-    
+
     set pos 0
     while {[regexp -indices -start $pos -nocase $fileRE $xml m fPath fType]} {
         set pos [lindex $m 1]
         set relPath [string range $xml [lindex $fPath 0] [lindex $fPath 1]]
         set fileType [string range $xml [lindex $fType 0] [lindex $fType 1]]
-        
+
         # Convert ISE file types to our types
         set type "other"
         switch -glob -- $fileType {
@@ -427,11 +427,11 @@ proc ::aurig::core::util::_collect_from_ise_xise {xisePath root} {
             "FILE_XDC"           { set type "xdc" }
             "FILE_TCL"           { set type "tcl" }
         }
-        
+
         # Resolve path relative to project directory
         set full [::aurig::core::util::resolve_path $relPath $projDir]
         set ext [::aurig::core::util::_ext $full]
-        
+
         set rec [dict create \
             name [file tail $full] \
             ext  $ext \
