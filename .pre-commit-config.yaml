@@ -1,0 +1,51 @@
+# Pre-commit hooks for aurig-core
+# Run on every commit (locally + CI).
+# Install locally: pip install pre-commit && pre-commit install && pre-commit install --hook-type commit-msg
+#
+# Revs are aligned with aurig-sentinel's .pre-commit-config.yaml; keep the
+# three Tcl repos (doc/core/lint) and sentinel on the same pins.
+#
+# Repo-context excludes on the three rewriting hooks (beyond the shared
+# \.(bat|ps1)$ rule):
+#   - schema/manifest-v1.json: vendored canonical contract, deliberately CRLF
+#     and marked -text in .gitattributes; any byte change trips the in-tree
+#     SHA-256 drift guard (test/test_schema_drift.tcl).
+#   - test/parser/fixtures/: byte-sensitive parser inputs for the golden-file
+#     tests (test/parser/expected_doc/); whitespace there may be intentional.
+
+repos:
+  # Standard hygiene
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '\.(bat|ps1)$|^schema/manifest-v1\.json$|^test/parser/fixtures/'
+      - id: end-of-file-fixer
+        exclude: '\.(bat|ps1)$|^schema/manifest-v1\.json$|^test/parser/fixtures/'
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+        exclude: '\.(bat|ps1)$|^schema/manifest-v1\.json$|^test/parser/fixtures/'
+
+  # Secrets scanner. CI is the authoritative run; local runs may fail to
+  # build gitleaks on restricted networks (proxy.golang.org TLS) -- skip
+  # locally with SKIP=gitleaks if that bites.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.0
+    hooks:
+      - id: gitleaks
+
+  # Custom local hooks
+  - repo: local
+    hooks:
+      - id: no-ai-attribution
+        name: Block AI attribution in commit messages
+        language: pygrep
+        # KEEP IN SYNC (verbatim) with the no-ai-attribution job in
+        # .github/workflows/ci.yml -- same pattern, same escaping.
+        entry: '(?i)(co-authored-by:.*(claude|copilot|codex|anthropic|openai|chatgpt)|assisted-by:.*(claude|copilot|codex|anthropic|openai|chatgpt)|generated.with.*(claude|copilot|codex|anthropic|openai|chatgpt)|noreply@anthropic\.com|🤖.*generated)'
+        stages: [commit-msg]
