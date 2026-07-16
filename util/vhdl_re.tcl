@@ -7,21 +7,21 @@ namespace eval ::aurig::core::util::re {
   # regexps shall be enclosed between (), as the whole group shall be
   # used to be removed from the file buffer, when parsed
   # file to be parse has leading whitespaces removed so we have to search from beginning of the line
-  
+
   # common variables
   # identifier
   variable re_id {[a-zA-Z]+[a-zA-Z0-9_]*}
-  
+
   variable re_id_ext {[a-zA-Z0-9_\'\"\s\+\*-\/]*}
-    
-  ###############################################################################  
+
+  ###############################################################################
   # for each regexp the returning blocks are described
-  
+
   # library declaration
   # description: non greedy library keyword up to ";"
   # 1. library name
   variable re_library_decl {^(library[\s\n]+?([a-zA-Z]+[a-zA-Z0-9_]*)[\s\n]*;)}
-  
+
   # library use
   # description: parses the library use — use with -nocase flag
   # 1. library name
@@ -36,7 +36,7 @@ namespace eval ::aurig::core::util::re {
   # Group 2: package name
   # Group 3: package declarative part
   variable re_package_decl {^(package[\s\n]+?([a-zA-Z]+[a-zA-Z0-9_]*)[\s\n]*is[\s\n]+(.*?)(?:end[\s\n]+package(?:[\s\n]+\2)?|end[\s\n]+\2|end)[\s\n]*;)}
-  
+
   # package body
   # description: from package body to end. the assumption is that the final end of the file
   # is the one associated with the package body. that's why the greedy regexp
@@ -45,13 +45,13 @@ namespace eval ::aurig::core::util::re {
   # 1. package name
   # 2. package body part
   variable re_package_body {^(package[\s\n]+body[\s\n]+([a-zA-Z]+[a-zA-Z0-9_]*)[\s\n]*is[\s\n]+(.*)(?:end[\s\n]+package[\s\n]+body|end[\s\n]+package[\s\n]+body[\s\n]+[a-zA-Z]+[a-zA-Z0-9_]*|end[\s\n]*;))}
-  
+
   # entity
   # description: from entity to the first end statement, the lazy helps here
   # 1. entity name
   # 2. entity generic and port section
   variable re_entity {^(entity[\s\n]+?([a-zA-Z]+[a-zA-Z0-9_]*)[\s\n]*is[\s\n]+(.*)(?:end[\s\n]+entity|end[\s\n]+entity[\s\n]+[a-zA-Z]+[a-zA-Z0-9_]*|end[\s\n]+[a-zA-Z]+[a-zA-Z0-9_]*)[\s\n]*;)}
-  
+
   # architecture
   # description: from architcture to the end statement, greedy as we are assuming the last
   # end is associated with architecture in a classis entity-architcture file structure

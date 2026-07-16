@@ -135,7 +135,7 @@ proc ::aurig::core::util::writeIni {fname inidict {header "# Created by Tcl"}} {
         set kv [dict get $inidict $section]
         foreach key [lsort [dict keys $kv]] {
             set value [dict get $kv $key]
-            
+
             # Check if it's a proper TCL list with multiple elements
             # We need to be careful: a path with spaces looks like a list to TCL
             # So we check: is it a list AND does it have list structure (braces/multiple items)?
@@ -152,7 +152,7 @@ proc ::aurig::core::util::writeIni {fname inidict {header "# Created by Tcl"}} {
                     }
                 }
             }
-            
+
             if {$isList} {
                 # Value is a proper list - write each element on separate line
                 foreach item $value {

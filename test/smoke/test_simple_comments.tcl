@@ -32,12 +32,12 @@ puts "\n✓ Entities: $entities"
 
 foreach ent $entities {
     puts "\nEntity: $ent"
-    
+
     # Check for entity comment
     if {[dict exists $parse_dict entity $ent comment]} {
         puts "  Comment: [dict get $parse_dict entity $ent comment]"
     }
-    
+
     # Check generics and their comments
     set generics [::aurig::core::analyze::q_entity_generics $parse_dict $ent]
     if {[llength $generics] > 0} {
@@ -48,7 +48,7 @@ foreach ent $entities {
             puts "    - $name : $type"
         }
     }
-    
+
     # Check ports and their comments
     set ports [::aurig::core::analyze::q_entity_ports $parse_dict $ent]
     if {[llength $ports] > 0} {

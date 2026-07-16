@@ -22,7 +22,7 @@ proc ::aurig::core::analyze::_adv {s stVar} {
         while {$st(i) < $n && [string index $s $st(i)] ne "\n"} { incr st(i) }
         return 1
     }
-    
+
     # Character literal: 'X' where X is any single character (VHDL)
     # Only process if not already in a string
     if {!$st(in_str) && $ch eq "'" && $ch3 eq "'"} {
@@ -30,7 +30,7 @@ proc ::aurig::core::analyze::_adv {s stVar} {
         incr st(i) 3
         return 1
     }
-    
+
     # String literal, with doubled "" escape
     if {$ch eq "\""} {
         if {!$st(in_str)} {
@@ -425,7 +425,7 @@ proc ::aurig::core::analyze::split_arch_decl_body {chunk} {
     if {$endKwStart < 0} {
         return -code error "split_arch_decl_body: could not find matching END in chunk. Depth=$depth (unbalanced begin/end constructs)."
     }
-    
+
     # Additional validation: check if depth is zero (properly balanced)
     if {$depth != 0} {
         return -code error "split_arch_decl_body: unbalanced begin/end constructs detected. Final depth=$depth (expected 0)."
@@ -884,7 +884,7 @@ proc ::aurig::core::analyze::_scan_instantiations {body n {commentDict {}}} {
             break
         }
         lassign $mIdx mStart mEnd
-        
+
         # Quick check: is this a generate statement?
         # Look ahead to see if we have "if/for ... generate" before any semicolon
         set checkStr [string range $body $mStart [expr {min($mStart + 200, $N-1)}]]
@@ -893,7 +893,7 @@ proc ::aurig::core::analyze::_scan_instantiations {body n {commentDict {}}} {
             # This is a generate statement - find its body and scan recursively
             if {[regexp -indices -nocase -start $mStart -- $::aurig::core::util::re::re_generate_kw $body genIdx]} {
                 set genStart [expr {[lindex $genIdx 1] + 1}]
-                
+
                 # Find matching "end generate" by tracking depth
                 set depth 1
                 set genEnd -1
@@ -933,7 +933,7 @@ proc ::aurig::core::analyze::_scan_instantiations {body n {commentDict {}}} {
                         incr i
                     }
                 }
-                
+
                 if {$genEnd > $genStart} {
                     # Extract generate body and recursively scan it
                     set genBody [string range $body $genStart [expr {$genEnd - 1}]]
@@ -943,7 +943,7 @@ proc ::aurig::core::analyze::_scan_instantiations {body n {commentDict {}}} {
                         lappend results $inst
                     }
                 }
-                
+
                 # Skip past "end generate"
                 if {$genEnd >= 0} {
                     if {[regexp -indices -nocase -start $genEnd -- $::aurig::core::util::re::re_end_generate_kw $body egIdx]} {
@@ -957,7 +957,7 @@ proc ::aurig::core::analyze::_scan_instantiations {body n {commentDict {}}} {
                 continue
             }
         }
-        
+
         # find statement ';' with basic paren tracking
         set level 0
         set semi -1
@@ -1061,7 +1061,7 @@ proc ::aurig::core::analyze::_scan_instantiations {body n {commentDict {}}} {
 
         # ---- finalize item ----
         set line [::aurig::core::analyze::_index_to_line $body $mStart $n]
-        
+
         # Look up comment from previous lines if commentDict provided
         set instComment ""
         if {[dict size $commentDict] > 0} {
@@ -1099,7 +1099,7 @@ proc ::aurig::core::analyze::_scan_instantiations {body n {commentDict {}}} {
                 }
             }
         }
-        
+
         set item [dict create \
             label        $label \
             entity       [expr {$form eq "entity" ? "${lib}.${comp}" : ""}] \
@@ -1198,7 +1198,7 @@ proc ::aurig::core::analyze::_scan_processes {body n {commentDict {}}} {
         set eStartRel [expr {$eStart - $mStart}]
         # Best-effort header end guess: search from after the word 'process'
         set hdrIdx [regexp -indices -nocase {process} $chunk _] ;# _ is {s e}
-        
+
         # Find 'process' as a real word using your tokenizer
         set ps -1
         set pe -1
@@ -1230,7 +1230,7 @@ proc ::aurig::core::analyze::_scan_processes {body n {commentDict {}}} {
         }
 
         set line [::aurig::core::analyze::_index_to_line $body $mStart $n]
-        
+
         # Look up comment from previous lines if commentDict provided
         set processComment ""
         if {[dict size $commentDict] > 0} {
@@ -1268,7 +1268,7 @@ proc ::aurig::core::analyze::_scan_processes {body n {commentDict {}}} {
                 }
             }
         }
-        
+
         set item [dict create \
             label          $label \
             sensitivity    $sensitivity \
@@ -1378,7 +1378,7 @@ proc ::aurig::core::analyze::_scan_architecture_signals {decl n {commentDict {}}
             set signalType [string trim [string range $tail 0 [expr {$div-1}]]]
             set signalInit [string trim [string range $tail [expr {$div+2}] end]]
         }
-        
+
         # Extract same-line or nearby comments without widening the declaration regex.
         set signalComment ""
         set lineEnd [string first "\n" $decl $semi]
@@ -1679,7 +1679,7 @@ proc ::aurig::core::analyze::_scan_architecture_constants {decl n {commentDict {
 
     set N   [string length $masked]
     set idx 0
-    
+
     # Track last comment line used to prevent duplication
     set lastUsedCommentLine -99
 
@@ -1723,7 +1723,7 @@ proc ::aurig::core::analyze::_scan_architecture_constants {decl n {commentDict {
             set constType [string trim [string range $tailChunk 0 [expr {$div-1}]]]
             set constInit [string trim [string range $tailChunk [expr {$div+2}] end]]
         }
-        
+
         # Extract comment from commentDict - search back up to 5 lines
         # Only use comments that haven't been used for previous constants
         set constComment ""
@@ -1947,11 +1947,11 @@ proc ::aurig::core::analyze::_find_keyword_end_semi {text startIdx endKw} {
 # --------------------------------
 proc ::aurig::core::analyze::_scan_functions {decl n {commentDict {}}} {
     set results {}
-    
+
     # Don't mask for function search - we want to find function signatures even for definitions
     set N [string length $decl]
     set idx 0
-    
+
     # Match function keyword, name, then a delimiter that is either the
     # parameter-list opening paren OR the `return` keyword (for
     # parameterless functions like `function seed return integer is ...`).
@@ -2042,25 +2042,25 @@ proc ::aurig::core::analyze::_scan_functions {decl n {commentDict {}}} {
             set idx [expr {$nEnd + 1}]
             continue
         }
-        
+
         lassign $returnIdx rStart rEnd
         set returnType [string trim [string range $decl $rStart $rEnd]]
-        
+
         # Clean return type - remove everything after 'is' if present (for function definitions)
         if {[regexp -nocase {\s+is\s} $returnType]} {
             set returnType [string trim [regsub -nocase {\s+is\s.*$} $returnType ""]]
         }
-        
+
         # Approximate line number
         set line [::aurig::core::analyze::_index_to_line $decl $nStart $n]
-        
+
         # Extract comment from commentDict
         # Only collect complete documentation blocks (with @brief)
         set funcComment ""
         if {[llength $commentDict] > 0} {
             set commentLines {}
             set checkLine [expr {$line - 1}]
-            
+
             # First check if there's an inline comment on the function declaration line itself
             set inlineComment ""
             if {[dict exists $commentDict $line]} {
@@ -2072,7 +2072,7 @@ proc ::aurig::core::analyze::_scan_functions {decl n {commentDict {}}} {
                 }
                 set inlineComment [string trim $inlineComment]
             }
-            
+
             # Collect consecutive comment lines going backward from line-1
             # Stop at separator, very short comments, or empty lines
             for {set i 0} {$i < 15} {incr i} {
@@ -2085,7 +2085,7 @@ proc ::aurig::core::analyze::_scan_functions {decl n {commentDict {}}} {
                         set rawComment $commentEntry
                     }
                     set trimmedComment [string trim $rawComment]
-                    
+
                     # Check if it's a pure separator line (5+ separator chars)
                     if {[regexp {^[-=*#_]{5,}\s*$} $trimmedComment]} {
                         # Found separator - stop
@@ -2102,12 +2102,12 @@ proc ::aurig::core::analyze::_scan_functions {decl n {commentDict {}}} {
                     break
                 }
             }
-            
+
             # Reverse what we collected (since we went backward)
             if {[llength $commentLines] > 0} {
                 set commentLines [lreverse $commentLines]
                 set fullComment [join $commentLines "\n"]
-                
+
                 # Only use block comment if it has @brief (complete documentation)
                 # Partial blocks (just "@param" or "Example:") indicate line number offset issues
                 if {[regexp {@brief} $fullComment]} {
@@ -2122,7 +2122,7 @@ proc ::aurig::core::analyze::_scan_functions {decl n {commentDict {}}} {
                 set funcComment $inlineComment
             }
         }
-        
+
         # Create result dict
         set item [dict create \
             name $funcName \
@@ -2201,10 +2201,10 @@ proc ::aurig::core::analyze::_scan_functions {decl n {commentDict {}}} {
 # --------------------------------
 proc ::aurig::core::analyze::_scan_procedures {decl n {commentDict {}}} {
     set results {}
-    
+
     set N [string length $decl]
     set idx 0
-    
+
     # Match procedure keyword and name, then a delimiter that is
     # either the param-list opening paren OR the `is` keyword
     # (definition with body, parameterless form).
@@ -2271,18 +2271,18 @@ proc ::aurig::core::analyze::_scan_procedures {decl n {commentDict {}}} {
             # iteration.
             set matchAdvance [expr {[lindex $delimIdx 1] + 1}]
         }
-        
+
         # Calculate line number (count newlines up to match start)
         set offset [lindex $nameIdx 0]
         set prefix [string range $decl 0 [expr {$offset - 1}]]
         set line [expr {$n + [regexp -all {\n} $prefix] + 1}]
-        
+
         # Search for comment - aggregate consecutive comment lines immediately above AND at the procedure line
         # Collect all consecutive comments going backward, then forward to get full block
         set procComment ""
         set commentLines {}
         set checkLine [expr {$line - 1}]
-        
+
         # Collect consecutive comment lines going backward from line-1
         # Stop immediately if we hit a line with no comment
         for {set i 0} {$i < 15} {incr i} {
@@ -2309,20 +2309,20 @@ proc ::aurig::core::analyze::_scan_procedures {decl n {commentDict {}}} {
                 break
             }
         }
-        
+
         # Reverse what we collected (since we went backward)
         if {[llength $commentLines] > 0} {
             set commentLines [lreverse $commentLines]
         }
-        
+
         # Don't collect forward - causes duplication. Only use backward collection.
         # The line number calculation is accurate enough.
-        
+
         # Join all collected lines
         if {[llength $commentLines] > 0} {
             set procComment [join $commentLines "\n"]
         }
-        
+
         set item [dict create \
             kind procedure \
             name $procName \
@@ -2395,13 +2395,13 @@ proc ::aurig::core::analyze::parse_architecture_body {localDictVar archBody n} {
     # keep line count stable; just normalize tabs & trailing spaces
     # set body [::aurig::core::analyze::_normalize_ws_keep_lines $archBody]
     set body $archBody
-    
+
     # Extract comment dict if available
     set commentDict {}
     if {[dict exists $D comments line]} {
         set commentDict [dict get $D comments line]
     }
-    
+
     # scan & push
     foreach I [::aurig::core::analyze::_scan_instantiations $body $n $commentDict] {
         set D [::aurig::core::analyze::_push_into_last_arch $D instantiations $I]
@@ -2475,21 +2475,21 @@ proc ::aurig::core::analyze::_scan_generates {body n} {
         set endStart -1
         set semi -1
         set searchPos [expr {$genPos + 9}]  ;# Start right after 'generate' keyword
-        
-        
+
+
         while {$searchPos < $N && $genDepth > 0} {
             # Find next 'generate' or 'end generate'
             set nextGen -1
             set nextEndGen -1
-            
+
             if {[regexp -indices -nocase -start $searchPos -- $::aurig::core::util::re::re_generate_kw $body gIdx]} {
                 set nextGen [lindex $gIdx 0]
             }
             if {[regexp -indices -nocase -start $searchPos -- $::aurig::core::util::re::re_end_generate_kw $body egIdx]} {
                 set nextEndGen [lindex $egIdx 0]
             }
-            
-            
+
+
             # Process the one that comes first
             if {$nextGen >= 0 && ($nextEndGen < 0 || $nextGen < $nextEndGen)} {
                 # Found a nested 'generate'
@@ -2515,21 +2515,21 @@ proc ::aurig::core::analyze::_scan_generates {body n} {
                 break
             }
         }
-        
-        if {$endStart < 0 || $semi < 0} { 
-            set idx [expr {$mEnd+1}]; 
-            continue 
+
+        if {$endStart < 0 || $semi < 0} {
+            set idx [expr {$mEnd+1}];
+            continue
         }
 
         # Parse condition/loop details between scheme token and 'generate'
         set condStart [lindex $schemeIdx 1]
         set headerText [string trim [string range $body [expr {$condStart+1}] [expr {$genPos-1}]]]
-        
+
         # Initialize fields
         set condition ""
         set loop_var ""
         set loop_range ""
-        
+
         if {$scheme eq "if"} {
             # For if-generate: condition is the headerText (may include parens)
             set condition $headerText
@@ -2555,7 +2555,7 @@ proc ::aurig::core::analyze::_scan_generates {body n} {
         # Body may or may not have 'begin' keyword
         set genEnd [expr {$genPos + 9}]  ;# Position after 'generate' keyword
         set bodyTxt ""
-        
+
         # Check if there's a 'begin' immediately after 'generate' (before any statement)
         set searchChunk [string range $body $genEnd $endStart]
         # Only look for begin at the start of the generate body (skip whitespace)
@@ -2570,7 +2570,7 @@ proc ::aurig::core::analyze::_scan_generates {body n} {
         }
 
         set line [::aurig::core::analyze::_index_to_line $body $mStart $n]
-        
+
         # Build item dict with all fields including offsets for precise text manipulation
         set item [dict create \
             label $label \
@@ -2581,13 +2581,13 @@ proc ::aurig::core::analyze::_scan_generates {body n} {
             start_offset $mStart \
             header_end_offset [expr {$genPos + 8}] \
             end_offset $semi]
-        
+
         # Add for-generate specific fields if present
         if {$loop_var ne ""} {
             dict set item loop_var $loop_var
             dict set item loop_range $loop_range
         }
-        
+
         lappend results $item
         set idx [expr {$semi+1}]
     }
