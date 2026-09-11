@@ -169,7 +169,7 @@ if {![llength [info procs ::aurig::core::util::readYaml]]} {
 }
 # --- YAML source --------------------------------------------------------------
 
-proc ::aurig::core::util::_collect_from_yaml {yamlPath root follow} {
+proc ::aurig::core::util::_collect_from_yaml {yamlPath root follow {reportVar ""}} {
     # F2: project-mode YAML loading MUST NOT silently fall back to
     # readYamlMinimal. This collector reads canonical-manifest-shaped YAML
     # (file_sets with multi-key list items that readYamlMinimal cannot parse),
@@ -183,6 +183,11 @@ proc ::aurig::core::util::_collect_from_yaml {yamlPath root follow} {
     # in the PR description and doc/developer/status.md.
     ::aurig::core::schema::require_libs yaml
     set y [::aurig::core::util::readYaml $yamlPath]
+    if {$reportVar ne ""} {
+        upvar 1 $reportVar report
+        set report [dict create declared_patterns 0 unmatched_patterns {} \
+            file_sets_present [dict exists $y file_sets]]
+    }
     # project_root might be relative to YAML
     set yamlDir [file dirname $yamlPath]
     set projRoot [dict get $y project_root]
@@ -205,6 +210,7 @@ proc ::aurig::core::util::_collect_from_yaml {yamlPath root follow} {
                 set lib       [dict get $entry lib]
                 set vhdl_std  [expr {[dict exists $entry vhdl_std] ? [dict get $entry vhdl_std] : ""}]
                 set srcGlobs  [expr {[dict exists $entry src] ? [dict get $entry src] : {}}]
+                if {$reportVar ne ""} { dict incr report declared_patterns [llength $srcGlobs] }
 
                 if {$follow} {
                     # Expand globs relative to projRoot
@@ -214,7 +220,11 @@ proc ::aurig::core::util::_collect_from_yaml {yamlPath root follow} {
                         if {![string equal [file pathtype $gabs] "absolute"]} {
                             set gabs [file join $projRoot $gabs]
                         }
-                        foreach f [::aurig::core::util::_expand_glob_pattern $gabs] {
+                        set matches [::aurig::core::util::_expand_glob_pattern $gabs]
+                        if {$reportVar ne "" && [llength $matches] == 0} {
+                            dict lappend report unmatched_patterns $g
+                        }
+                        foreach f $matches {
                             set full [string map {\\ /} $f]
                             set rel  [::aurig::core::util::_rel $full $root]
                             set ext  [::aurig::core::util::_ext $full]
@@ -298,8 +308,13 @@ proc ::aurig::core::util::_collect_from_yaml {yamlPath root follow} {
 
 # --- INI source ---------------------------------------------------------------
 
-proc ::aurig::core::util::_collect_from_ini {iniPath root} {
+proc ::aurig::core::util::_collect_from_ini {iniPath root {reportVar ""}} {
     set ini [::aurig::core::util::readIni $iniPath]
+    if {$reportVar ne ""} {
+        upvar 1 $reportVar report
+        # INI sections are top-level keys; XML/Quartus have no file_sets key.
+        dict set report file_sets_present [dict exists $ini file_sets]
+    }
     set workdir [expr {[dict exists $ini config workdir] ? [dict get $ini config workdir] : [file dirname $iniPath]}]
     if {$root eq ""} { set root $workdir }
 
@@ -562,11 +577,16 @@ proc ::aurig::core::util::collect_project_files {args} {
     # -from <file>  (project.yaml | project.ini | project.xpr | project.xise | project.qpf/.qsf)
     # -format auto|yaml|ini|vivado|ise|quartus
     # -root <path>
-    # -follow_globs 0|1 (YAML/INI patterns expansion)
-    array set opt {-from {} -format auto -root {} -follow_globs 1}
+    # -follow_globs 0|1 (YAML src expansion; other formats keep their behavior)
+    # -report <varName> (optional caller variable; return shape is unchanged)
+    # Report: declared_patterns and unmatched_patterns describe YAML src only;
+    # unmatched_patterns is empty when globs are not expanded. total_files
+    # counts final records. file_sets_present tests a top-level key, and
+    # globs_unexpanded marks counts consumers must treat as unreliable.
+    array set opt {-from {} -format auto -root {} -follow_globs 1 -report {}}
 
     if {[llength $args] % 2 != 0} {
-        return -code error "usage: collect_project_files -from <file> ?-format auto|yaml|ini|vivado|ise|quartus? ?-root <path>? ?-follow_globs 1?"
+        return -code error "usage: collect_project_files -from <file> ?-format auto|yaml|ini|vivado|ise|quartus? ?-root <path>? ?-follow_globs 1? ?-report <varName>?"
     }
     foreach {k v} $args {
         if {![info exists opt($k)]} { return -code error "invalid option $k" }
@@ -601,6 +621,41 @@ proc ::aurig::core::util::collect_project_files {args} {
                 }
             }
         }
+    }
+
+    if {$opt(-report) ne ""} {
+        set discovery [dict create declared_patterns {} unmatched_patterns {} file_sets_present 0]
+        switch -- $fmt {
+            yaml { set files [::aurig::core::util::_collect_from_yaml $opt(-from) $opt(-root) $opt(-follow_globs) discovery] }
+            ini { set files [::aurig::core::util::_collect_from_ini $opt(-from) $opt(-root) discovery] }
+            vivado { set files [::aurig::core::util::_collect_from_vivado_xpr $opt(-from) $opt(-root)] }
+            ise { set files [::aurig::core::util::_collect_from_ise_xise $opt(-from) $opt(-root)] }
+            quartus { set files [::aurig::core::util::_collect_from_quartus $opt(-from) $opt(-root)] }
+            default { return -code error "unsupported format '$fmt'" }
+        }
+        set files [::aurig::core::util::_merge_sort_unique $files]
+        # Board constraint records contribute to total_files, but their patterns
+        # are excluded from declared_patterns and unmatched_patterns (src only).
+        # Non-YAML formats have no declared src patterns: those fields stay empty.
+        # The flag reflects the requested option, including formats that already
+        # ignore it. Do not change their existing expansion behavior.
+        # Canonical booleans and numeric values both have truth meaning to expr.
+        # Values with no truth meaning leave the field empty (not measurable),
+        # so paths that ignore this option continue to work.
+        if {[string is boolean -strict $opt(-follow_globs)]
+            || [string is double -strict $opt(-follow_globs)]} {
+            set globs_unexpanded [expr {!$opt(-follow_globs)}]
+        } else {
+            set globs_unexpanded ""
+        }
+        upvar 1 $opt(-report) report
+        set report [dict create \
+            declared_patterns [dict get $discovery declared_patterns] \
+            unmatched_patterns [dict get $discovery unmatched_patterns] \
+            total_files [dict size $files] \
+            file_sets_present [dict get $discovery file_sets_present] \
+            globs_unexpanded $globs_unexpanded]
+        return $files
     }
 
     switch -- $fmt {

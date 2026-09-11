@@ -41,6 +41,7 @@ jobs:
             test/test_project_files_anchors.tcl
             test/test_project_files_globstar.tcl
             test/test_project_files_quartus.tcl
+            test/test_project_files_report.tcl
             test/parser/run_doc.tcl
             test/test_schema_manifest.tcl
             test/test_schema_tcllib_absent.tcl
