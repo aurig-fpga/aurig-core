@@ -211,7 +211,7 @@ proc ::aurig::core::analyze::split_arch_decl_body {chunk} {
     }
 
     if {$beginStart < 0} {
-        return -code error "split_arch_decl_body: could not find architecture BEGIN in chunk."
+        return -code error -errorcode {AURIG CORE PARSE MISSING_BEGIN} "split_arch_decl_body: could not find architecture BEGIN in chunk."
     }
 
     set decl [string trim [string range $chunk 0 [expr {$beginStart-1}]]]
@@ -423,12 +423,12 @@ proc ::aurig::core::analyze::split_arch_decl_body {chunk} {
     }
 
     if {$endKwStart < 0} {
-        return -code error "split_arch_decl_body: could not find matching END in chunk. Depth=$depth (unbalanced begin/end constructs)."
+        return -code error -errorcode {AURIG CORE PARSE UNBALANCED_END} "split_arch_decl_body: could not find matching END in chunk. Depth=$depth (unbalanced begin/end constructs)."
     }
 
     # Additional validation: check if depth is zero (properly balanced)
     if {$depth != 0} {
-        return -code error "split_arch_decl_body: unbalanced begin/end constructs detected. Final depth=$depth (expected 0)."
+        return -code error -errorcode {AURIG CORE PARSE UNBALANCED_END} "split_arch_decl_body: unbalanced begin/end constructs detected. Final depth=$depth (expected 0)."
     }
 
     set body [string trim [string range $chunk $beginStart [expr {$endKwEnd+1}]]]

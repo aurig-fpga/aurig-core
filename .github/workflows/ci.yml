@@ -34,6 +34,7 @@ jobs:
             test/test_core_isolation.tcl
             test/test_ini_round_trip.tcl
             test/test_vhdlscan_large_declarations.tcl
+            test/test_vhdlscan_error_boundary.tcl
             test/test_vhdlscan_lint_diagnostics.tcl
             test/test_vhdlscan_subprogram_prototype.tcl
             test/test_yaml_minimal_inline_comments.tcl

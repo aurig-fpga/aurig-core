@@ -484,108 +484,118 @@ namespace eval ::aurig::core::analyze {
 			::aurig::core::analyze::_validate_vhdl_lint_syntax $content $vhdFile
 		}
 
-		# init line number
-		set linenum 0
+		if {[catch {
+			# init line number
+			set linenum 0
 
-		# REMOVE TRAILING WHITESACES FROM EACH LINE
-		# split the line in multiple lines
-		set records [split $content "\n"]
-		set file4parser ""
-		foreach rec $records {
-			incr linenum
-			set code $rec
-			set comment ""
-			set comment_start [::aurig::core::util::find_vhdl_comment_index $rec]
-			if {$comment_start >= 0} {
-				if {$comment_start == 0} {
-					set onlyCode ""
-				} else {
-					set onlyCode [string range $rec 0 [expr {$comment_start - 1}]]
-				}
-				set commentPart [string range $rec [expr {$comment_start + 2}] end]
-				# Save trimmed code and comment
-				set code [string trim $onlyCode]
-				set comment [string trim [::aurig::core::analyze::_mask_vhdl_string_literals $commentPart]]
-				# Remove common comment markers (*, +, !, @) from the beginning
-				# but keep them if they're part of doxygen syntax like @param, @brief, etc.
-				if {[regexp {^[*+!]\s*(.*)$} $comment -> cleanComment]} {
-					set comment $cleanComment
-				}
-				dict set parseDict comments line $linenum comment $comment
-			} else {
-				# No comment found, restore original
-				set code [string trim $rec]
-			}
-
-			append file4parser "$code\n"
-			# parse comments
-			# if {[regexp {^\s*--(.*)} $rec -> comment]} {
-			# 	dict set parseDict comments line $linenum comment $comment
-			# 	set file4parser $file4parser\n
-			# } else {
-			# 	set file4parser $file4parser[string trim $rec]\n
-			# }
-		}
-
-		# Parse header metadata from comments
-		parse_header_metadata parseDict
-
-		# init line number
-		set linenum 1
-
-		# here start my attempt to parse the vhd file
-		# the idea is to use simple regexps
-		# i know they are not what people uses today but this is what i know
-		# we parse one "statement" at a time:
-		# a comment
-		# a declaration
-		# a process
-		# a entity declaration
-		# and so on
-		# lets try it
-
-		while {[string length $file4parser] > 0} {
-			# comments
-			# non-greedy regexp, we want to find the first match (TCL seems to use
-			# non-greedy if you put a non greedy \s*? at the beginning)
-			# to parse multiline comments i searched for a \n without a --
-
-
-			if {[regexp -nocase -- "$::aurig::core::util::re::re_library_decl" $file4parser -> res libraryName]} {
-				if {$verbose >= 2} {puts "library $libraryName at $linenum"}
-				parse_library file4parser $res parseDict linenum $libraryName $lint
-			} elseif {[regexp -nocase -- "$::aurig::core::util::re::re_library_use" $file4parser -> res libraryName packageUsed suffix]} {
-				if {$verbose >= 2} {puts "LIBRARY USE CLAUSE $libraryName.$packageUsed.$suffix at $linenum"}
-				parse_library_use file4parser $res parseDict linenum $libraryName $packageUsed $suffix
-			} elseif {[regexp -nocase -- "$::aurig::core::util::re::re_package_decl" $file4parser -> res packageName pkgDeclPart] } {
-				if {$verbose >= 2} {puts "package $packageName declaration at $linenum"}
-				parse_package_decl file4parser $res parseDict linenum $packageName $pkgDeclPart $vhdFile
-			} elseif {[regexp -nocase -- "$::aurig::core::util::re::re_package_body" $file4parser -> res packageName pkgBodyPart] } {
-				if {$verbose >= 2} {puts "package body of $packageName at $linenum"}
-				parse_package_body file4parser $res parseDict linenum $packageName $pkgBodyPart $vhdFile $verbose
-			} elseif {[regexp -nocase -- "$::aurig::core::util::re::re_entity" $file4parser -> res entityName entityHeader ]} {
-			if {$verbose >= 1} {puts "Entity $entityName found at $linenum"}
-			parse_entity file4parser $res parseDict linenum $entityName $entityHeader $vhdFile $lint $verbose
-		} elseif {[regexp -nocase -- "$::aurig::core::util::re::re_architecture" $file4parser -> res architectureName entityName archDeclPart archBody]} {
-			if {$verbose >= 1} {puts "Architecture $architectureName found at $linenum"}
-				# split declarative/body reliably
-				set S [::aurig::core::analyze::split_arch_decl_body $res]
-				set archDeclPart [dict get $S decl]
-				set archBody     [dict get $S body]
-				set endTail      [dict get $S end_tail]
-				parse_architecture file4parser $res parseDict linenum $architectureName $entityName $archDeclPart $archBody $vhdFile
-			} else {
-				# parse a single line
-				regexp {(.*?)\n} $file4parser -> res
+			# REMOVE TRAILING WHITESACES FROM EACH LINE
+			# split the line in multiple lines
+			set records [split $content "\n"]
+			set file4parser ""
+			foreach rec $records {
 				incr linenum
-				# update line counter and trim file string of the parsed part
-				update_buffer file4parser 1
-			}
-			## update line counter and trim file string of the parsed part
-			#set lineincr [expr {[update_line $res] + 1}]
-			#set linenum  [expr {$linenum + $lineincr}]
-			#set file4parser [update_buffer $file4parser $lineincr]
+				set code $rec
+				set comment ""
+				set comment_start [::aurig::core::util::find_vhdl_comment_index $rec]
+				if {$comment_start >= 0} {
+					if {$comment_start == 0} {
+						set onlyCode ""
+					} else {
+						set onlyCode [string range $rec 0 [expr {$comment_start - 1}]]
+					}
+					set commentPart [string range $rec [expr {$comment_start + 2}] end]
+					# Save trimmed code and comment
+					set code [string trim $onlyCode]
+					set comment [string trim [::aurig::core::analyze::_mask_vhdl_string_literals $commentPart]]
+					# Remove common comment markers (*, +, !, @) from the beginning
+					# but keep them if they're part of doxygen syntax like @param, @brief, etc.
+					if {[regexp {^[*+!]\s*(.*)$} $comment -> cleanComment]} {
+						set comment $cleanComment
+					}
+					dict set parseDict comments line $linenum comment $comment
+				} else {
+					# No comment found, restore original
+					set code [string trim $rec]
+				}
 
+				append file4parser "$code\n"
+				# parse comments
+				# if {[regexp {^\s*--(.*)} $rec -> comment]} {
+				# 	dict set parseDict comments line $linenum comment $comment
+				# 	set file4parser $file4parser\n
+				# } else {
+				# 	set file4parser $file4parser[string trim $rec]\n
+				# }
+			}
+
+			# Parse header metadata from comments
+			parse_header_metadata parseDict
+
+			# init line number
+			set linenum 1
+
+			# here start my attempt to parse the vhd file
+			# the idea is to use simple regexps
+			# i know they are not what people uses today but this is what i know
+			# we parse one "statement" at a time:
+			# a comment
+			# a declaration
+			# a process
+			# a entity declaration
+			# and so on
+			# lets try it
+
+			while {[string length $file4parser] > 0} {
+				# comments
+				# non-greedy regexp, we want to find the first match (TCL seems to use
+				# non-greedy if you put a non greedy \s*? at the beginning)
+				# to parse multiline comments i searched for a \n without a --
+
+
+				if {[regexp -nocase -- "$::aurig::core::util::re::re_library_decl" $file4parser -> res libraryName]} {
+					if {$verbose >= 2} {puts "library $libraryName at $linenum"}
+					parse_library file4parser $res parseDict linenum $libraryName $lint
+				} elseif {[regexp -nocase -- "$::aurig::core::util::re::re_library_use" $file4parser -> res libraryName packageUsed suffix]} {
+					if {$verbose >= 2} {puts "LIBRARY USE CLAUSE $libraryName.$packageUsed.$suffix at $linenum"}
+					parse_library_use file4parser $res parseDict linenum $libraryName $packageUsed $suffix
+				} elseif {[regexp -nocase -- "$::aurig::core::util::re::re_package_decl" $file4parser -> res packageName pkgDeclPart] } {
+					if {$verbose >= 2} {puts "package $packageName declaration at $linenum"}
+					parse_package_decl file4parser $res parseDict linenum $packageName $pkgDeclPart $vhdFile
+				} elseif {[regexp -nocase -- "$::aurig::core::util::re::re_package_body" $file4parser -> res packageName pkgBodyPart] } {
+					if {$verbose >= 2} {puts "package body of $packageName at $linenum"}
+					parse_package_body file4parser $res parseDict linenum $packageName $pkgBodyPart $vhdFile $verbose
+				} elseif {[regexp -nocase -- "$::aurig::core::util::re::re_entity" $file4parser -> res entityName entityHeader ]} {
+				if {$verbose >= 1} {puts "Entity $entityName found at $linenum"}
+				parse_entity file4parser $res parseDict linenum $entityName $entityHeader $vhdFile $lint $verbose
+			} elseif {[regexp -nocase -- "$::aurig::core::util::re::re_architecture" $file4parser -> res architectureName entityName archDeclPart archBody]} {
+				if {$verbose >= 1} {puts "Architecture $architectureName found at $linenum"}
+					# split declarative/body reliably
+					set S [::aurig::core::analyze::split_arch_decl_body $res]
+					set archDeclPart [dict get $S decl]
+					set archBody     [dict get $S body]
+					set endTail      [dict get $S end_tail]
+					parse_architecture file4parser $res parseDict linenum $architectureName $entityName $archDeclPart $archBody $vhdFile
+				} else {
+					# parse a single line
+					regexp {(.*?)\n} $file4parser -> res
+					incr linenum
+					# update line counter and trim file string of the parsed part
+					update_buffer file4parser 1
+				}
+				## update line counter and trim file string of the parsed part
+				#set lineincr [expr {[update_line $res] + 1}]
+				#set linenum  [expr {$linenum + $lineincr}]
+				#set file4parser [update_buffer $file4parser $lineincr]
+
+			}
+		} parse_error parse_options]} {
+			set parse_message "vhdlscan: $vhdFile: $parse_error"
+			if {![dict exists $parse_options -errorcode] ||
+				[lrange [dict get $parse_options -errorcode] 0 2] ne {AURIG CORE PARSE}} {
+				dict set parse_options -errorcode {AURIG CORE PARSE PARSE_INTERNAL}
+				set parse_message "vhdlscan: $vhdFile: PARSE_INTERNAL: $parse_error"
+			}
+			return -options $parse_options -code error $parse_message
 		}
 		return $parseDict
 	}

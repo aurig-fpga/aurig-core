@@ -51,7 +51,13 @@ lappend ::auto_path /path/to/core
 package require aurig::core
 
 # Parse a VHDL file into a structured dictionary.
-set ast [::aurig::core::analyze::vhdlscan -in design.vhd]
+if {[catch {
+    set ast [::aurig::core::analyze::vhdlscan -in design.vhd]
+} err options]} {
+    puts stderr $err
+    puts stderr [dict get $options -errorcode]
+    return
+}
 
 # Query it.
 foreach e [::aurig::core::analyze::q_entity_names $ast] {
