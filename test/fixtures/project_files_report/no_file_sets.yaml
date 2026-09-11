@@ -1,0 +1,4 @@
+# Synthetic minimized orchestration-shaped input, not a project manifest.
+project_root: .
+pipeline:
+  stages: [lint, document]
