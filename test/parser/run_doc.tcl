@@ -103,6 +103,38 @@ proc run_doc_tests {{generate_mode 0} {strict_mode 0}} {
         # Get expected output filename
         set expected_file [get_expected_filename $fixture_file $fixtures_dir $expected_dir]
 
+        # An adjacent .vhd.errorcode sidecar opts a fixture into strict rejection.
+        set errorcode_file [format "%s.errorcode" $fixture_file]
+        if {[file exists $errorcode_file]} {
+            if {[catch {
+                set errorcode_channel [open $errorcode_file r]
+                set expected_errorcode [string trim [read $errorcode_channel]]
+                close $errorcode_channel
+                if {[llength $expected_errorcode] != 4 ||
+                    [lrange $expected_errorcode 0 2] ne {AURIG CORE PARSE}} {
+                    error "expected an AURIG CORE PARSE reason"
+                }
+                set expected_errorcode [lrange $expected_errorcode 0 end]
+            } expectation_error]} {
+                print_test_result $rel_path "FAIL" "Invalid errorcode sidecar: $expectation_error"
+                incr failed
+                continue
+            }
+            set parse_code [catch {
+                ::aurig::core::analyze::vhdlscan -in $fixture_file -verbosity 0
+            } parse_error parse_options]
+            if {$parse_code == 1 &&
+                [dict exists $parse_options -errorcode] &&
+                [dict get $parse_options -errorcode] eq $expected_errorcode} {
+                print_test_result $rel_path "PASS" "Rejected with $expected_errorcode"
+                incr passed
+            } else {
+                print_test_result $rel_path "FAIL" "Expected $expected_errorcode; completion $parse_code: $parse_error"
+                incr failed
+            }
+            continue
+        }
+
         # Check if this is invalid syntax
         set is_invalid [is_invalid_syntax $fixture_file]
 
