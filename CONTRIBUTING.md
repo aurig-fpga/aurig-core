@@ -22,30 +22,61 @@ runtime. `aurig-core` itself depends on no other AURIG repository.
 
 ## Prerequisites
 
-- **Tcl 8.5+** (8.6 recommended; CI runs 8.6).
-- **tcllib** (`yaml` + `json`) — required only for the manifest features
-  (reading canonical YAML manifests and running schema `validate`/`normalize`).
-  The VHDL parser and the `q_*` queries need no tcllib.
+The Tcl and tcllib requirement, and the snippet to verify which interpreter you are
+running, live in the README under [Requirements](README.md#requirements). They are
+not repeated here.
+
+In addition, for development only:
+
+- **tcllib `sha256`** — needed by the optional checksum guard
+  (`::aurig::core::schema::verify_schema_checksum`, exercised by
+  `test/test_schema_drift.tcl` and `test/test_schema_manifest.tcl`). Not needed for
+  package loading, parsing, or ordinary manifest processing.
 
 ## Running the test suite
 
-`aurig-core` is standalone: the tests put the checkout on `::auto_path`
-themselves, so you run them directly.
+`aurig-core` is standalone: every test puts the checkout on `::auto_path` itself,
+so you run the scripts directly from the repository root. No `TCLLIBPATH` is needed
+(CI sets none).
+
+Install Tcl + tcllib. On Debian/Ubuntu:
 
 ```sh
-# Tcl 8.6 + tcllib (Debian/Ubuntu)
 sudo apt-get install -y tcl tcllib
+```
 
-# Run every test plus the parser doc-profile harness
+POSIX shell (Linux, WSL, Git Bash):
+
+```sh
 for t in test/test_*.tcl test/parser/run_doc.tcl; do tclsh "$t" || break; done
 ```
 
-The schema harnesses (`test/test_schema_*.tcl`) require tcllib; without it they
-fail loudly with install guidance rather than degrading silently. Each test
-exits non-zero on failure, so the exit code is the source of truth.
+PowerShell:
 
-On **Windows**, use forward-slash paths even though the drive uses backslashes
-elsewhere.
+```powershell
+foreach ($t in (Get-ChildItem test/test_*.tcl) + (Get-Item test/parser/run_doc.tcl)) {
+  tclsh $t.FullName
+  if ($LASTEXITCODE -ne 0) { break }
+}
+```
+
+These loops are interactive examples: each script exits non-zero on failure, so the
+exit code is the source of truth and the loop stops at the first failing script.
+
+The full suite passes on both Linux/WSL and Windows PowerShell. Under PowerShell it
+has been run with ActiveTcl 8.6.14 and tcllib 1.20, one of the environments listed
+under [Requirements in the README](README.md#requirements). Some test output uses
+UTF-8 symbols that may render as mojibake under the default PowerShell code page;
+this is cosmetic and not a failure.
+
+The positive schema harnesses (`test/test_schema_manifest.tcl`,
+`test/test_schema_drift.tcl`) require tcllib and exit non-zero without it. The
+exception is `test/test_schema_tcllib_absent.tcl`, which deliberately hides tcllib
+from a child interpreter and expects the guided failure.
+
+CI (`.github/workflows/ci.yml`) runs on `ubuntu-latest`, installs Tcl and tcllib with
+the same apt command shown above, and prints `info patchlevel` before running the
+gated test list.
 
 ## How to contribute
 
