@@ -33,15 +33,78 @@ Everything lives under the `aurig::core` package, in three sub-namespaces:
 ## Requirements
 
 - **Tcl 8.5+** (8.6 recommended; CI runs 8.6).
-- **tcllib** (`yaml` + `json`) — required only for the manifest features: reading
-  canonical YAML manifests and running schema `validate`/`normalize`. These call a
-  pre-flight (`require_libs`) that **fails loudly with install guidance** when tcllib
-  is absent, rather than degrading silently.
+- **tcllib** (`yaml` + `json`) — required only for the manifest features, and not
+  uniformly:
+  - `read_manifest` and `load_manifest` (reading canonical YAML manifests) run a
+    pre-flight (`require_libs`) that **fails loudly with install guidance** when
+    tcllib is absent, rather than degrading silently.
+  - `collect_project_files` on YAML input runs that same pre-flight, but for `yaml`
+    alone: it needs no `json`. Its other input formats need no tcllib.
+  - `validate` needs `json` to read the vendored schema. It does not run the
+    pre-flight: without tcllib it fails with Tcl's bare `can't find package json`
+    error and no install guidance.
+  - `normalize` works on plain dicts and needs no tcllib.
 
 The VHDL parser (`vhdlscan` and the `q_*` queries) needs **no tcllib** — it works on
 the base Tcl interpreter. Likewise, `package require aurig::core` loads quietly with
 or without tcllib present; the requirement only bites at the point a manifest is read
 or validated.
+
+The manifest features have been verified working with tcllib 1.20 (`yaml` 0.4.1,
+`json` 1.3.4) and with tcllib 1.21 (`yaml` 0.4.2, `json` 1.3.6). Other tcllib
+releases may work but have not been verified. This is the canonical statement of
+the verified environments; [CONTRIBUTING.md](CONTRIBUTING.md#running-the-test-suite)
+refers back to it rather than repeating the figures.
+
+### Verify your interpreter
+
+This is the single criterion for "is my Tcl good enough". Run the two steps in a
+`tclsh` session (or pipe them into `tclsh`).
+
+**Step 1 — always:**
+
+```tcl
+puts [info nameofexecutable]
+puts [info patchlevel]
+```
+
+The first line tells you *which* Tcl you are actually running. A machine may carry
+more than one Tcl (system package, a standalone distribution, one bundled with an FPGA
+vendor tool), and the one that `tclsh` on `PATH` resolves to is not always the one you
+expect. The second line must report 8.5 or later.
+
+**Step 2 — only if you use manifests** (`read_manifest`, `load_manifest`,
+`collect_project_files` on YAML input, or `validate`):
+
+```tcl
+puts [package require yaml]
+puts [package require json]
+```
+
+Each line prints the tcllib package version if it is found. If step 2 raises an error
+and you only use the VHDL parser and queries, that is fine — nothing is missing for your
+use.
+
+### FPGA vendor tools ship their own Tcl
+
+Vivado, Quartus and Diamond each bundle a Tcl interpreter, and their installers can put
+it on `PATH`. That interpreter does not necessarily match the versions above: Vivado
+2023.1, for instance, ships Tcl 8.5 with tcllib 1.11, an older tcllib than any this
+project has been verified with. Run step 1 to see which interpreter you actually get
+before assuming the bundled one is the one in use.
+
+### Obtaining Tcl on Windows
+
+The verification snippet above checks the prerequisites; passing it does not by itself
+prove the project runs successfully on a given distribution. Ways to obtain a Tcl, in
+no particular order, each with its own friction:
+
+- **ActiveTcl** — requires a free ActiveState account; the free tier limits the number
+  of runtimes executed per 24 hours.
+- **Magicsplat Tcl/Tk** — `winget install Magicsplat.TclTk`; no account. This project
+  has **not** been tested with Magicsplat. Its installer major version 1 is Tcl 8.6;
+  major version 2 is Tcl 9.0, and nothing here has been tried against Tcl 9 at all.
+- **An existing Tcl** that already passes the verification above — nothing to install.
 
 ## Quick start (standalone)
 
@@ -109,13 +172,11 @@ AURIG Build is the authoritative reference for any strict-vs-lenient divergence.
 ```sh
 git clone https://github.com/aurig-fpga/aurig-core.git
 cd aurig-core
-
-# Tcl 8.6 + tcllib (Debian/Ubuntu)
-sudo apt-get install -y tcl tcllib
-
-# Run the test suite (parser harnesses, schema, project-file resolution).
-for t in test/test_*.tcl test/parser/run_doc.tcl; do tclsh "$t"; done
 ```
+
+Installing Tcl + tcllib for development and running the test suite (parser harnesses,
+schema, project-file resolution) are covered in
+[CONTRIBUTING.md](CONTRIBUTING.md#running-the-test-suite).
 
 The parser is covered by an extensive fixture corpus under `test/parser/`
 (VHDL source + expected parse output). `test/test_core_isolation.tcl` proves the
