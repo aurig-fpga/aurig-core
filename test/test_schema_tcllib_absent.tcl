@@ -116,6 +116,36 @@ check "yaml2ini failure carries tcllib guidance" \
     {[string match -nocase {*tcllib*} $y2i_err]} "msg: $y2i_err"
 catch {file delete -force $y2i_out}
 
+# Exported ::validate is reachable without going through load_manifest (a
+# downstream consumer holding a pre-normalized dict). Its own pre-flight must
+# catch the missing tcllib `json` and produce the same guidance as require_libs
+# rather than the bare `can't find package json` Tcl raises for a raw
+# `package require`. Capture the options dict across the interp boundary in a
+# single round-trip, same technique as test_vhdlscan_error_boundary.tcl uses
+# for the AURIG CORE PARSE assertions: `catch` inside `$child eval` binds
+# rc/err/opts locally, then a `list` wrapper carries the trio back so embedded
+# newlines in the guidance text do not disturb parent-side unpacking.
+lassign [$child eval {
+    set rc [catch {::aurig::core::schema::validate [list]} err opts]
+    list $rc $err $opts
+}] v_rc v_err v_opts
+check "validate FAILS when tcllib absent" {$v_rc != 0} \
+    "validate unexpectedly succeeded"
+check "validate failure carries tcllib guidance" \
+    {[string match -nocase {*tcllib*} $v_err]} "msg: $v_err"
+check "validate guidance mentions how to install (apt-get/teacup/auto_path)" \
+    {[string match -nocase {*apt-get*} $v_err] || [string match -nocase {*teacup*} $v_err] || [string match -nocase {*auto_path*} $v_err]} \
+    "msg: $v_err"
+# The substring checks above prove the guidance text is present; this pin
+# proves the error CATEGORY, i.e. that the failure came from schema::_err
+# (schema/manifest.tcl:73) and not a stray Tcl error whose message happened to
+# contain the same words. Exact-equal, not prefix -- the errorcode has exactly
+# three elements at the source.
+set v_ec [dict get $v_opts -errorcode]
+check "validate errorcode is exactly {AURIG SCHEMA MANIFEST}" \
+    {$v_ec eq {AURIG SCHEMA MANIFEST}} \
+    "errorcode: $v_ec"
+
 # The headline negative assertion: NO silent fallback to readYamlMinimal from
 # ANY project-mode entry exercised above (scan_project, collect_project_files,
 # AND yaml2ini).

@@ -180,9 +180,10 @@ proc ::aurig::core::schema::_read_yaml_file {path} {
     if {![file isfile $path]} {
         ::aurig::core::schema::_err "manifest file not found or not a regular file: $path"
     }
-    # require_libs has already asserted `yaml` is present; this is the only
-    # YAML entry point on the project-mode path -- no readYamlMinimal fallback.
-    package require yaml
+    # Route through the pre-flight so a direct caller of _read_yaml_file gets
+    # the same tcllib guidance as read_manifest / load_manifest; there is no
+    # readYamlMinimal fallback on the project-mode path.
+    ::aurig::core::schema::require_libs yaml
     set f [open $path r]
     set txt [read $f]
     close $f
@@ -718,7 +719,7 @@ proc ::aurig::core::schema::_load_schema {} {
     variable _schema_cache
     variable schema_file
     if {$_schema_cache ne ""} { return $_schema_cache }
-    package require json
+    ::aurig::core::schema::require_libs json
     set f [open $schema_file r]
     set txt [read $f]
     close $f
