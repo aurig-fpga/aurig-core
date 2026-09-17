@@ -40,9 +40,9 @@ Everything lives under the `aurig::core` package, in three sub-namespaces:
     tcllib is absent, rather than degrading silently.
   - `collect_project_files` on YAML input runs that same pre-flight, but for `yaml`
     alone: it needs no `json`. Its other input formats need no tcllib.
-  - `validate` needs `json` to read the vendored schema. It does not run the
-    pre-flight: without tcllib it fails with Tcl's bare `can't find package json`
-    error and no install guidance.
+  - `validate` runs that same pre-flight, but for `json` alone: it needs the
+    schema reader, not YAML parsing. A missing `json` fails loudly with install
+    guidance, matching the other manifest entry points.
   - `normalize` works on plain dicts and needs no tcllib.
 
 The VHDL parser (`vhdlscan` and the `q_*` queries) needs **no tcllib** — it works on

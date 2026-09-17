@@ -84,17 +84,25 @@ proc ::aurig::core::schema::require_libs {{pkgs {yaml json}}} {
         if {[catch {package require $pkg}]} { lappend missing $pkg }
     }
     if {[llength $missing]} {
-        ::aurig::core::schema::_err [join [list \
+        set lines [list \
             "AURIG project-mode manifest loading requires the tcllib package(s): [join $missing {, }]." \
-            "These are MANDATORY for project manifests and have no safe fallback:" \
-            "  - yaml: file_sets/ip_cores use multi-key YAML list items that" \
-            "          ::aurig::core::util::readYamlMinimal cannot parse; falling back" \
-            "          to it would silently mis-read the manifest." \
-            "  - json: the schema validator reads the bundled manifest-v1.json." \
+            "These are MANDATORY for project manifests and have no safe fallback:"]
+        if {"yaml" in $missing} {
+            lappend lines \
+                "  - yaml: file_sets/ip_cores use multi-key YAML list items that" \
+                "          ::aurig::core::util::readYamlMinimal cannot parse; falling back" \
+                "          to it would silently mis-read the manifest."
+        }
+        if {"json" in $missing} {
+            lappend lines \
+                "  - json: the schema validator reads the bundled manifest-v1.json."
+        }
+        lappend lines \
             "Install tcllib and ensure it is on the Tcl auto_path, e.g.:" \
             "  Debian/Ubuntu : sudo apt-get install tcllib" \
-            "  ActiveTcl     : teacup install tcllib" \
-            "  from source   : add the tcllib directory to \$auto_path." ] "\n"]
+            "  other/Windows : see the Requirements section of this project's README." \
+            "  from source   : add the tcllib directory to \$auto_path."
+        ::aurig::core::schema::_err [join $lines "\n"]
     }
 }
 

@@ -146,6 +146,44 @@ check "validate errorcode is exactly {AURIG SCHEMA MANIFEST}" \
     {$v_ec eq {AURIG SCHEMA MANIFEST}} \
     "errorcode: $v_ec"
 
+# Per-package guidance branches. require_libs's yaml: and json: explanatory
+# bullets were unconditional before #17 -- a json-only failure printed the
+# yaml paragraph too. Each branch is now scoped to `$missing`, and each needs
+# its own coverage: the both-missing case above cannot distinguish "the yaml
+# bullet is present because yaml is missing" from "the yaml bullet is always
+# present."
+#
+# Both tcllib packages are unreachable in this child, but require_libs builds
+# `$missing` from what the caller PASSED, not from what happens to be
+# unreachable -- so passing an explicit single-package list reaches the
+# per-package branch cleanly, without the fragility of monkey-patching
+# `package require` in a second child.
+foreach {label pkg other} {
+    yaml-only yaml json
+    json-only json yaml
+} {
+    $child eval [list set ::__req_pkgs [list $pkg]]
+    lassign [$child eval {
+        set rc [catch {::aurig::core::schema::require_libs $::__req_pkgs} err opts]
+        list $rc $err $opts
+    }] rc err opts
+    set ec [dict get $opts -errorcode]
+    check "$label: FAILS when tcllib absent" {$rc != 0} \
+        "require_libs unexpectedly succeeded"
+    check "$label: errorcode is exactly {AURIG SCHEMA MANIFEST}" \
+        {$ec eq {AURIG SCHEMA MANIFEST}} "errorcode: $ec"
+    check "$label: message names the requested package ($pkg)" \
+        {[string match -nocase "*$pkg*" $err]} "msg: $err"
+    check "$label: message does NOT mention the other package ($other)" \
+        {![string match -nocase "*$other*" $err]} "msg: $err"
+    check "$label: install guidance still present (apt-get/auto_path)" \
+        {[string match -nocase {*apt-get*} $err] || [string match -nocase {*auto_path*} $err]} \
+        "msg: $err"
+    check "$label: README pointer line present" \
+        {[string match {*Requirements section of this project's README*} $err]} \
+        "msg: $err"
+}
+
 # The headline negative assertion: NO silent fallback to readYamlMinimal from
 # ANY project-mode entry exercised above (scan_project, collect_project_files,
 # AND yaml2ini).
