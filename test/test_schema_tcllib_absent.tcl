@@ -65,12 +65,25 @@ $child eval {
 }
 
 set manifest [file join $core_root test fixtures manifests project project.yaml]
+set y2i_out  [file join $core_root test _tmp_absent_out.ini]
+# Push fixture paths into the child once so each case's brace-quoted eval body
+# stays free of parent-side substitution -- matching the two-step pattern the
+# per-package foreach below already uses (::__req_pkgs).
+$child eval [list set ::__manifest $manifest]
+$child eval [list set ::__y2i_out  $y2i_out]
 
-# require_libs must fail directly with guidance.
-set rl_rc [$child eval [list catch [list ::aurig::core::schema::require_libs] ::rl_err]]
-set rl_err [$child eval {set ::rl_err}]
+# require_libs must fail directly with guidance. Captured via the lassign/list
+# round-trip so `-errorcode` crosses the interp boundary alongside the message
+# and can be pinned to the value schema::_err raises at schema/manifest.tcl:73.
+lassign [$child eval {
+    set rc [catch {::aurig::core::schema::require_libs} err opts]
+    list $rc $err $opts
+}] rl_rc rl_err rl_opts
+set rl_ec [dict get $rl_opts -errorcode]
 check "require_libs FAILS when tcllib absent" {$rl_rc != 0} \
     "require_libs unexpectedly succeeded"
+check "require_libs errorcode is exactly {AURIG SCHEMA MANIFEST}" \
+    {$rl_ec eq {AURIG SCHEMA MANIFEST}} "errorcode: $rl_ec"
 check "require_libs error names tcllib" {[string match -nocase {*tcllib*} $rl_err]} \
     "msg: $rl_err"
 check "require_libs error names yaml" {[string match -nocase {*yaml*} $rl_err]} \
@@ -82,22 +95,33 @@ check "guidance mentions how to install (apt-get/teacup/auto_path)" \
     "msg: $rl_err"
 
 # The full consumer entry must also FAIL (not return a half-parsed view).
-set sp_rc [$child eval [list catch [list ::aurig::core::schema::scan_project $manifest] ::sp_err]]
-set sp_err [$child eval {set ::sp_err}]
+# scan_project -> load_manifest -> require_libs -> _err; all intermediate frames
+# are bare calls with no re-raise, so -errorcode propagates untouched.
+lassign [$child eval {
+    set rc [catch {::aurig::core::schema::scan_project $::__manifest} err opts]
+    list $rc $err $opts
+}] sp_rc sp_err sp_opts
+set sp_ec [dict get $sp_opts -errorcode]
 check "scan_project FAILS when tcllib absent" {$sp_rc != 0} \
     "scan_project unexpectedly returned a result"
+check "scan_project errorcode is exactly {AURIG SCHEMA MANIFEST}" \
+    {$sp_ec eq {AURIG SCHEMA MANIFEST}} "errorcode: $sp_ec"
 check "scan_project failure carries the guidance message" \
     {[string match -nocase {*tcllib*} $sp_err]} "msg: $sp_err"
 
 # F2: the LEGACY project-mode YAML entry must also fail loudly and must not
 # reach readYamlMinimal. collect_project_files -format yaml previously routed
 # through readYaml, whose lite fallback would silently mis-parse a manifest.
-set cpf_rc [$child eval [list catch \
-    [list ::aurig::core::util::collect_project_files -from $manifest -format yaml] \
-    ::cpf_err]]
-set cpf_err [$child eval {set ::cpf_err}]
+# The call chain is _collect_from_yaml -> require_libs yaml -> _err.
+lassign [$child eval {
+    set rc [catch {::aurig::core::util::collect_project_files -from $::__manifest -format yaml} err opts]
+    list $rc $err $opts
+}] cpf_rc cpf_err cpf_opts
+set cpf_ec [dict get $cpf_opts -errorcode]
 check "collect_project_files -format yaml FAILS when tcllib absent" {$cpf_rc != 0} \
     "collect_project_files unexpectedly returned a result"
+check "collect_project_files errorcode is exactly {AURIG SCHEMA MANIFEST}" \
+    {$cpf_ec eq {AURIG SCHEMA MANIFEST}} "errorcode: $cpf_ec"
 check "collect_project_files failure carries tcllib guidance" \
     {[string match -nocase {*tcllib*} $cpf_err]} "msg: $cpf_err"
 
@@ -106,12 +130,23 @@ check "collect_project_files failure carries tcllib guidance" \
 # It must now fail loudly under tcllib-absence with zero fallback reach. We
 # point it at a manifest with multi-key file_sets list items -- exactly what the
 # lite parser would mis-read -- to make any surviving reach observable.
-set y2i_out [file join $core_root test _tmp_absent_out.ini]
-set y2i_rc [$child eval [list catch \
-    [list ::aurig::core::util::yaml2ini $manifest $y2i_out] ::y2i_err]]
-set y2i_err [$child eval {set ::y2i_err}]
+#
+# The yaml2ini gate at util/ini_yaml.tcl:876-883 has TWO branches: branch 1
+# routes through schema::require_libs (errorcode {AURIG SCHEMA MANIFEST}),
+# branch 2 raises a plain error with errorcode NONE when the schema module is
+# NOT sourced. In THIS scenario branch 1 fires because `package require
+# aurig::core` above sourced schema/manifest.tcl, so require_libs is a live
+# command in the child -- verified by probe. Any future case that exercises
+# the standalone-CLI path (schema module NOT sourced) must NOT reuse this pin.
+lassign [$child eval {
+    set rc [catch {::aurig::core::util::yaml2ini $::__manifest $::__y2i_out} err opts]
+    list $rc $err $opts
+}] y2i_rc y2i_err y2i_opts
+set y2i_ec [dict get $y2i_opts -errorcode]
 check "yaml2ini FAILS when tcllib absent" {$y2i_rc != 0} \
     "yaml2ini unexpectedly succeeded"
+check "yaml2ini errorcode is exactly {AURIG SCHEMA MANIFEST}" \
+    {$y2i_ec eq {AURIG SCHEMA MANIFEST}} "errorcode: $y2i_ec"
 check "yaml2ini failure carries tcllib guidance" \
     {[string match -nocase {*tcllib*} $y2i_err]} "msg: $y2i_err"
 catch {file delete -force $y2i_out}
