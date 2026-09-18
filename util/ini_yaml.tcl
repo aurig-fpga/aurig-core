@@ -199,10 +199,13 @@ proc ::aurig::core::util::yamlEmitList {fd key listVals {indent 0}} {
     foreach v $listVals { puts $fd "$pad  - $v" }
 }
 
-# ---- YAML read: use tcllib::yaml if present; else minimal subset -------------
+# ---- YAML read: readYaml (requires tcllib) and readYamlMinimal (standalone) ---
 #
-# readYamlMinimal: indentation-aware recursive YAML subset parser used when the
-# tcllib `yaml` package is not available. Supports:
+# readYamlMinimal: indentation-aware recursive YAML subset parser. It is a
+# standalone lite parser with its own direct callers -- readYaml no longer
+# falls back to it. The one in-repo direct call is
+# test/test_yaml_minimal_inline_comments.tcl (LINT-PROJECT-DEBT-032), which
+# unit-tests the parser end-to-end. Supports:
 #   - nested mappings at arbitrary depth
 #   - lists of scalars
 #   - lists of mappings (multi-key list items, e.g. `- lib: work` followed by
@@ -217,9 +220,10 @@ proc ::aurig::core::util::yamlEmitList {fd key listVals {indent 0}} {
 #     preserved as a literal character). Full-line `#` comments are also skipped
 #     during tokenisation in readYamlMinimal.
 #
-# Not supported (consumers either avoid them or rely on the real `yaml` package
-# when richer features are needed): anchors/aliases, flow style, multi-line
-# block scalars (`|`/`>`), tagged nodes, quoted keys with spaces.
+# Not supported: anchors/aliases, flow style, multi-line block scalars
+# (`|`/`>`), tagged nodes, quoted keys with spaces. Direct callers that need
+# richer YAML features should use readYaml (which requires tcllib) instead --
+# not this parser with a wrapper.
 proc ::aurig::core::util::_yaml_parse_scalar {raw} {
     set v [string trim $raw]
     # Quoted scalars: strip surrounding quotes, return content as-is.
@@ -410,29 +414,50 @@ proc ::aurig::core::util::readYamlMinimal {fname} {
     set idx 0
     return [::aurig::core::util::_yaml_parse_block tokens idx 0]
 }
-# readYaml: tcllib `yaml` if present, else the readYamlMinimal lite parser.
+# readYaml: tcllib `yaml` is REQUIRED. No fallback to readYamlMinimal.
 #
-# F2 BOUNDARY: this dual-mode helper is for SIMPLE / non-canonical YAML only.
-# It MUST NOT be the entry point for canonical project manifests, because the
-# lite fallback cannot parse the multi-key list items in file_sets/ip_cores and
-# would silently mis-read them. EVERY project-mode entry that reads a manifest
-# gates on tcllib FIRST (require_libs), so it fails loudly when `yaml` is absent
-# rather than reaching the fallback below:
-#   - ::aurig::core::schema::scan_project / load_manifest -> require_libs {yaml json}
-#   - ::aurig::core::util::collect_project_files -format yaml (_collect_from_yaml)
-#     -> ::aurig::core::schema::require_libs yaml
-#   - ::aurig::core::util::yaml2ini (and its CLI wrapper) -> require_libs yaml
-# When readYaml IS reached on any of those paths, tcllib `yaml` is already
-# guaranteed present and the readYamlMinimal branch below is never taken there.
-# (Round-1 note corrected: yaml2ini was previously OMITTED from this list and
-# did silently reach the fallback on a manifest -- now gated; see FIX 2.)
+# Rationale: readYaml used to silently pick between the tcllib parser and the
+# in-tree lite parser depending on whether tcllib was installed, and the caller
+# got no signal which one ran. The two disagree on constructs that show up in
+# real manifests. Verified empirically against yaml::yaml2dict:
+#   - a block scalar -- a `|` value with continuation lines -- is silently
+#     TRUNCATED by readYamlMinimal to the literal `|` character; its content
+#     is dropped. tcllib returns the multi-line string.
+#   - dotted top-level keys (e.g. `tool.synth:`) yield an EMPTY result: the
+#     whole document is silently lost. tcllib parses them correctly.
+#   - a top-level `$schema:` key (an optional forward-compat convention; NOT
+#     required by manifest-v1.json, whose required set is
+#     {schema_version, project_name, top}) is silently DROPPED by
+#     readYamlMinimal -- its identifier-key regex rejects the leading `$`.
+#     tcllib preserves it.
+#   - TAB-indented input silently loses structure where tcllib raises.
+# Raising loudly when tcllib is absent removes the silent branch selection and
+# matches the shape #15/#17 established for every other schema entry point.
+#
+# The `if {[info commands ::aurig::core::schema::require_libs]}` guard mirrors
+# yaml2ini at :876-883: under any `package require aurig::core` load the schema
+# module is present (core.tcl sources schema/manifest.tcl at :71), so
+# require_libs fires and raises with {AURIG SCHEMA MANIFEST}. The plain-error
+# branch below only fires when util/ini_yaml.tcl is sourced standalone (schema
+# module NOT loaded), matching yaml2ini's branch B contract. require_libs
+# always raises on a missing package, so the plain error is unreachable in the
+# schema-loaded case -- there is no fall-through path that could return the
+# empty string.
 proc ::aurig::core::util::readYaml {fname} {
     ::aurig::core::util::_yaml_validate_path $fname
     if {![catch {package require yaml}]} {
         set f [open $fname r]; set t [read $f]; close $f
         return [yaml::yaml2dict $t]
     }
-    return [::aurig::core::util::readYamlMinimal $fname]
+    if {[llength [info commands ::aurig::core::schema::require_libs]]} {
+        ::aurig::core::schema::require_libs yaml
+    }
+    error "readYaml requires the tcllib 'yaml' package; there is no safe\
+ lite-parser fallback for canonical YAML (for example, a block scalar -- a\
+ `|` value with continuation lines -- is silently truncated to the literal\
+ `|` character). Install tcllib (e.g. 'apt-get install tcllib') and ensure\
+ it is on the Tcl auto_path. For other platforms, see the Requirements\
+ section of this project's README."
 }
 
 # ---- Mapping: INI -> YAML ----------------------------------------------------
@@ -866,13 +891,14 @@ proc ::aurig::core::util::ini2yaml {inIni outYaml args} {
 }
 
 proc ::aurig::core::util::yaml2ini {inYaml outIni} {
-    # F2: yaml2ini reads a canonical project manifest (file_sets etc.), so it is
-    # a project-mode YAML entry and MUST gate on tcllib `yaml` -- no silent
-    # readYaml/readYamlMinimal fallback that would mis-parse multi-key list
-    # items. When loaded as part of aurig::core we reuse the schema gate (the
-    # canonical guidance); when this file is run STANDALONE via its CLI wrapper
-    # (schema module not sourced) we degrade to a direct require with the same
-    # loud-failure contract. Either way: no fallback to the lite parser.
+    # yaml2ini reads a canonical project manifest (file_sets etc.) via
+    # readYaml, and readYaml itself raises when tcllib is absent (there is no
+    # fallback to prevent). The gate below is a defense-in-depth guard that
+    # raises BEFORE reaching readYaml: when loaded as part of aurig::core we
+    # delegate to the schema pre-flight (`require_libs yaml`) for the
+    # canonical guidance; when this file is run STANDALONE via its CLI wrapper
+    # (schema module not sourced) we raise a plain error with matching install
+    # guidance.
     if {[llength [info commands ::aurig::core::schema::require_libs]]} {
         ::aurig::core::schema::require_libs yaml
     } elseif {[catch {package require yaml}]} {
