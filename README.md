@@ -33,8 +33,8 @@ Everything lives under the `aurig::core` package, in three sub-namespaces:
 ## Requirements
 
 - **Tcl 8.5+** (8.6 recommended; CI runs 8.6).
-- **tcllib** (`yaml` + `json`) — required only for the manifest features, and not
-  uniformly:
+- **tcllib** (`yaml` + `json`) — required only for the manifest features and for
+  `readYaml`, and not uniformly:
   - `read_manifest` and `load_manifest` (reading canonical YAML manifests) run a
     pre-flight (`require_libs`) that **fails loudly with install guidance** when
     tcllib is absent, rather than degrading silently.
@@ -43,12 +43,18 @@ Everything lives under the `aurig::core` package, in three sub-namespaces:
   - `validate` runs that same pre-flight, but for `json` alone: it needs the
     schema reader, not YAML parsing. A missing `json` fails loudly with install
     guidance, matching the other manifest entry points.
+  - `yaml2ini` (converting a canonical YAML manifest to INI) gates on tcllib
+    `yaml` alone via its own two-branch guard, matching `collect_project_files`
+    on YAML input.
+  - `readYaml` requires tcllib `yaml` for ANY input, not only canonical manifests:
+    it has no lite-parser fallback, and calling it without tcllib fails loudly
+    with install guidance rather than returning a mis-parsed dict.
   - `normalize` works on plain dicts and needs no tcllib.
 
 The VHDL parser (`vhdlscan` and the `q_*` queries) needs **no tcllib** — it works on
 the base Tcl interpreter. Likewise, `package require aurig::core` loads quietly with
 or without tcllib present; the requirement only bites at the point a manifest is read
-or validated.
+or validated, or `readYaml` is called on any input.
 
 The manifest features have been verified working with tcllib 1.20 (`yaml` 0.4.1,
 `json` 1.3.4) and with tcllib 1.21 (`yaml` 0.4.2, `json` 1.3.6). Other tcllib
@@ -73,12 +79,15 @@ more than one Tcl (system package, a standalone distribution, one bundled with a
 vendor tool), and the one that `tclsh` on `PATH` resolves to is not always the one you
 expect. The second line must report 8.5 or later.
 
-**Step 2 — only if you use manifests** (`read_manifest`, `load_manifest`,
-`collect_project_files` on YAML input, or `validate`):
+**Step 2 — only if you use manifest features or read YAML directly.** Which
+tcllib package you need depends on the entry point (see the bullets above):
+`read_manifest`, `load_manifest`, `collect_project_files` on YAML input,
+`yaml2ini`, and `readYaml` need `yaml`; `read_manifest`, `load_manifest`, and
+`validate` need `json`. Run whichever apply:
 
 ```tcl
-puts [package require yaml]
-puts [package require json]
+puts [package require yaml]   ;# reading canonical YAML manifests or readYaml
+puts [package require json]   ;# schema validation
 ```
 
 Each line prints the tcllib package version if it is found. If step 2 raises an error
