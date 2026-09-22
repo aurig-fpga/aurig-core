@@ -131,13 +131,14 @@ check "collect_project_files failure carries tcllib guidance" \
 # point it at a manifest with multi-key file_sets list items -- exactly what the
 # lite parser would mis-read -- to make any surviving reach observable.
 #
-# The yaml2ini gate at util/ini_yaml.tcl:876-883 has TWO branches: branch 1
-# routes through schema::require_libs (errorcode {AURIG SCHEMA MANIFEST}),
-# branch 2 raises a plain error with errorcode NONE when the schema module is
-# NOT sourced. In THIS scenario branch 1 fires because `package require
-# aurig::core` above sourced schema/manifest.tcl, so require_libs is a live
-# command in the child -- verified by probe. Any future case that exercises
-# the standalone-CLI path (schema module NOT sourced) must NOT reuse this pin.
+# The yaml2ini two-branch tcllib gate in util/ini_yaml.tcl has TWO branches:
+# branch 1 routes through schema::require_libs (errorcode
+# {AURIG SCHEMA MANIFEST}), branch 2 raises a plain error with errorcode NONE
+# when the schema module is NOT sourced. In THIS scenario branch 1 fires
+# because `package require aurig::core` above sourced schema/manifest.tcl, so
+# require_libs is a live command in the child -- verified by probe. Any future
+# case that exercises the standalone-CLI path (schema module NOT sourced) must
+# NOT reuse this pin.
 lassign [$child eval {
     set rc [catch {::aurig::core::util::yaml2ini $::__manifest $::__y2i_out} err opts]
     list $rc $err $opts
@@ -218,6 +219,32 @@ foreach {label pkg other} {
         {[string match {*Requirements section of this project's README*} $err]} \
         "msg: $err"
 }
+
+# readYaml directly: no in-tree production caller reaches it without a tcllib
+# pre-flight, but readYaml is a public util and downstream code MAY call it
+# unguarded. Before this case landed, readYaml silently selected between
+# tcllib and readYamlMinimal based on tcllib's presence -- the caller got no
+# signal which parser ran, and the two disagree on constructs like a top-level
+# `$schema` key (silently dropped by the lite parser), dotted keys, block
+# scalars, and TAB indentation. It must now RAISE with the same guidance every
+# schema entry point produces: the guard at util/ini_yaml.tcl finds
+# ::aurig::core::schema::require_libs in this child (schema module was sourced
+# by `package require aurig::core` above), so require_libs fires and the
+# errorcode is {AURIG SCHEMA MANIFEST}. The readYamlMinimal tripwire installed
+# earlier (:56-65) covers this call: if readYaml ever reached readYamlMinimal,
+# the ::__rym_called sentinel would trip and the tripwire's assertion at the
+# end of the file would catch it.
+lassign [$child eval {
+    set rc [catch {::aurig::core::util::readYaml $::__manifest} err opts]
+    list $rc $err $opts
+}] ry_rc ry_err ry_opts
+set ry_ec [dict get $ry_opts -errorcode]
+check "readYaml FAILS when tcllib absent" {$ry_rc != 0} \
+    "readYaml unexpectedly returned a result (silent degradation)"
+check "readYaml errorcode is exactly {AURIG SCHEMA MANIFEST}" \
+    {$ry_ec eq {AURIG SCHEMA MANIFEST}} "errorcode: $ry_ec"
+check "readYaml failure carries tcllib guidance" \
+    {[string match -nocase {*tcllib*} $ry_err]} "msg: $ry_err"
 
 # The headline negative assertion: NO silent fallback to readYamlMinimal from
 # ANY project-mode entry exercised above (scan_project, collect_project_files,
