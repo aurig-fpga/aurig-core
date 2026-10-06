@@ -1249,8 +1249,12 @@ namespace eval ::aurig::core::analyze {
 
 		# parse declarative part with comment dict
 		parse_declarative_part localDict $archDeclPart false true $n $commentDict
-		# update line number
-		set lineincr [expr {[update_line $archDeclPart] + 1}]
+		# update line number: the body base is the line of the architecture
+		# `begin`, i.e. the number of newlines in the UNTRIMMED chunk before
+		# the body text. $archDeclPart is trimmed by split_arch_decl_body, so
+		# counting its newlines (+1) lost every blank, comment-only or
+		# whitespace-only line in the declarative tail (#23).
+		set lineincr [regexp -all \n [string range $buffer 0 [expr {[string first $archBody $buffer] - 1}]]]
 		set n  [expr {$n + $lineincr}]
 		update_buffer localBuffer $lineincr
 
