@@ -2198,12 +2198,18 @@ proc ::aurig::core::analyze::_scan_functions {decl n {commentDict {}}} {
 # Matches patterns like:
 #   procedure name(params);
 #   procedure name(params) is
+# isLine: line of the `is` that opens the region (default $n). When the
+# region text starts below it, the lines in between hold only whitespace.
 # --------------------------------
-proc ::aurig::core::analyze::_scan_procedures {decl n {commentDict {}}} {
+proc ::aurig::core::analyze::_scan_procedures {decl n {commentDict {}} {isLine {}}} {
     set results {}
+    if {$isLine eq ""} {
+        set isLine $n
+    }
 
     set N [string length $decl]
     set idx 0
+    set declLines [split $decl "\n"]
 
     # Match procedure keyword and name, then a delimiter that is
     # either the param-list opening paren OR the `is` keyword
@@ -2282,9 +2288,20 @@ proc ::aurig::core::analyze::_scan_procedures {decl n {commentDict {}}} {
         set checkLine [expr {$line - 1}]
 
         # Collect consecutive comment lines going backward from line-1
-        # Stop immediately if we hit a line with no comment
+        # Stop immediately if we hit a line with no comment, or a line
+        # containing code: only full-line comments form the block above,
+        # so a trailing comment on the previous code line is not taken.
+        # $decl holds comment-stripped lines, so a full-line comment is a
+        # blank line in it. Line $isLine is code; lines between it and $n
+        # are outside $decl and hold only whitespace.
         for {set i 0} {$i < 15} {incr i} {
             set scanLine [expr {$checkLine - $i}]
+            if {$scanLine <= $isLine} {
+                break
+            }
+            if {$scanLine >= $n && [string trim [lindex $declLines [expr {$scanLine - $n}]]] ne ""} {
+                break
+            }
             if {[dict exists $commentDict $scanLine]} {
                 set commentEntry [dict get $commentDict $scanLine]
                 if {[dict exists $commentEntry comment]} {

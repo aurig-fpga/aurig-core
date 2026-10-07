@@ -251,7 +251,8 @@ check_comment "comment layout, package body: comment attached to show" \
 
 # ----------------------------------------------------------------------------
 # Case 5: parameters spread over several lines report the line of the
-# `procedure` keyword, not a line inside or after the parameter list
+# procedure name (here on the same line as the `procedure` keyword), not a
+# line inside or after the parameter list
 # ----------------------------------------------------------------------------
 set parsed [parse [tmp_vhd_lines "multiline_params" {
     {package p is}
@@ -321,6 +322,89 @@ check_comment "inline only, architecture: comment attached to pa" \
     [comment_of [arch_decl $parsed pa]] "Inline only"
 check_comment "above and inline, architecture: both attached to pb" \
     [comment_of [arch_decl $parsed pb]] "Above\nInline"
+
+# ----------------------------------------------------------------------------
+# Case 7: the search for the comment block above a procedure takes only
+# full-line comments and stops at the first line containing code, so a
+# trailing comment on the previous code line is not attached
+# ----------------------------------------------------------------------------
+foreach eol {lf crlf} {
+    set parsed [parse [tmp_vhd_lines "after_function_$eol" {
+        {package p is}
+        {  procedure after_func(x : integer);}
+        {end package;}
+        {package body p is}
+        {  function f(x : integer) return integer is}
+        {  begin}
+        {    return x;}
+        {  end function; -- FUNCTION_ONLY}
+        {  procedure after_func(x : integer) is}
+        {  begin}
+        {  end procedure;}
+        {end package body;}
+    } $eol]]
+    check_line "after a trailing comment on end function ($eol): procedure after_func" \
+        [line_of [pkg_body_item $parsed procedures after_func]] 9
+    check_comment "after a trailing comment on end function ($eol): no comment on after_func" \
+        [comment_of [pkg_body_item $parsed procedures after_func]] ""
+}
+
+set parsed [parse [tmp_vhd_lines "after_procedure" {
+    {package p is}
+    {  procedure a(x : integer); -- Trailing for a}
+    {  -- Comment for b}
+    {  procedure b(x : integer);}
+    {  procedure c(x : integer);}
+    {end package;}
+}]]
+check_comment "after a procedure with a trailing comment: a keeps its trailing comment" \
+    [comment_of [pkg_decl $parsed a]] "Trailing for a"
+check_comment "after a procedure with a trailing comment: b gets only the comment above" \
+    [comment_of [pkg_decl $parsed b]] "Comment for b"
+check_comment "after a procedure without comment: no comment on c" \
+    [comment_of [pkg_decl $parsed c]] ""
+
+set parsed [parse [tmp_vhd_lines "after_header" {
+    {entity e is end entity;}
+    {architecture rtl of e is -- Architecture header}
+    {  procedure pa(x : in bit) is}
+    {  begin}
+    {  end procedure;}
+    {begin}
+    {end architecture;}
+    {package p is}
+    {  procedure show(s : string);}
+    {end package;}
+    {package body p is -- Package body header}
+    {  procedure show(s : string) is}
+    {  begin}
+    {  end procedure;}
+    {end package body;}
+}]]
+check_comment "after an architecture header with a trailing comment: no comment on pa" \
+    [comment_of [arch_decl $parsed pa]] ""
+check_comment "after a package body header with a trailing comment: no comment on show" \
+    [comment_of [pkg_body_item $parsed procedures show]] ""
+
+set parsed [parse [tmp_vhd_lines "after_package_header" {
+    {package p is -- Package header}
+    {  procedure show(s : string);}
+    {end package;}
+}]]
+check_comment "after a package header with a trailing comment: no comment on show" \
+    [comment_of [pkg_decl $parsed show]] ""
+
+# Control: the first procedure of a package declaration keeps the comment
+# block directly above it (the region text starts below the header)
+set parsed [parse [tmp_vhd_lines "first_in_package" {
+    {package p is}
+    {  -- First line of the block}
+    {  -- Second line of the block}
+    {  procedure show(s : string);}
+    {end package;}
+}]]
+check_comment "control, first procedure of a package declaration: block above attached" \
+    [comment_of [pkg_decl $parsed show]] "First line of the block\nSecond line of the block"
 
 # Controls: function comment behaviour is unchanged. A block above without
 # @brief yields to the inline comment; a block with @brief wins; an inline
