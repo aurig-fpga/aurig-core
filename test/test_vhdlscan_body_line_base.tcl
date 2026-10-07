@@ -52,9 +52,9 @@ proc check_line {label got expected} {
     }
 }
 
-# Fixtures live in a per-run directory OUTSIDE the repository tree, named
-# with the pid and a timestamp, so concurrent runs never share or delete
-# each other's files and nothing is ever written into test/.
+# Fixtures are written to a unique per-run directory under the system temp
+# directory (TMPDIR, TEMP or TMP; else /tmp; else the current directory) and
+# removed in a finally block.
 proc make_tmp_dir {} {
     set base ""
     foreach var {TMPDIR TEMP TMP} {
