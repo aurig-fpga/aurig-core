@@ -2272,10 +2272,8 @@ proc ::aurig::core::analyze::_scan_procedures {decl n {commentDict {}}} {
             set matchAdvance [expr {[lindex $delimIdx 1] + 1}]
         }
 
-        # Calculate line number (count newlines up to match start)
-        set offset [lindex $nameIdx 0]
-        set prefix [string range $decl 0 [expr {$offset - 1}]]
-        set line [expr {$n + [regexp -all {\n} $prefix] + 1}]
+        # Line of the procedure name, computed like _scan_functions
+        set line [::aurig::core::analyze::_index_to_line $decl $nStart $n]
 
         # Search for comment - aggregate consecutive comment lines immediately above AND at the procedure line
         # Collect all consecutive comments going backward, then forward to get full block

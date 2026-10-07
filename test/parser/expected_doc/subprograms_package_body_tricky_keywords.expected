@@ -19,7 +19,7 @@ begin
 return data = (data'range => '0');
 end function end_of_data;
 
-} file tricky_keywords.vhd functions {{body {} kind function line 21 name not_a_procedure params {x : integer} purity pure return integer} {body {} kind function line 34 name end_of_data params {data : std_logic_vector} purity pure return boolean}} line 19 name pkg_tricky procedures {{body {} kind procedure line 29 name not_a_function params {signal data : out std_logic}}}}} package_body {body {function not_a_procedure(x : integer) return integer is
+} file tricky_keywords.vhd functions {{body {} kind function line 21 name not_a_procedure params {x : integer} purity pure return integer} {body {} kind function line 34 name end_of_data params {data : std_logic_vector} purity pure return boolean}} line 19 name pkg_tricky procedures {{body {} kind procedure line 28 name not_a_function params {signal data : out std_logic}}}}} package_body {body {function not_a_procedure(x : integer) return integer is
 constant MSG : string := "procedure inside string";
 begin
 
@@ -37,7 +37,7 @@ begin
 return data = (data'range => '0');
 end function end_of_data;
 
-} file_name tricky_keywords.vhd line 19 name pkg_tricky} packages {{components {} declarations {{kind function line 9 name not_a_procedure params {x : integer} purity pure return integer} {kind function line 15 name end_of_data params {data : std_logic_vector} purity pure return boolean} {kind procedure line 13 name not_a_function params {signal data : out std_logic}}} declarative {function not_a_procedure(x : integer) return integer;
+} file_name tricky_keywords.vhd line 19 name pkg_tricky} packages {{components {} declarations {{kind function line 9 name not_a_procedure params {x : integer} purity pure return integer} {kind function line 15 name end_of_data params {data : std_logic_vector} purity pure return boolean} {comment {Procedure with __Q0__ in comment} kind procedure line 12 name not_a_function params {signal data : out std_logic}}} declarative {function not_a_procedure(x : integer) return integer;
 
 
 procedure not_a_function(signal data : out std_logic);
