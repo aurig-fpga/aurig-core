@@ -28,6 +28,7 @@ package require aurig::core
 set ::pass_count 0
 set ::fail_count 0
 set ::tmp_files {}
+set ::tmp_dir ""
 
 proc check {label cond} {
     if {[uplevel 1 [list expr $cond]]} {
@@ -51,23 +52,50 @@ proc check_line {label got expected} {
     }
 }
 
+# Fixtures live in a per-run directory OUTSIDE the repository tree, named
+# with the pid and a timestamp, so concurrent runs never share or delete
+# each other's files and nothing is ever written into test/.
+proc make_tmp_dir {} {
+    set base ""
+    foreach var {TMPDIR TEMP TMP} {
+        if {[info exists ::env($var)] && [file isdirectory $::env($var)]} {
+            set base $::env($var)
+            break
+        }
+    }
+    if {$base eq ""} {
+        set base [expr {[file isdirectory /tmp] ? "/tmp" : [pwd]}]
+    }
+    set dir [file join $base "aurig_core_body_line_base_[pid]_[clock milliseconds]"]
+    file mkdir $dir
+    return $dir
+}
+
 # Write a fixture from a list of lines with the requested line ending.
 # eol: lf | crlf. The file is written in binary mode so no translation
-# happens on any platform.
+# happens on any platform. The path is registered for cleanup BEFORE the
+# file is created, and the channel is closed in a finally clause, so an
+# error during the write cannot leak either.
 proc tmp_vhd_lines {basename lines {eol lf}} {
-    set path [file join [file dirname [info script]] "_tmp_${basename}.vhd"]
+    set path [file join $::tmp_dir "${basename}.vhd"]
+    lappend ::tmp_files $path
     set sep [expr {$eol eq "crlf" ? "\r\n" : "\n"}]
     set fp [open $path w]
-    fconfigure $fp -translation binary
-    puts -nonewline $fp "[join $lines $sep]$sep"
-    close $fp
-    lappend ::tmp_files $path
+    try {
+        fconfigure $fp -translation binary
+        puts -nonewline $fp "[join $lines $sep]$sep"
+    } finally {
+        close $fp
+    }
     return $path
 }
 
 proc cleanup_tmp_files {} {
     foreach path $::tmp_files {
         catch {file delete -- $path}
+    }
+    if {$::tmp_dir ne ""} {
+        catch {file delete -force -- $::tmp_dir}
     }
 }
 
@@ -116,6 +144,11 @@ proc process_decl_line {parsed label name} {
     }
     return -1
 }
+
+# Every fixture is created and parsed inside this try block; the finally
+# clause removes the per-run directory even when a case raises a Tcl error.
+set ::tmp_dir [make_tmp_dir]
+try {
 
 # ----------------------------------------------------------------------------
 # Fixture texts (one list element per physical line)
@@ -310,10 +343,13 @@ check_line "control, comment attachment layout: process p" [item_line $parsed pr
 check "control, comment attachment layout: process comment attached" \
     {[item_comment $parsed processes p] eq "Process comment in the control layout"}
 
+} finally {
+    cleanup_tmp_files
+}
+
 # ----------------------------------------------------------------------------
 # Summary
 # ----------------------------------------------------------------------------
-cleanup_tmp_files
 puts ""
 puts "============================================================"
 puts "test_vhdlscan_body_line_base.tcl"
