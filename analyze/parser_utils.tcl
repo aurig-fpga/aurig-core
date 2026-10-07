@@ -2313,6 +2313,21 @@ proc ::aurig::core::analyze::_scan_procedures {decl n {commentDict {}}} {
             set commentLines [lreverse $commentLines]
         }
 
+        # Inline comment on the procedure line itself, read like in
+        # _scan_functions; appended after the comment block above
+        if {[dict exists $commentDict $line]} {
+            set commentEntry [dict get $commentDict $line]
+            if {[dict exists $commentEntry comment]} {
+                set inlineComment [dict get $commentEntry comment]
+            } else {
+                set inlineComment $commentEntry
+            }
+            set inlineComment [string trim $inlineComment]
+            if {$inlineComment ne ""} {
+                lappend commentLines $inlineComment
+            }
+        }
+
         # Don't collect forward - causes duplication. Only use backward collection.
         # The line number calculation is accurate enough.
 

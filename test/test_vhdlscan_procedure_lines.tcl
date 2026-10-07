@@ -274,6 +274,73 @@ check_line "multi-line parameters, package declaration: procedure configure" \
 check_line "multi-line parameters, package body: procedure configure" \
     [line_of [pkg_body_item $parsed procedures configure]] 8
 
+# ----------------------------------------------------------------------------
+# Case 6: a trailing comment on the procedure's own line is attached; with a
+# comment above as well, both are attached, the comment above first
+# ----------------------------------------------------------------------------
+set parsed [parse [tmp_vhd_lines "inline_package" {
+    {package p is}
+    {  procedure reset(signal rst : out bit); -- Active high reset}
+    {}
+    {  -- Reset procedure}
+    {  procedure clear(signal rst : out bit); -- Clears the register}
+    {end package;}
+    {package body p is}
+    {  procedure reset(signal rst : out bit) is -- Drives rst high}
+    {  begin}
+    {  end procedure;}
+    {  -- Clear implementation}
+    {  procedure clear(signal rst : out bit) is -- Drives rst low}
+    {  begin}
+    {  end procedure;}
+    {end package body;}
+}]]
+check_comment "inline only, package declaration: comment attached to reset" \
+    [comment_of [pkg_decl $parsed reset]] "Active high reset"
+check_comment "above and inline, package declaration: both attached to clear" \
+    [comment_of [pkg_decl $parsed clear]] "Reset procedure\nClears the register"
+check_comment "inline only, package body: comment attached to reset" \
+    [comment_of [pkg_body_item $parsed procedures reset]] "Drives rst high"
+check_comment "above and inline, package body: both attached to clear" \
+    [comment_of [pkg_body_item $parsed procedures clear]] "Clear implementation\nDrives rst low"
+
+set parsed [parse [tmp_vhd_lines "inline_architecture" {
+    {entity e is end entity;}
+    {architecture rtl of e is}
+    {  procedure pa(x : in bit) is -- Inline only}
+    {  begin}
+    {  end procedure;}
+    {  -- Above}
+    {  procedure pb(x : in bit) is -- Inline}
+    {  begin}
+    {  end procedure;}
+    {begin}
+    {end architecture;}
+}]]
+check_comment "inline only, architecture: comment attached to pa" \
+    [comment_of [arch_decl $parsed pa]] "Inline only"
+check_comment "above and inline, architecture: both attached to pb" \
+    [comment_of [arch_decl $parsed pb]] "Above\nInline"
+
+# Controls: function comment behaviour is unchanged. A block above without
+# @brief yields to the inline comment; a block with @brief wins; an inline
+# comment alone is attached.
+set parsed [parse [tmp_vhd_lines "inline_function_control" {
+    {package p is}
+    {  function inc(a : integer) return integer; -- Increment}
+    {  -- Adds one}
+    {  function add(a : integer) return integer; -- Sum}
+    {  -- @brief Negates a value}
+    {  function neg(a : integer) return integer; -- Negation}
+    {end package;}
+}]]
+check_comment "control, function with inline comment only" \
+    [comment_of [pkg_decl $parsed inc]] "Increment"
+check_comment "control, function with block above (no @brief) and inline" \
+    [comment_of [pkg_decl $parsed add]] "Sum"
+check_comment "control, function with @brief block above and inline" \
+    [comment_of [pkg_decl $parsed neg]] "@brief Negates a value"
+
 } finally {
     cleanup_tmp_files
 }
