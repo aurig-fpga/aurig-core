@@ -2198,12 +2198,18 @@ proc ::aurig::core::analyze::_scan_functions {decl n {commentDict {}}} {
 # Matches patterns like:
 #   procedure name(params);
 #   procedure name(params) is
+# isLine: line of the `is` that opens the region (default $n). When the
+# region text starts below it, the lines in between hold only whitespace.
 # --------------------------------
-proc ::aurig::core::analyze::_scan_procedures {decl n {commentDict {}}} {
+proc ::aurig::core::analyze::_scan_procedures {decl n {commentDict {}} {isLine {}}} {
     set results {}
+    if {$isLine eq ""} {
+        set isLine $n
+    }
 
     set N [string length $decl]
     set idx 0
+    set declLines [split $decl "\n"]
 
     # Match procedure keyword and name, then a delimiter that is
     # either the param-list opening paren OR the `is` keyword
@@ -2272,10 +2278,8 @@ proc ::aurig::core::analyze::_scan_procedures {decl n {commentDict {}}} {
             set matchAdvance [expr {[lindex $delimIdx 1] + 1}]
         }
 
-        # Calculate line number (count newlines up to match start)
-        set offset [lindex $nameIdx 0]
-        set prefix [string range $decl 0 [expr {$offset - 1}]]
-        set line [expr {$n + [regexp -all {\n} $prefix] + 1}]
+        # Line of the procedure name, computed like _scan_functions
+        set line [::aurig::core::analyze::_index_to_line $decl $nStart $n]
 
         # Search for comment - aggregate consecutive comment lines immediately above AND at the procedure line
         # Collect all consecutive comments going backward, then forward to get full block
@@ -2284,9 +2288,20 @@ proc ::aurig::core::analyze::_scan_procedures {decl n {commentDict {}}} {
         set checkLine [expr {$line - 1}]
 
         # Collect consecutive comment lines going backward from line-1
-        # Stop immediately if we hit a line with no comment
+        # Stop immediately if we hit a line with no comment, or a line
+        # containing code: only full-line comments form the block above,
+        # so a trailing comment on the previous code line is not taken.
+        # $decl holds comment-stripped lines, so a full-line comment is a
+        # blank line in it. Line $isLine is code; lines between it and $n
+        # are outside $decl and hold only whitespace.
         for {set i 0} {$i < 15} {incr i} {
             set scanLine [expr {$checkLine - $i}]
+            if {$scanLine <= $isLine} {
+                break
+            }
+            if {$scanLine >= $n && [string trim [lindex $declLines [expr {$scanLine - $n}]]] ne ""} {
+                break
+            }
             if {[dict exists $commentDict $scanLine]} {
                 set commentEntry [dict get $commentDict $scanLine]
                 if {[dict exists $commentEntry comment]} {
@@ -2313,6 +2328,21 @@ proc ::aurig::core::analyze::_scan_procedures {decl n {commentDict {}}} {
         # Reverse what we collected (since we went backward)
         if {[llength $commentLines] > 0} {
             set commentLines [lreverse $commentLines]
+        }
+
+        # Inline comment on the procedure line itself, read like in
+        # _scan_functions; appended after the comment block above
+        if {[dict exists $commentDict $line]} {
+            set commentEntry [dict get $commentDict $line]
+            if {[dict exists $commentEntry comment]} {
+                set inlineComment [dict get $commentEntry comment]
+            } else {
+                set inlineComment $commentEntry
+            }
+            set inlineComment [string trim $inlineComment]
+            if {$inlineComment ne ""} {
+                lappend commentLines $inlineComment
+            }
         }
 
         # Don't collect forward - causes duplication. Only use backward collection.

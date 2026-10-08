@@ -40,7 +40,7 @@ begin
 report "Vector length: " & integer'image(data'length);
 end procedure print;
 
-} file overloaded.vhd functions {{body {} kind function line 20 name to_integer params {data : std_logic} purity pure return integer} {body {} body_declarations {{kind variable name result type integer init 0 line 30}} kind function line 29 name to_integer params {data : std_logic_vector} purity pure return integer}} line 18 name pkg_overload procedures {{body {} kind procedure line 42 name print params {message : string}} {body {} kind procedure line 47 name print params {value : integer}} {body {} kind procedure line 52 name print params {data : std_logic_vector}}}}} package_body {body {function to_integer(data : std_logic) return integer is
+} file overloaded.vhd functions {{body {} kind function line 20 name to_integer params {data : std_logic} purity pure return integer} {body {} body_declarations {{kind variable name result type integer init 0 line 30}} kind function line 29 name to_integer params {data : std_logic_vector} purity pure return integer}} line 18 name pkg_overload procedures {{body {} kind procedure line 41 name print params {message : string}} {body {} kind procedure line 46 name print params {value : integer}} {body {} kind procedure line 51 name print params {data : std_logic_vector}}}}} package_body {body {function to_integer(data : std_logic) return integer is
 begin
 if data = '1' then
 return 1;
@@ -76,7 +76,7 @@ begin
 report "Vector length: " & integer'image(data'length);
 end procedure print;
 
-} file_name overloaded.vhd line 18 name pkg_overload} packages {{components {} declarations {{kind function line 8 name to_integer params {data : std_logic} purity pure return integer} {kind function line 9 name to_integer params {data : std_logic_vector} purity pure return integer} {kind procedure line 13 name print params {message : string}} {kind procedure line 14 name print params {value : integer}} {kind procedure line 15 name print params {data : std_logic_vector}}} declarative {function to_integer(data : std_logic) return integer;
+} file_name overloaded.vhd line 18 name pkg_overload} packages {{components {} declarations {{kind function line 8 name to_integer params {data : std_logic} purity pure return integer} {kind function line 9 name to_integer params {data : std_logic_vector} purity pure return integer} {comment {Overloaded print procedure} kind procedure line 12 name print params {message : string}} {kind procedure line 13 name print params {value : integer}} {kind procedure line 14 name print params {data : std_logic_vector}}} declarative {function to_integer(data : std_logic) return integer;
 function to_integer(data : std_logic_vector) return integer;
 
 

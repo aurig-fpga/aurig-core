@@ -34,8 +34,8 @@ procedure reset(signal counter : inout integer) is
 begin
 counter <= 0;
 end procedure reset;
-} file procedure_overloads.vhd functions {} line 22 name proc_overload_pkg procedures {{body {} kind procedure line 24 name reset params {signal sig : out std_logic}} {body {} kind procedure line 29 name reset params {signal vec : out std_logic_vector}} {body {} kind procedure line 34 name reset params {signal sig : out std_logic;
-enable : in boolean}} {body {} kind procedure line 44 name reset params {signal counter : inout integer}}}}} package_body {body {procedure reset(signal sig : out std_logic) is
+} file procedure_overloads.vhd functions {} line 22 name proc_overload_pkg procedures {{body {} kind procedure line 23 name reset params {signal sig : out std_logic}} {body {} kind procedure line 28 name reset params {signal vec : out std_logic_vector}} {body {} kind procedure line 33 name reset params {signal sig : out std_logic;
+enable : in boolean}} {body {} kind procedure line 43 name reset params {signal counter : inout integer}}}}} package_body {body {procedure reset(signal sig : out std_logic) is
 begin
 sig <= '0';
 end procedure reset;
@@ -59,8 +59,8 @@ procedure reset(signal counter : inout integer) is
 begin
 counter <= 0;
 end procedure reset;
-} file_name procedure_overloads.vhd line 22 name proc_overload_pkg} packages {{components {} declarations {{kind procedure line 8 name reset params {signal sig : out std_logic}} {kind procedure line 11 name reset params {signal vec : out std_logic_vector}} {kind procedure line 14 name reset params {signal sig : out std_logic;
-enable : in boolean}} {kind procedure line 20 name reset params {signal counter : inout integer}}} declarative {procedure reset(signal sig : out std_logic);
+} file_name procedure_overloads.vhd line 22 name proc_overload_pkg} packages {{components {} declarations {{comment {First overload: single output} kind procedure line 7 name reset params {signal sig : out std_logic}} {comment {Second overload: vector output} kind procedure line 10 name reset params {signal vec : out std_logic_vector}} {comment {Third overload: with enable} kind procedure line 13 name reset params {signal sig : out std_logic;
+enable : in boolean}} {comment {Fourth overload: inout parameter} kind procedure line 19 name reset params {signal counter : inout integer}}} declarative {procedure reset(signal sig : out std_logic);
 
 
 procedure reset(signal vec : out std_logic_vector);
