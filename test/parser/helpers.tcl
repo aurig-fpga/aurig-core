@@ -372,6 +372,7 @@ namespace eval ::aurig::core::test::parser {
     proc save_expected {filename normalized_dict} {
         # Simply save the dict as a Tcl list (most reliable format)
         set fh [open $filename w]
+        fconfigure $fh -translation lf
         puts $fh $normalized_dict
         close $fh
     }
