@@ -56,11 +56,20 @@ the base Tcl interpreter. Likewise, `package require aurig::core` loads quietly 
 or without tcllib present; the requirement only bites at the point a manifest is read
 or validated, or `readYaml` is called on any input.
 
-The manifest features have been verified working with tcllib 1.20 (`yaml` 0.4.1,
-`json` 1.3.4) and with tcllib 1.21 (`yaml` 0.4.2, `json` 1.3.6). Other tcllib
-releases may work but have not been verified. This is the canonical statement of
-the verified environments; [CONTRIBUTING.md](CONTRIBUTING.md#running-the-test-suite)
-refers back to it rather than repeating the figures.
+The manifest features have been verified working with the tcllib releases below. In
+each case the test suite passed, and the `yaml`/`json` versions are the ones that
+each interpreter reported:
+
+| tcllib | `yaml` | `json` | Verified on |
+| ------ | ------ | ------ | ----------- |
+| 1.20 | 0.4.1 | 1.3.4 | ActiveTcl 8.6.14, Windows |
+| 1.21 (Ubuntu package `1.21+dfsg-1`) | 0.4.1 | 1.3.4 | Tcl 8.6.14, `ubuntu-latest`; the CI test job |
+| 2.0 | 0.4.2 | 1.3.6 | Magicsplat 1.16.0 (Tcl 8.6.16), `windows-latest`; one-off CI run |
+
+Other tcllib releases may work but have not been verified. This is the canonical
+statement of the verified environments;
+[CONTRIBUTING.md](CONTRIBUTING.md#running-the-test-suite) refers back to it rather
+than repeating the figures.
 
 ### Verify your interpreter
 
@@ -76,8 +85,9 @@ puts [info patchlevel]
 
 The first line tells you *which* Tcl you are actually running. A machine may carry
 more than one Tcl (system package, a standalone distribution, one bundled with an FPGA
-vendor tool), and the one that `tclsh` on `PATH` resolves to is not always the one you
-expect. The second line must report 8.5 or later.
+vendor tool, the one Git for Windows ships for its own use), and the one that `tclsh`
+on `PATH` resolves to depends on the shell you start it from and is not always the one
+you expect. The second line must report 8.5 or later.
 
 **Step 2 — only if you use manifest features or read YAML directly.** Which
 tcllib package you need depends on the entry point (see the bullets above):
@@ -94,26 +104,77 @@ Each line prints the tcllib package version if it is found. If step 2 raises an 
 and you only use the VHDL parser and queries, that is fine — nothing is missing for your
 use.
 
-### FPGA vendor tools ship their own Tcl
+**If the check fails or names an unexpected interpreter:**
 
-Vivado, Quartus and Diamond each bundle a Tcl interpreter, and their installers can put
-it on `PATH`. That interpreter does not necessarily match the versions above: Vivado
-2023.1, for instance, ships Tcl 8.5 with tcllib 1.11, an older tcllib than any this
-project has been verified with. Run step 1 to see which interpreter you actually get
-before assuming the bundled one is the one in use.
+- Step 1 names a Tcl you did not mean to run: the problem is *which* Tcl starts, not
+  what is installed. Do not install anything yet; see
+  [Another Tcl first on `PATH`](#another-tcl-first-on-path).
+- Step 1 names the Tcl you meant, but the version is below 8.5: that interpreter does
+  not meet the requirements, and adding packages cannot change its version. Use a
+  different Tcl (on Windows, see
+  [Getting a Tcl on Windows](#getting-a-tcl-on-windows)), then run the check again.
+- Step 1 names the Tcl you meant and the version is fine, but step 2 fails for a
+  package you need: add tcllib to that interpreter, or use a different Tcl (on
+  Windows, see [Getting a Tcl on Windows](#getting-a-tcl-on-windows)), then run the
+  check again.
 
-### Obtaining Tcl on Windows
+### Another Tcl first on `PATH`
 
-The verification snippet above checks the prerequisites; passing it does not by itself
-prove the project runs successfully on a given distribution. Ways to obtain a Tcl, in
-no particular order, each with its own friction:
+A machine can hold a complete Tcl and still fail the check, because another Tcl on
+the machine, such as the one Git for Windows ships or one bundled with an FPGA vendor
+tool, comes first on `PATH`.
 
-- **ActiveTcl** — requires a free ActiveState account; the free tier limits the number
-  of runtimes executed per 24 hours.
-- **Magicsplat Tcl/Tk** — `winget install Magicsplat.TclTk`; no account. This project
-  has **not** been tested with Magicsplat. Its installer major version 1 is Tcl 8.6;
-  major version 2 is Tcl 9.0, and nothing here has been tried against Tcl 9 at all.
-- **An existing Tcl** that already passes the verification above — nothing to install.
+**Git Bash on Windows.** Git for Windows ships its own Tcl at
+`C:/Program Files/Git/mingw64/bin/tclsh.exe` for Git's own tools, with **no tcllib**.
+Git Bash puts `/mingw64/bin` first on `PATH`, so a bare `tclsh` in a Git Bash window is
+that interpreter, even on a machine that also has a complete Tcl. This has been
+reproduced on a machine with a working ActiveTcl and tcllib: from Git Bash,
+`which tclsh` gives `/mingw64/bin/tclsh` and `package require yaml` fails with
+`can't find package yaml`, while from PowerShell the same machine passes the check. It
+also happened on a GitHub Actions `windows-latest` runner.
+
+In that state the aurig-core error tells you to install tcllib — while tcllib is
+already installed. That is why step 1 prints `info nameofexecutable` first. If it reports
+`C:/Program Files/Git/mingw64/bin/tclsh.exe`, do not install anything: run the Tcl you
+intended by its full path, or work from PowerShell. Both have been verified to work.
+
+**FPGA vendor tools.** Vivado, Quartus and Diamond each bundle a Tcl interpreter, and
+their installers can put it on `PATH`. That interpreter does not necessarily match the
+verified tcllib table above: Vivado 2023.1, for instance, ships Tcl 8.5 with tcllib 1.11, an older
+tcllib than any this project has been verified with. Run step 1 to see which
+interpreter you actually get before assuming the bundled one is the one in use.
+
+### Getting a Tcl on Windows
+
+Only needed if no Tcl on the machine passes the check. The check is the criterion; the
+entries below are examples, not recommendations, each marked with what has and has not
+been verified. Passing the check confirms the prerequisites; the full test suite has
+been run only on the environments in the verified tcllib table above.
+
+- **An existing Tcl that passes the check** — nothing to install.
+- **Magicsplat Tcl/Tk 1.16.0 — verified.** The full CI test suite passed on it in a
+  one-off run on a GitHub Actions `windows-latest` runner, installed non-interactively
+  with no prompts:
+
+  ```powershell
+  choco install magicsplat-tcl-tk --version 1.16.0 -y
+  ```
+
+  It provides Tcl 8.6.16 and tcllib 2.0 (`yaml` 0.4.2, `json` 1.3.6). Keep the
+  `--version` pin. Magicsplat's installer major version 1 is Tcl 8.6 and major version
+  2 is Tcl 9.0; the Chocolatey package now tracks the 2.x line, so an unpinned install
+  gives Tcl 9.0, which nothing here has been tried against. Chocolatey is not part of a
+  stock Windows installation (it was absent on the developer machine checked), so this
+  route needs Chocolatey installed first. Not tested: later 8.6-based Magicsplat
+  releases such as 1.18.0, installing Magicsplat's MSI directly, and the package's
+  32-bit installer (Chocolatey selected the 64-bit one).
+- **The "last free download" ActiveTcl 8.6.14 build — not verified.** A build
+  published at `platform.activestate.com/ActiveState/ActiveTcl-8.6`, labelled "Last
+  free download of Tcl from ActiveState", downloads without signing in. It is a fork
+  project frozen at Tcl 8.6.14, not a maintained channel; current ActiveState
+  distribution goes through their platform rather than a plain download. Whether that
+  build includes tcllib, and whether it matches the ActiveTcl 8.6.14 in the verified
+  table, has not been checked — run step 2 after installing it.
 
 ## Quick start (standalone)
 
