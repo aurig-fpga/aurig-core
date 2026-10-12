@@ -45,11 +45,34 @@ Install Tcl + tcllib. On Debian/Ubuntu:
 sudo apt-get install -y tcl tcllib
 ```
 
-POSIX shell (Linux, WSL, Git Bash):
+On other platforms, including Windows, see [Requirements](README.md#requirements) in
+the README.
+
+Before using any of the loops below, run the README's
+[interpreter check](README.md#verify-your-interpreter) against the interpreter that
+the loop invokes: the `tclsh` your shell starts, for the POSIX and PowerShell loops,
+or the `tclsh.exe` you assign to `TCLSH`, for the Git Bash one.
+
+POSIX shell (Linux, WSL):
 
 ```sh
 for t in test/test_*.tcl test/parser/run_doc.tcl; do tclsh "$t" || break; done
 ```
+
+Git Bash on Windows: a bare `tclsh` there is Git for Windows' own interpreter, which
+has no tcllib, so name the interpreter you installed by its full path (see
+[Another Tcl first on `PATH`](README.md#another-tcl-first-on-path) for why). Replace
+the path below with that of your own `tclsh.exe`:
+
+```sh
+TCLSH='/c/Program Files/Tcl/bin/tclsh.exe'
+for t in test/test_*.tcl test/parser/run_doc.tcl; do "$TCLSH" "$t" || break; done
+```
+
+Verified in one run: the same 17 scripts passed under Git Bash with the interpreter
+named by that path (Magicsplat Tcl/Tk 1.16.0) on a GitHub Actions `windows-latest`
+runner, in the one-off
+[run 37954897227](https://github.com/aurig-fpga/aurig-core/actions/runs/37954897227).
 
 PowerShell:
 

@@ -39,8 +39,10 @@ What actually happened (paste the parse dict, result, or error output).
 ## Versions
 
 - aurig-core: <!-- git commit or tag -->
-- Tcl: <!-- output of `echo 'puts [info patchlevel]' | tclsh` -->
-- tcllib: <!-- only if the manifest/schema path is involved -->
+- Tcl and tcllib: <!-- paste the output of the README's interpreter check
+  (https://github.com/aurig-fpga/aurig-core/blob/main/README.md#verify-your-interpreter),
+  run from the same shell where the bug occurs: step 1 always, step 2 if you use
+  manifest features or read YAML directly -->
 
 ## OS / environment
 

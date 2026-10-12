@@ -219,11 +219,23 @@ set files [::aurig::core::util::collect_project_files -from project.yaml -format
 
 AURIG Core is a **library**, not a CLI: consumers put its checkout on the Tcl package
 path and `package require aurig::core`. The dev/CI knob is the native `TCLLIBPATH`
-environment variable (a Tcl list of dirs prepended to `::auto_path`):
+environment variable (a Tcl list of dirs prepended to `::auto_path`). In a POSIX
+shell:
 
 ```sh
 TCLLIBPATH='/path/to/core' tclsh your_tool.tcl
 ```
+
+In PowerShell, set it first; unlike the POSIX form, it then stays set for the rest of
+the session:
+
+```powershell
+$env:TCLLIBPATH = 'C:/path/to/core'
+tclsh your_tool.tcl
+```
+
+The PowerShell form has been verified with ActiveTcl 8.6.14 under Windows PowerShell
+5.1.
 
 This is exactly how AURIG Lint and AURIG Doc resolve their parser/util/schema layer —
 they vendor no copy of it and declare `package require aurig::core` at the top of each
