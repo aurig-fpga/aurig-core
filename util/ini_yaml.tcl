@@ -452,12 +452,15 @@ proc ::aurig::core::util::readYaml {fname} {
     if {[llength [info commands ::aurig::core::schema::require_libs]]} {
         ::aurig::core::schema::require_libs yaml
     }
-    error "readYaml requires the tcllib 'yaml' package; there is no safe\
+    error [join [list \
+        "readYaml requires the tcllib 'yaml' package; there is no safe\
  lite-parser fallback for canonical YAML (for example, a block scalar -- a\
  `|` value with continuation lines -- is silently truncated to the literal\
- `|` character). Install tcllib (e.g. 'apt-get install tcllib') and ensure\
- it is on the Tcl auto_path. For other platforms, see the Requirements\
- section of this project's README."
+ `|` character)." \
+        "Install tcllib and ensure it is on the Tcl auto_path, e.g.:" \
+        "  Debian/Ubuntu : sudo apt-get install tcllib" \
+        "  other/Windows : see the Requirements section of this project's README." \
+        "  from source   : add the tcllib directory to \$auto_path."] "\n"]
 }
 
 # ---- Mapping: INI -> YAML ----------------------------------------------------
@@ -902,12 +905,15 @@ proc ::aurig::core::util::yaml2ini {inYaml outIni} {
     if {[llength [info commands ::aurig::core::schema::require_libs]]} {
         ::aurig::core::schema::require_libs yaml
     } elseif {[catch {package require yaml}]} {
-        error "yaml2ini requires the tcllib 'yaml' package; there is no safe\
+        error [join [list \
+            "yaml2ini requires the tcllib 'yaml' package; there is no safe\
  lite-parser fallback for canonical YAML (for example, a block scalar -- a\
  `|` value with continuation lines -- is silently truncated to the literal\
- `|` character). Install tcllib (e.g. 'apt-get install tcllib') and ensure\
- it is on the Tcl auto_path. For other platforms, see the Requirements\
- section of this project's README."
+ `|` character)." \
+            "Install tcllib and ensure it is on the Tcl auto_path, e.g.:" \
+            "  Debian/Ubuntu : sudo apt-get install tcllib" \
+            "  other/Windows : see the Requirements section of this project's README." \
+            "  from source   : add the tcllib directory to \$auto_path."] "\n"]
     }
     set yD   [::aurig::core::util::readYaml $inYaml]
     set iniD [::aurig::core::util::mapYamlToIni $yD]
