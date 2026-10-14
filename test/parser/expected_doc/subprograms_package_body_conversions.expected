@@ -15,7 +15,7 @@ result := to_integer(temp);
 return result;
 end function from_slv;
 
-} file conversions.vhd functions {{body {} body_declarations {{kind variable name temp type {unsigned(width-1 downto 0)} init {} line 15}} kind function line 14 name to_slv params {value : integer; width : integer} purity pure return std_logic_vector} {body {} body_declarations {{kind variable name temp type {unsigned(data'length-1 downto 0)} init {} line 23} {kind variable name result type integer init {} line 24}} kind function line 22 name from_slv params {data : std_logic_vector} purity pure return integer}} line 11 name pkg_complex procedures {}}} package_body {body {function to_slv(value : integer; width : integer) return std_logic_vector is
+} file conversions.vhd functions {{body {} body_declarations {{kind variable name temp type {unsigned(width-1 downto 0)} init {} line 15}} comment {Convert integer to std_logic_vector} kind function line 14 name to_slv params {value : integer; width : integer} purity pure return std_logic_vector} {body {} body_declarations {{kind variable name temp type {unsigned(data'length-1 downto 0)} init {} line 23} {kind variable name result type integer init {} line 24}} comment {Convert std_logic_vector to integer} kind function line 22 name from_slv params {data : std_logic_vector} purity pure return integer}} line 11 name pkg_complex procedures {}}} package_body {body {function to_slv(value : integer; width : integer) return std_logic_vector is
 variable temp : unsigned(width-1 downto 0);
 begin
 temp := to_unsigned(value, width);

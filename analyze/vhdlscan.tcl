@@ -519,6 +519,13 @@ namespace eval ::aurig::core::analyze {
 						set comment $cleanComment
 					}
 					dict set parseDict comments line $linenum comment $comment
+					# A comment sharing its line with code is a trailing
+					# comment: it ends the block above a declaration rather
+					# than belonging to it (#36, #37). The flag is internal
+					# and stripped from the result before vhdlscan returns.
+					if {$code ne ""} {
+						dict set parseDict comments line $linenum trailing 1
+					}
 				} else {
 					# No comment found, restore original
 					set code [string trim $rec]
@@ -603,13 +610,20 @@ namespace eval ::aurig::core::analyze {
 			}
 			return -options $parse_options -code error $parse_message
 		}
+		# Strip the internal trailing flag: the public comments output keeps
+		# its {line {N {comment TEXT}}} shape.
+		if {[dict exists $parseDict comments line]} {
+			dict for {ln entry} [dict get $parseDict comments line] {
+				if {[dict exists $entry trailing]} {
+					dict set parseDict comments line $ln [dict remove $entry trailing]
+				}
+			}
+		}
 		return $parseDict
 	}
 
 
-	# isLine: line of the `is` that opens the region, used by the procedure
-	# comment search (default: $n)
-	proc parse_declarative_part {parseDict declarative_part lint verbose n {commentDict {}} {context "architecture"} {isLine {}}} {
+	proc parse_declarative_part {parseDict declarative_part lint verbose n {commentDict {}} {context "architecture"}} {
 		#upvar 1 $linenum n
 		upvar 1 $parseDict localDict
 
@@ -685,12 +699,15 @@ namespace eval ::aurig::core::analyze {
 			if {[dict exists $item literals]} {
 				lappend l_list literals [dict get $item literals]
 			}
+			if {[dict exists $item comment]} {
+				lappend l_list comment [dict get $item comment]
+			}
 			lappend l_list
 			{*}$add_decl_func localDict [dict get $item kind] [dict get $item name] [dict get $item line] {*}$l_list
 		}
 
 		# scan for procedure declarations
-		set proc_dict [::aurig::core::analyze::_scan_procedures $declarative_part $n $commentDict $isLine]
+		set proc_dict [::aurig::core::analyze::_scan_procedures $declarative_part $n $commentDict]
 		# update dictionary
 		foreach item $proc_dict {
 			set l_list {}
@@ -893,18 +910,15 @@ namespace eval ::aurig::core::analyze {
 		if {$pkgDeclStart >= 0} {
 			set prefix [string range $buffer 0 [expr {$pkgDeclStart - 1}]]
 			set declStartLine [expr {$n + [regexp -all {\n} $prefix]}]
-			# line of the header `is`: the prefix ends with it plus whitespace
-			set declIsLine [expr {$n + [regexp -all {\n} [string trimright $prefix]]}]
 		} else {
 			# Fallback if we can't find it (shouldn't happen)
 			set declStartLine $n
-			set declIsLine $n
 		}
 
 		# update dictionary using add_package function
 		::aurig::core::analyze::add_package localDict $packageName $filename $n $pkgDeclPart
 		# extract info from declarative part with comment dict - use corrected line number
-		parse_declarative_part localDict $pkgDeclPart false true $declStartLine $commentDict "package" $declIsLine
+		parse_declarative_part localDict $pkgDeclPart false true $declStartLine $commentDict "package"
 		# update line counter and trim file string of the parsed part
 		set lineincr [expr {[update_line $buffer] + 1}]
 		set n  [expr {$n + $lineincr}]
@@ -973,11 +987,8 @@ namespace eval ::aurig::core::analyze {
 		if {$pkgBodyStart >= 0} {
 			set bodyPrefix [string range $buffer 0 [expr {$pkgBodyStart - 1}]]
 			set bodyStartLine [expr {$n + [regexp -all {\n} $bodyPrefix]}]
-			# line of the header `is`: the prefix ends with it plus whitespace
-			set bodyIsLine [expr {$n + [regexp -all {\n} [string trimright $bodyPrefix]]}]
 		} else {
 			set bodyStartLine $n
-			set bodyIsLine $n
 		}
 		foreach func_item [::aurig::core::analyze::_scan_functions $pkgBodyPart $bodyStartLine $pkg_body_commentDict] {
 			set fname       [dict get $func_item name]
@@ -995,7 +1006,7 @@ namespace eval ::aurig::core::analyze {
 			::aurig::core::analyze::add_function_body_pkg localDict \
 				$fname $fline "" $freturn $fparams $fpurity $fcomment $fbody_decls
 		}
-		foreach proc_item [::aurig::core::analyze::_scan_procedures $pkgBodyPart $bodyStartLine $pkg_body_commentDict $bodyIsLine] {
+		foreach proc_item [::aurig::core::analyze::_scan_procedures $pkgBodyPart $bodyStartLine $pkg_body_commentDict] {
 			set pname       [dict get $proc_item name]
 			set pline       [dict get $proc_item line]
 			set pparams     {}

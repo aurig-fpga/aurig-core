@@ -406,9 +406,9 @@ set parsed [parse [tmp_vhd_lines "first_in_package" {
 check_comment "control, first procedure of a package declaration: block above attached" \
     [comment_of [pkg_decl $parsed show]] "First line of the block\nSecond line of the block"
 
-# Controls: function comment behaviour is unchanged. A block above without
-# @brief yields to the inline comment; a block with @brief wins; an inline
-# comment alone is attached.
+# Controls: functions follow the same rule as procedures (#37): the block
+# above, then the inline comment; @brief does not decide whether the block
+# attaches. An inline comment alone is attached.
 set parsed [parse [tmp_vhd_lines "inline_function_control" {
     {package p is}
     {  function inc(a : integer) return integer; -- Increment}
@@ -421,9 +421,9 @@ set parsed [parse [tmp_vhd_lines "inline_function_control" {
 check_comment "control, function with inline comment only" \
     [comment_of [pkg_decl $parsed inc]] "Increment"
 check_comment "control, function with block above (no @brief) and inline" \
-    [comment_of [pkg_decl $parsed add]] "Sum"
+    [comment_of [pkg_decl $parsed add]] "Adds one\nSum"
 check_comment "control, function with @brief block above and inline" \
-    [comment_of [pkg_decl $parsed neg]] "@brief Negates a value"
+    [comment_of [pkg_decl $parsed neg]] "@brief Negates a value\nNegation"
 
 } finally {
     cleanup_tmp_files

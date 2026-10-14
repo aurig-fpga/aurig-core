@@ -29,7 +29,7 @@ begin
 if rising_edge(clk) then
 output <= input;
 end if;
-end procedure latch_data;} declarations {{args {{return std_logic_vector params {data : std_logic_vector(7 downto 0)} purity pure} {}} body_declarations {{kind variable name result type {std_logic_vector(7 downto 0)} init {} line 17}} kind function line 16 name reverse_byte} {args {{params {signal clk : in std_logic;
+end procedure latch_data;} declarations {{args {{return std_logic_vector params {data : std_logic_vector(7 downto 0)} purity pure} {}} body_declarations {{kind variable name result type {std_logic_vector(7 downto 0)} init {} line 17}} comment {Function declared in architecture} kind function line 16 name reverse_byte} {args {{params {signal clk : in std_logic;
 signal input : in std_logic_vector(7 downto 0);
 signal output : out std_logic_vector(7 downto 0)}} {}} comment {Procedure declared in architecture} kind procedure line 26 name latch_data}} entity arch_subprog_entity file basic_subprograms.vhd generates {} instantiations {} line 13 name rtl processes {{body {if rising_edge(clk) then
 data_out <= reverse_byte(data_in);

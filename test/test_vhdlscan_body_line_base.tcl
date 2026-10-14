@@ -246,9 +246,10 @@ foreach eol {lf crlf} {
 }
 
 # ----------------------------------------------------------------------------
-# Case 6: comment attachment in the blank-line layout. The scanner looks up
-# the comment two lines above the construct (a blank line between them), so
-# the fixture uses that distance; the same layout attaches in the control.
+# Case 6: comment attachment as a probe of the body line base. The comment
+# sits directly above the construct, where the association rule (#37) looks
+# for it; with a wrong base it would not attach. The control uses the same
+# layout.
 # ----------------------------------------------------------------------------
 set with_comments {
     {entity sample is end entity;}
@@ -257,18 +258,16 @@ set with_comments {
     {}
     {begin}
     {-- Process comment that must stay attached}
-    {}
     {p: process begin wait; end process;}
     {-- Instance comment that must stay attached}
-    {}
     {u: entity work.child port map(a=>a);}
     {end architecture;}
 }
 set parsed [parse [tmp_vhd_lines "comment_attach" $with_comments]]
-check_line "comment attachment layout: process p" [item_line $parsed processes p] 8
+check_line "comment attachment layout: process p" [item_line $parsed processes p] 7
 check "comment attachment layout: process comment attached" \
     {[item_comment $parsed processes p] eq "Process comment that must stay attached"}
-check_line "comment attachment layout: instance u" [item_line $parsed instantiations u] 11
+check_line "comment attachment layout: instance u" [item_line $parsed instantiations u] 9
 check "comment attachment layout: instance comment attached" \
     {[item_comment $parsed instantiations u] eq "Instance comment that must stay attached"}
 
@@ -335,11 +334,10 @@ set parsed [parse [tmp_vhd_lines "ctl_comment_attach" {
     {signal a: bit;}
     {begin}
     {-- Process comment in the control layout}
-    {}
     {p: process begin wait; end process;}
     {end architecture;}
 }]]
-check_line "control, comment attachment layout: process p" [item_line $parsed processes p] 7
+check_line "control, comment attachment layout: process p" [item_line $parsed processes p] 6
 check "control, comment attachment layout: process comment attached" \
     {[item_comment $parsed processes p] eq "Process comment in the control layout"}
 

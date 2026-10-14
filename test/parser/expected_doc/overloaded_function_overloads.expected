@@ -44,7 +44,7 @@ function to_string(value : unsigned) return string is
 begin
 return "unsigned: " & integer'image(to_integer(value));
 end function to_string;
-} file_name function_overloads.vhd line 20 name overload_pkg} packages {{components {} declarations {{kind function line 8 name to_string params {value : std_logic} purity pure return string} {kind function line 11 name to_string params {value : std_logic_vector} purity pure return string} {kind function line 14 name to_string params {value : integer} purity pure return string} {kind function line 17 name to_string params {value : unsigned} purity pure return string}} declarative {function to_string(value : std_logic) return string;
+} file_name function_overloads.vhd line 20 name overload_pkg} packages {{components {} declarations {{comment {First overload: single bit} kind function line 8 name to_string params {value : std_logic} purity pure return string} {comment {Second overload: vector} kind function line 11 name to_string params {value : std_logic_vector} purity pure return string} {comment {Third overload: integer} kind function line 14 name to_string params {value : integer} purity pure return string} {comment {Fourth overload: unsigned} kind function line 17 name to_string params {value : unsigned} purity pure return string}} declarative {function to_string(value : std_logic) return string;
 
 
 function to_string(value : std_logic_vector) return string;

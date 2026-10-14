@@ -12,7 +12,7 @@ function get_range return integer is
 begin
 return MAX_VALUE - MIN_VALUE;
 end function get_range;
-} file_name simple_deferred.vhd line 16 name deferred_pkg} packages {{components {} declarations {{comment {Deferred constant in package declaration, defined in package body} init {} kind constant line 7 name MAX_VALUE type integer} {comment {Deferred constant (no value here)} init {} kind constant line 8 name MIN_VALUE type integer} {init 128 kind constant line 11 name MID_VALUE type integer} {kind function line 13 name get_range params {} purity pure return integer}} declarative {constant MAX_VALUE : integer;
+} file_name simple_deferred.vhd line 16 name deferred_pkg} packages {{components {} declarations {{comment {Deferred constant (no value here)} init {} kind constant line 7 name MAX_VALUE type integer} {init {} kind constant line 8 name MIN_VALUE type integer} {comment {Regular constant for comparison} init 128 kind constant line 11 name MID_VALUE type integer} {kind function line 13 name get_range params {} purity pure return integer}} declarative {constant MAX_VALUE : integer;
 constant MIN_VALUE : integer;
 
 
