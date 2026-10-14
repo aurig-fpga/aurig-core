@@ -1776,6 +1776,112 @@ proc ::aurig::core::analyze::_scan_architecture_constants {decl n {commentDict {
 }
 
 # ---------------------------------
+# Scan an enumeration literal list (#26).
+#
+# `content` is the text between the parentheses of a
+# `type T is ( ... );` declaration, `contentStart` its index inside
+# `decl`, and `decl` / `n` the declarative text and its base line, so
+# every literal can be mapped back to its own physical line.
+#
+# A dedicated walker rather than `_split_top_level_commas`: the
+# enumeration literal grammar is narrow — identifier or character
+# literal, comma separated, never nested — and walking it directly
+# yields the verbatim text, the kind and the offset in a single pass.
+# Reusing the general splitter would mean mapping a *trimmed* segment
+# back onto the source to recover its offset, which is exactly the
+# fragile step this proc exists to avoid.
+#
+# Comments never reach here: they are stripped line by line upstream
+# (`::aurig::core::util::strip_vhdl_comment`, applied in
+# `analyze/vhdlscan.tcl`) with the line structure preserved, so a
+# comment between two literals costs a blank line and never shifts a
+# line number.
+#
+# Returns a list of dicts {name kind line}. `name` is the verbatim
+# source text, including the quotes of a character literal; `kind` is
+# `identifier` or `character`.
+#
+# Known limitation: an extended identifier containing a parenthesis
+# (`type t is (\foo)bar\, C);` — legal VHDL, vanishingly rare)
+# truncates the list: the `)` closes it in `_grab_paren_block`, which
+# sets the boundary before this walker ever runs, so the walker is
+# handed `\foo` alone and cannot recover what was cut. A fix for that
+# case belongs in `_grab_paren_block` — which also bounds port maps and
+# instantiations, so widening it for a construct no fixture exercises
+# would put those in the blast radius for no gain. The case is
+# recorded here rather than handled.
+# ---------------------------------
+proc ::aurig::core::analyze::_scan_enum_literals {decl contentStart content n} {
+    set results {}
+    set N [string length $content]
+    set i 0
+
+    while {$i < $N} {
+        # Skip whitespace and the separators between literals.
+        while {$i < $N} {
+            set ch [string index $content $i]
+            if {$ch ne "," && ![string is space -strict $ch]} { break }
+            incr i
+        }
+        if {$i >= $N} { break }
+
+        set start $i
+        set ch [string index $content $i]
+
+        if {$ch eq "'"} {
+            # Character literal 'X': the third character closes it, so
+            # ''' (the apostrophe literal) and the punctuation literals
+            # ',' '(' ')' are all consumed whole. Same rule as
+            # `_grab_paren_block`, which is what matched the ')' that
+            # bounds this list in the first place.
+            if {$i + 2 < $N && [string index $content [expr {$i + 2}]] eq "'"} {
+                set kind character
+                incr i 3
+            } else {
+                # Not a well-formed character literal. Step over the
+                # quote rather than emit a literal we cannot classify.
+                incr i
+                continue
+            }
+        } elseif {$ch eq "\\"} {
+            # Extended identifier \...\, with a doubled backslash
+            # standing for one literal backslash inside it.
+            set kind identifier
+            incr i
+            while {$i < $N} {
+                if {[string index $content $i] eq "\\"} {
+                    if {$i + 1 < $N && [string index $content [expr {$i + 1}]] eq "\\"} {
+                        incr i 2
+                        continue
+                    }
+                    incr i
+                    break
+                }
+                incr i
+            }
+        } else {
+            # Basic identifier: runs to the next separator.
+            set kind identifier
+            while {$i < $N} {
+                set c [string index $content $i]
+                if {$c eq "," || [string is space -strict $c]} { break }
+                incr i
+            }
+        }
+
+        set text [string range $content $start [expr {$i - 1}]]
+        if {$text eq ""} { continue }
+        lappend results [dict create \
+            name $text \
+            kind $kind \
+            line [::aurig::core::analyze::_index_to_line \
+                      $decl [expr {$contentStart + $start}] $n]]
+    }
+
+    return $results
+}
+
+# ---------------------------------
 # Scan type and subtype declarations in an architecture / package
 # declarative part. LINT-PARSER-DEBT-022 — re-enables what used to
 # live as an archived regex block in `analyze/vhdlscan.tcl`, but
@@ -1788,6 +1894,8 @@ proc ::aurig::core::analyze::_scan_architecture_constants {decl n {commentDict {
 # is `type` for `type ... is ...;` and `subtype` for `subtype ... is
 # ...;`. For `type`, an additional `subtype_kind` field identifies
 # the form — enumerated / integer_range / physical / array / record.
+# An enumerated type additionally carries `literals`, the list of its
+# literals with their names, kinds and lines (#26).
 # ---------------------------------
 proc ::aurig::core::analyze::_scan_architecture_types {decl n {commentDict {}}} {
     set results {}
@@ -1811,6 +1919,7 @@ proc ::aurig::core::analyze::_scan_architecture_types {decl n {commentDict {}}} 
 
         set bodyStart  [expr {$mEnd + 1}]
         set subtypeKind ""
+        set literals   {}
         set semiEnd    -1
 
         if {$kw eq "subtype"} {
@@ -1840,6 +1949,19 @@ proc ::aurig::core::analyze::_scan_architecture_types {decl n {commentDict {}}} 
                     continue
                 }
                 set afterParen [dict get $blk next]
+                # `_grab_paren_block` has already walked the literal
+                # list to find the closing ')'. Keep it instead of
+                # dropping it on the floor (#26). The text is read from
+                # `$decl`, not `$masked`: masking overwrites subprogram
+                # spans with spaces of the same length, so the indices
+                # agree, and `$decl` is the source of truth for the
+                # literal spelling.
+                set litStart [expr {[dict get $blk start] + 1}]
+                set litEnd   [expr {[dict get $blk end] - 1}]
+                if {$litEnd >= $litStart} {
+                    set literals [::aurig::core::analyze::_scan_enum_literals \
+                        $decl $litStart [string range $decl $litStart $litEnd] $n]
+                }
                 set semi [::aurig::core::analyze::_find_vhdl_statement_semicolon $masked $afterParen]
                 if {$semi < 0} {
                     set idx [expr {$mEnd + 1}]
@@ -1901,6 +2023,9 @@ proc ::aurig::core::analyze::_scan_architecture_types {decl n {commentDict {}}} 
             line $line]
         if {$subtypeKind ne ""} {
             dict set item subtype_kind $subtypeKind
+        }
+        if {[llength $literals]} {
+            dict set item literals $literals
         }
         lappend results $item
 

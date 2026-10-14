@@ -179,6 +179,24 @@ proc ::aurig::core::analyze::add_decl {dictVar kind name line args} {
     }
     # Store args as a list with the dict as first element
     dict set item args [list $args_dict {}]
+    # Uniform key path for the type-declaration fields (#26). `add_decl`
+    # nests every extra field under `args` while `add_decl_pkg` keeps them
+    # top-level, so the same declaration read out at two different paths
+    # depending on whether it sat in an architecture or a package. These
+    # two fields are therefore ALSO published at the top level here, giving
+    # consumers one path in both contexts.
+    #
+    # This is purely additive: the `args` copy stays as a deprecation shim
+    # (aurig-doc still reads declaration fields out of `args`), and nothing
+    # that worked before changes shape. Unifying `add_decl` /
+    # `add_decl_pkg` outright is the real fix (#25) and is deliberately
+    # deferred to its own PR, where it can carry the CHANGELOG break and a
+    # coordinated consumer update.
+    foreach promoted_key {subtype_kind literals} {
+        if {[dict exists $args_dict $promoted_key]} {
+            dict set item $promoted_key [dict get $args_dict $promoted_key]
+        }
+    }
     if {$comment ne ""} { dict set item comment $comment }
     if {[llength $body_declarations]} {
         dict set item body_declarations $body_declarations

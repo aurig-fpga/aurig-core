@@ -15,7 +15,7 @@ end generate;
 
 end architecture rtl;} decl_section {architecture rtl of array_ports is
 type data_array_t is array (0 to NUM_CHANNELS-1) of std_logic_vector(DATA_WIDTH-1 downto 0);
-signal data_regs : data_array_t;} declarations {{args {{type data_array_t init {}} {}} kind signal line 24 name data_regs} {args {{subtype_kind array} {}} kind type line 23 name data_array_t}} entity array_ports file array_ports.vhd generates {{body {process(clk)
+signal data_regs : data_array_t;} declarations {{args {{type data_array_t init {}} {}} kind signal line 24 name data_regs} {args {{subtype_kind array} {}} kind type line 23 name data_array_t subtype_kind array}} entity array_ports file array_ports.vhd generates {{body {process(clk)
 begin
 if rising_edge(clk) then
 if enables(i) = '1' then

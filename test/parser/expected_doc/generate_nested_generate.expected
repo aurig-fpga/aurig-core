@@ -14,7 +14,7 @@ end generate gen_cols;
 end generate gen_rows;
 end architecture rtl;} decl_section {architecture rtl of nested_generate is
 type matrix_type is array (0 to 3, 0 to 3) of std_logic;
-signal matrix : matrix_type;} declarations {{args {{type matrix_type init {}} {}} kind signal line 15 name matrix} {args {{subtype_kind array} {}} kind type line 14 name matrix_type}} entity nested_generate file nested_generate.vhd generates {{body {gen_cols: for col in 0 to 3 generate
+signal matrix : matrix_type;} declarations {{args {{type matrix_type init {}} {}} kind signal line 15 name matrix} {args {{subtype_kind array} {}} kind type line 14 name matrix_type subtype_kind array}} entity nested_generate file nested_generate.vhd generates {{body {gen_cols: for col in 0 to 3 generate
 process(clk)
 begin
 if rising_edge(clk) then

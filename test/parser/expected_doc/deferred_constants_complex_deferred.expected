@@ -10,7 +10,7 @@ constant ENABLE_MASK : std_logic_vector(7 downto 0) := "11110000";
 
 
 constant INTERNAL_FLAG : boolean := true;
-} file_name complex_deferred.vhd line 18 name complex_deferred_pkg} packages {{components {} declarations {{init {} kind constant line 10 name INITIAL_STATE type state_type} {comment {Deferred constants of various types} init {} kind constant line 11 name DEFAULT_CONFIG type config_array} {init {} kind constant line 12 name ENABLE_MASK type {std_logic_vector(7 downto 0)}} {init 1000 kind constant line 15 name TIMEOUT type integer} {kind type line 6 name state_type subtype_kind enumerated} {kind type line 7 name config_array subtype_kind array}} declarative {type state_type is (IDLE, ACTIVE, DONE);
+} file_name complex_deferred.vhd line 18 name complex_deferred_pkg} packages {{components {} declarations {{init {} kind constant line 10 name INITIAL_STATE type state_type} {comment {Deferred constants of various types} init {} kind constant line 11 name DEFAULT_CONFIG type config_array} {init {} kind constant line 12 name ENABLE_MASK type {std_logic_vector(7 downto 0)}} {init 1000 kind constant line 15 name TIMEOUT type integer} {kind type line 6 literals {{name IDLE kind identifier line 6} {name ACTIVE kind identifier line 6} {name DONE kind identifier line 6}} name state_type subtype_kind enumerated} {kind type line 7 name config_array subtype_kind array}} declarative {type state_type is (IDLE, ACTIVE, DONE);
 type config_array is array (0 to 3) of integer;
 
 
