@@ -506,7 +506,13 @@ namespace eval ::aurig::core::analyze {
 					set commentPart [string range $rec [expr {$comment_start + 2}] end]
 					# Save trimmed code and comment
 					set code [string trim $onlyCode]
-					set comment [string trim [::aurig::core::analyze::_mask_vhdl_string_literals $commentPart]]
+					# Comment text is stored as written (#38). It used to go
+					# through _mask_vhdl_string_literals, which turned quoted
+					# text into __Qn__ placeholders. That masking was kept from
+					# the earlier technique of masking the whole line to find
+					# `--` safely (tcl4fpga c05c948); find_vhdl_comment_index
+					# is string-aware, so the comment never needed masking.
+					set comment [string trim $commentPart]
 					# Remove common comment markers (*, +, !, @) from the beginning
 					# but keep them if they're part of doxygen syntax like @param, @brief, etc.
 					if {[regexp {^[*+!]\s*(.*)$} $comment -> cleanComment]} {

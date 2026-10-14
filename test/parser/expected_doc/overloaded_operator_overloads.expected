@@ -1,4 +1,4 @@
-architectures {} comments {line {1 {comment {Mixed overloads: functions and procedures with operators}} 10 {comment {Overloaded __Q0__ with different return types}} 14 {comment {Regular function overloads}} 6 {comment {Overloaded __Q0__  operator}}}} entities {} libraries {{decl {library ieee;} line 2 name ieee}} meta {file operator_overloads.vhd} package_bodies {{body {function "+"(left, right : std_logic) return std_logic is
+architectures {} comments {line {1 {comment {Mixed overloads: functions and procedures with operators}} 10 {comment {Overloaded "and" with different return types}} 14 {comment {Regular function overloads}} 6 {comment {Overloaded "+"  operator}}}} entities {} libraries {{decl {library ieee;} line 2 name ieee}} meta {file operator_overloads.vhd} package_bodies {{body {function "+"(left, right : std_logic) return std_logic is
 begin
 return left or right;
 end function "+";
