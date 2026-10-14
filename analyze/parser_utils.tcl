@@ -848,6 +848,16 @@ proc ::aurig::core::analyze::_find_decl_body_begin {chunk startIdx endIdx} {
 # Return index just AFTER:  "process [ ( … ) ] [ is ]"
 # chunk: the statement slice from label..';'
 # startIdx: where the word 'process' starts inside chunk
+#
+# KNOWN QUIRK -- do not "fix" in isolation. In a Tcl regex `\b` is a
+# backspace, not a word boundary, so the {\bprocess\b} probe below never
+# matches and this proc returns startIdx: the start of the `process` word,
+# not the end of the header. _scan_processes therefore slices the process
+# declarative part from `process`, and its base line is the process line.
+# Lines still come out right, and _scan_procedures' default isLine (that
+# base line) equals the line of a same-line `is` only because of this. A
+# working `\mprocess\M` would move the slice start below the header, so
+# the isLine passed to _scan_procedures has to be revisited with it.
 proc ::aurig::core::analyze::_process_header_end {chunk startIdx} {
     set N [string length $chunk]
     # find the word 'process' at startIdx
@@ -1309,6 +1319,20 @@ proc ::aurig::core::analyze::_scan_processes {body n {commentDict {}}} {
                     type [dict get $c type] \
                     init [dict get $c init] \
                     line [dict get $c line]]
+            }
+            # Types and subprograms (#24, #48) keep the records their
+            # scanners return (subtype_kind / literals; return, params,
+            # purity, comment, body_declarations) rather than being cut down
+            # to the flat shape above. _scan_functions omits `kind`, so it
+            # is added here.
+            foreach t [::aurig::core::analyze::_scan_architecture_types $decl_raw $decl_base_line $commentDict] {
+                lappend decls $t
+            }
+            foreach f [::aurig::core::analyze::_scan_functions $decl_raw $decl_base_line $commentDict] {
+                lappend decls [dict merge [dict create kind function] $f]
+            }
+            foreach p [::aurig::core::analyze::_scan_procedures $decl_raw $decl_base_line $commentDict] {
+                lappend decls $p
             }
             if {[llength $decls]} {
                 dict set item declarations $decls
