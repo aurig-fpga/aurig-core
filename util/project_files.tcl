@@ -188,9 +188,31 @@ proc ::aurig::core::util::_collect_from_yaml {yamlPath root follow {reportVar ""
         set report [dict create declared_patterns 0 unmatched_patterns {} \
             file_sets_present [dict exists $y file_sets]]
     }
-    # project_root might be relative to YAML
+    # project_root might be relative to YAML. Absent -> the schema default "."
+    # (the manifest dir), the same fallback scan_project applies.
     set yamlDir [file dirname $yamlPath]
-    set projRoot [dict get $y project_root]
+    if {[dict exists $y project_root]} {
+        set projRoot [dict get $y project_root]
+    } else {
+        # This collector does not merge the sibling .local overlay. If the
+        # overlay is what supplies project_root, the default would silently
+        # resolve against the wrong root, so fail with guidance instead. An
+        # empty overlay value is skipped by the canonical merge (_deep_merge
+        # tests _is_empty), so it leaves the default in force there too.
+        set ovl [::aurig::core::schema::_overlay_path $yamlPath]
+        if {[file isfile $ovl]} {
+            set o [::aurig::core::util::readYaml $ovl]
+            if {[dict exists $o project_root]
+                && ![::aurig::core::schema::_is_empty [dict get $o project_root]]} {
+                ::aurig::core::schema::_err \
+                    "project_root is set only in the overlay '$ovl';\
+ collect_project_files does not merge .local overlays, so it cannot resolve\
+ the project root. Set project_root in '$yamlPath', or use\
+ ::aurig::core::schema::scan_project, which merges the overlay."
+            }
+        }
+        set projRoot "."
+    }
     set projRoot [string map {\\ /} $projRoot]
     if {$projRoot eq ""} {
         set projRoot $yamlDir
