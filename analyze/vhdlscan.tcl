@@ -675,6 +675,10 @@ namespace eval ::aurig::core::analyze {
 			if {[dict exists $item subtype_kind]} {
 				lappend l_list subtype_kind [dict get $item subtype_kind]
 			}
+			# Enumeration literals, present only for enumerated types (#26).
+			if {[dict exists $item literals]} {
+				lappend l_list literals [dict get $item literals]
+			}
 			lappend l_list
 			{*}$add_decl_func localDict [dict get $item kind] [dict get $item name] [dict get $item line] {*}$l_list
 		}
