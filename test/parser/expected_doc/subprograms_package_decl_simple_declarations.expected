@@ -12,4 +12,4 @@ procedure toggle(signal flag : inout std_logic);
 
 function reverse_bits(data : std_logic_vector) return std_logic_vector;
 
-} file simple_declarations.vhd generics {} line 5 name pkg_subprog_decl ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}
+} file simple_declarations.vhd generics {} line 5 name pkg_subprog_decl ports {}}} uses {{decl {use ieee.std_logic_1164.all;} lib ieee line 3 pkg std_logic_1164 selector all}}

@@ -101,4 +101,4 @@ function "and"(left, right : std_logic_vector) return std_logic_vector;
 function convert(value : std_logic) return integer;
 function convert(value : integer) return std_logic;
 function convert(value : std_logic_vector) return integer;
-} file operator_overloads.vhd generics {} line 5 name mixed_overload_pkg ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}
+} file operator_overloads.vhd generics {} line 5 name mixed_overload_pkg ports {}}} uses {{decl {use ieee.std_logic_1164.all;} lib ieee line 3 pkg std_logic_1164 selector all}}

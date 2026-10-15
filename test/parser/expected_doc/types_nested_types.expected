@@ -33,4 +33,4 @@ type outer_rec is record
 id    : integer;
 items : inner_array;
 end record outer_rec;
-} file nested_types.vhd generics {} line 5 name nested_pkg ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}
+} file nested_types.vhd generics {} line 5 name nested_pkg ports {}}} uses {{decl {use ieee.std_logic_1164.all;} lib ieee line 3 pkg std_logic_1164 selector all}}

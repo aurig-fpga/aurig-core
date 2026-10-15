@@ -24,4 +24,4 @@ data : std_logic_vector(31 downto 0);
 ready : std_logic;
 error : std_logic;
 end record;
-} file record_ports.vhd generics {} line 5 name record_pkg ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}} {decl ieee lib std_logic_1164 line 22 pkg all selector {}} {decl work lib record_pkg line 23 pkg all selector {}}}
+} file record_ports.vhd generics {} line 5 name record_pkg ports {}}} uses {{decl {use ieee.std_logic_1164.all;} lib ieee line 3 pkg std_logic_1164 selector all} {decl {use ieee.std_logic_1164.all;} lib ieee line 22 pkg std_logic_1164 selector all} {decl {use work.record_pkg.all;} lib work line 23 pkg record_pkg selector all}}

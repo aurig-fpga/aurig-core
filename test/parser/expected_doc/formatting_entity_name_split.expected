@@ -11,4 +11,4 @@ end architecture rtl;} decl_section {architecture rtl of my_entity is} declarati
 data_out <= '0';
 elsif rising_edge(clk) then
 data_out <= '1';
-end if;} classification clocked label {} line 19 sensitivity {clk rst}}}}} comments {line {1 {comment {XFAIL: Parser cannot handle entity name split across lines}} 2 {comment {Expected: Should parse entity name as "my_entity"}} 3 {comment {Actual: Parser fails to recognize entity declaration}}}} entities {} libraries {{decl {library ieee;} line 5 name ieee}} meta {file entity_name_split.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 6 pkg all selector {}}}
+end if;} classification clocked label {} line 19 sensitivity {clk rst}}}}} comments {line {1 {comment {XFAIL: Parser cannot handle entity name split across lines}} 2 {comment {Expected: Should parse entity name as "my_entity"}} 3 {comment {Actual: Parser fails to recognize entity declaration}}}} entities {} libraries {{decl {library ieee;} line 5 name ieee}} meta {file entity_name_split.vhd} package_bodies {} packages {} uses {{decl {use ieee.std_logic_1164.all;} lib ieee line 6 pkg std_logic_1164 selector all}}

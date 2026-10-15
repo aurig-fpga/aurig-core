@@ -24,4 +24,4 @@ finish : integer;
 end record;
 
 constant FULL_RANGE : addr_range;
-} file dependent_deferred.vhd generics {} line 5 name dependent_deferred_pkg ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}
+} file dependent_deferred.vhd generics {} line 5 name dependent_deferred_pkg ports {}}} uses {{decl {use ieee.std_logic_1164.all;} lib ieee line 3 pkg std_logic_1164 selector all}}

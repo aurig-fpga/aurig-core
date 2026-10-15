@@ -84,4 +84,4 @@ procedure print(message : string);
 procedure print(value : integer);
 procedure print(data : std_logic_vector);
 
-} file overloaded.vhd generics {} line 5 name pkg_overload ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}
+} file overloaded.vhd generics {} line 5 name pkg_overload ports {}}} uses {{decl {use ieee.std_logic_1164.all;} lib ieee line 3 pkg std_logic_1164 selector all}}

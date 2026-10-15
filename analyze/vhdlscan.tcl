@@ -871,6 +871,13 @@ namespace eval ::aurig::core::analyze {
 		upvar 1 $linenum n
 		upvar 1 $fileBuffer localBuffer
 		upvar 1 $parseDict localDict
+		# Two-part form `use lib.pkg;`: the regexp puts the second name in the
+		# selector group, but it is a package name. `use lib.all;` names no
+		# package and keeps `all` as the selector.
+		if {$packageUsed eq "" && ![string equal -nocase $suffix "all"]} {
+			set packageUsed $suffix
+			set suffix ""
+		}
 		# update dictionary
 		::aurig::core::analyze::add_use localDict $libraryName $packageUsed $suffix $n $buffer
 		#

@@ -1,3 +1,9 @@
 architectures {} comments {line {1 {comment {Test library and use clauses with tokens split across lines}}}} entities {{file split_library_use.vhd generics {} line 13 name split_library_use ports {{line 15 mode in name data type std_logic}}}} libraries {{decl {library
 ieee
-;} line 2 name ieee}} meta {file split_library_use.vhd} package_bodies {} packages {} uses {{decl ieee lib std_logic_1164 line 5 pkg all selector {}}}
+;} line 2 name ieee}} meta {file split_library_use.vhd} package_bodies {} packages {} uses {{decl {use
+ieee
+.
+std_logic_1164
+.
+all
+;} lib ieee line 5 pkg std_logic_1164 selector all}}

@@ -73,4 +73,4 @@ enable : in boolean
 
 
 procedure reset(signal counter : inout integer);
-} file procedure_overloads.vhd generics {} line 5 name proc_overload_pkg ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}
+} file procedure_overloads.vhd generics {} line 5 name proc_overload_pkg ports {}}} uses {{decl {use ieee.std_logic_1164.all;} lib ieee line 3 pkg std_logic_1164 selector all}}

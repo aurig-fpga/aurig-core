@@ -54,4 +54,4 @@ function to_string(value : integer) return string;
 
 
 function to_string(value : unsigned) return string;
-} file function_overloads.vhd generics {} line 6 name overload_pkg ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}} {decl ieee lib numeric_std line 4 pkg all selector {}}}
+} file function_overloads.vhd generics {} line 6 name overload_pkg ports {}}} uses {{decl {use ieee.std_logic_1164.all;} lib ieee line 3 pkg std_logic_1164 selector all} {decl {use ieee.numeric_std.all;} lib ieee line 4 pkg numeric_std selector all}}
