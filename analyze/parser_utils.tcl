@@ -497,6 +497,32 @@ proc ::aurig::core::analyze::_index_to_line {text idx n} {
     return [expr {$n + $newlines}]
 }
 
+# -------------------------------
+# The comment attached to a declaration (#31, #36, #37): one rule for every
+# kind. The contiguous block of full-line comments directly above startLine
+# (ended by a blank line or a code line), then the trailing comment on
+# startLine, joined with newlines. startLine is the line of the declaration's
+# keyword (or label): both parts anchor there, also when the header is split
+# across lines and the name is reported on a later line. Entries of
+# commentDict carry `trailing 1` when the comment shares its line with code
+# (set by vhdlscan). Returns "" when nothing is attached.
+# -------------------------------
+proc ::aurig::core::analyze::_comment_for {commentDict startLine} {
+    set block {}
+    set ln [expr {$startLine - 1}]
+    while {[dict exists $commentDict $ln comment]
+           && !([dict exists $commentDict $ln trailing]
+                && [dict get $commentDict $ln trailing])} {
+        set block [linsert $block 0 [dict get $commentDict $ln comment]]
+        incr ln -1
+    }
+    if {[dict exists $commentDict $startLine trailing]
+        && [dict get $commentDict $startLine trailing]} {
+        lappend block [dict get $commentDict $startLine comment]
+    }
+    return [join $block \n]
+}
+
 # Split by top-level commas, ignoring commas inside (), [], '...', "..."
 # - txt: the text to split, e.g. "GEN1 => 3, GEN2 => f(a,b), GEN3 => \"x,y\""
 # Returns a list of trimmed parts.
@@ -854,10 +880,11 @@ proc ::aurig::core::analyze::_find_decl_body_begin {chunk startIdx endIdx} {
 # matches and this proc returns startIdx: the start of the `process` word,
 # not the end of the header. _scan_processes therefore slices the process
 # declarative part from `process`, and its base line is the process line.
-# Lines still come out right, and _scan_procedures' default isLine (that
-# base line) equals the line of a same-line `is` only because of this. A
-# working `\mprocess\M` would move the slice start below the header, so
-# the isLine passed to _scan_procedures has to be revisited with it.
+# Lines still come out right, because the base line is computed from the
+# slice start. Comment association no longer depends on it either: it looks
+# lines up in the comments dict (_comment_for, #37). A working `\mprocess\M`
+# would still change what the declarative-part slice contains, so treat it
+# as a behaviour change of its own.
 proc ::aurig::core::analyze::_process_header_end {chunk startIdx} {
     set N [string length $chunk]
     # find the word 'process' at startIdx
@@ -1072,43 +1099,8 @@ proc ::aurig::core::analyze::_scan_instantiations {body n {commentDict {}}} {
         # ---- finalize item ----
         set line [::aurig::core::analyze::_index_to_line $body $mStart $n]
 
-        # Look up comment from previous lines if commentDict provided
-        set instComment ""
-        if {[dict size $commentDict] > 0} {
-            set foundComment 0
-            for {set i 2} {$i <= 3} {incr i} {
-                set check_line [expr {$line - $i}]
-                if {[dict exists $commentDict $check_line]} {
-                    set cmt [dict get $commentDict $check_line comment]
-                    # Skip separator lines
-                    if {[regexp {^[-=*#]{5,}} $cmt]} {
-                        continue
-                    }
-                    if {[string length [string trim $cmt]] > 5 || [regexp {^[*@]} $cmt]} {
-                        # Remove leading * if present
-                        regexp {^\*?\s*(.*)$} $cmt -> cmt
-                        if {$instComment ne ""} {
-                            set instComment "$cmt $instComment"
-                        } else {
-                            set instComment [string trim $cmt]
-                        }
-                        set foundComment 1
-                    } else {
-                        # Short comment, stop if we already have one
-                        if {$instComment ne ""} {
-                            break
-                        }
-                    }
-                } else {
-                    # No comment at this line
-                    # If we already found comments, stop here (don't jump over gaps)
-                    if {$foundComment} {
-                        break
-                    }
-                    # Otherwise continue (skipping empty lines before comments)
-                }
-            }
-        }
+        # Comment: the shared association rule (_comment_for).
+        set instComment [::aurig::core::analyze::_comment_for $commentDict $line]
 
         set item [dict create \
             label        $label \
@@ -1241,43 +1233,8 @@ proc ::aurig::core::analyze::_scan_processes {body n {commentDict {}}} {
 
         set line [::aurig::core::analyze::_index_to_line $body $mStart $n]
 
-        # Look up comment from previous lines if commentDict provided
-        set processComment ""
-        if {[dict size $commentDict] > 0} {
-            set foundComment 0
-            for {set i 2} {$i <= 3} {incr i} {
-                set check_line [expr {$line - $i}]
-                if {[dict exists $commentDict $check_line]} {
-                    set cmt [dict get $commentDict $check_line comment]
-                    # Skip separator lines
-                    if {[regexp {^[-=*#]{5,}} $cmt]} {
-                        continue
-                    }
-                    if {[string length [string trim $cmt]] > 5 || [regexp {^[*@]} $cmt]} {
-                        # Remove leading * if present
-                        regexp {^\*?\s*(.*)$} $cmt -> cmt
-                        if {$processComment ne ""} {
-                            set processComment "$cmt $processComment"
-                        } else {
-                            set processComment [string trim $cmt]
-                        }
-                        set foundComment 1
-                    } else {
-                        # Short comment, stop if we already have one
-                        if {$processComment ne ""} {
-                            break
-                        }
-                    }
-                } else {
-                    # No comment at this line
-                    # If we already found comments, stop here (don't jump over gaps)
-                    if {$foundComment} {
-                        break
-                    }
-                    # Otherwise continue (skipping empty lines before comments)
-                }
-            }
-        }
+        # Comment: the shared association rule (_comment_for).
+        set processComment [::aurig::core::analyze::_comment_for $commentDict $line]
 
         set item [dict create \
             label          $label \
@@ -1403,40 +1360,10 @@ proc ::aurig::core::analyze::_scan_architecture_signals {decl n {commentDict {}}
             set signalInit [string trim [string range $tail [expr {$div+2}] end]]
         }
 
-        # Extract same-line or nearby comments without widening the declaration regex.
-        set signalComment ""
-        set lineEnd [string first "\n" $decl $semi]
-        if {$lineEnd < 0} {
-            set lineEnd [expr {[string length $decl] - 1}]
-        } else {
-            incr lineEnd -1
-        }
-        set commentChunk [string trim [string range $decl [expr {$semi + 1}] $lineEnd]]
-        if {[regexp {^--\*?\s*(.+)$} $commentChunk -> cmt]} {
-            set signalComment [string trim $cmt]
-        } elseif {[llength $commentDict] > 0} {
-            # Try to find comment on line immediately before signal declaration
-            # Parser line numbers are off by +1, so the comment before a signal at parser-line N
-            # is actually at line N-2 in the commentDict
-            # Only check immediate preceding line to ensure one comment = one signal
-            set commentLine [expr {$line - 2}]
-            if {[dict exists $commentDict $commentLine]} {
-                set commentEntry [dict get $commentDict $commentLine]
-                # Extract the comment text from nested dict
-                if {[dict exists $commentEntry comment]} {
-                    set rawComment [dict get $commentEntry comment]
-                } else {
-                    set rawComment $commentEntry
-                }
-                # Skip separator lines
-                if {![regexp {^[-=*#]{5,}} $rawComment]} {
-                    # Check for descriptive comments
-                    if {[string length [string trim $rawComment]] > 5 || [regexp {^[*@]} $rawComment]} {
-                        set signalComment $rawComment
-                    }
-                }
-            }
-        }
+        # Comment: the shared association rule (_comment_for), searched from
+        # the `signal` keyword's line.
+        set kwLine [::aurig::core::analyze::_index_to_line $decl $mStart $n]
+        set signalComment [::aurig::core::analyze::_comment_for $commentDict $kwLine]
 
         # Emit one dict per signal name
         foreach signalName $nameList {
@@ -1704,9 +1631,6 @@ proc ::aurig::core::analyze::_scan_architecture_constants {decl n {commentDict {
     set N   [string length $masked]
     set idx 0
 
-    # Track last comment line used to prevent duplication
-    set lastUsedCommentLine -99
-
     while {$idx < $N} {
         if {![regexp -indices -start $idx -nocase {\mconstant\s+} $masked matchIdx]} {
             break
@@ -1748,37 +1672,10 @@ proc ::aurig::core::analyze::_scan_architecture_constants {decl n {commentDict {
             set constInit [string trim [string range $tailChunk [expr {$div+2}] end]]
         }
 
-        # Extract comment from commentDict - search back up to 5 lines
-        # Only use comments that haven't been used for previous constants
-        set constComment ""
-        set foundCommentLine -1
-        if {[llength $commentDict] > 0} {
-            # Search backwards for a comment (skip separator lines)
-            for {set i 2} {$i <= 6} {incr i} {
-                set commentLine [expr {$line - $i}]
-                if {[dict exists $commentDict $commentLine]} {
-                    set commentEntry [dict get $commentDict $commentLine]
-                    if {[dict exists $commentEntry comment]} {
-                        set rawComment [dict get $commentEntry comment]
-                    } else {
-                        set rawComment $commentEntry
-                    }
-                    # Skip separator lines
-                    if {![regexp {^[-=*#]{5,}} $rawComment]} {
-                        # Check for descriptive comments (allowing + prefix)
-                        if {[string length [string trim $rawComment]] > 5 || [regexp {^[*@+]} $rawComment]} {
-                            set foundCommentLine $commentLine
-                            # Only use this comment if it wasn't already used for a previous constant
-                            if {$foundCommentLine != $lastUsedCommentLine} {
-                                set constComment [string trim $rawComment]
-                                set lastUsedCommentLine $foundCommentLine
-                            }
-                            break
-                        }
-                    }
-                }
-            }
-        }
+        # Comment: the shared association rule (_comment_for), searched from
+        # the `constant` keyword's line.
+        set kwLine [::aurig::core::analyze::_index_to_line $decl $mStart $n]
+        set constComment [::aurig::core::analyze::_comment_for $commentDict $kwLine]
 
         # Emit one dict per constant
         foreach constName $nameList {
@@ -2051,6 +1948,13 @@ proc ::aurig::core::analyze::_scan_architecture_types {decl n {commentDict {}}} 
         if {[llength $literals]} {
             dict set item literals $literals
         }
+        # Comment: the shared association rule (_comment_for), searched from
+        # the `type` / `subtype` keyword's line.
+        set typeComment [::aurig::core::analyze::_comment_for $commentDict \
+            [::aurig::core::analyze::_index_to_line $decl $kwS $n]]
+        if {$typeComment ne ""} {
+            dict set item comment $typeComment
+        }
         lappend results $item
 
         set idx [expr {$semiEnd + 1}]
@@ -2112,7 +2016,7 @@ proc ::aurig::core::analyze::_scan_functions {decl n {commentDict {}}} {
     set re {(?i)\m(pure\s+|impure\s+)?function\s+([a-zA-Z]\w*)\s*(\(|return\M)}
 
     while {$idx < $N} {
-        if {![regexp -indices -start $idx $re $decl -> purityIdx nameIdx delimIdx]} {
+        if {![regexp -indices -start $idx $re $decl matchIdx purityIdx nameIdx delimIdx]} {
             break
         }
 
@@ -2203,74 +2107,10 @@ proc ::aurig::core::analyze::_scan_functions {decl n {commentDict {}}} {
         # Approximate line number
         set line [::aurig::core::analyze::_index_to_line $decl $nStart $n]
 
-        # Extract comment from commentDict
-        # Only collect complete documentation blocks (with @brief)
-        set funcComment ""
-        if {[llength $commentDict] > 0} {
-            set commentLines {}
-            set checkLine [expr {$line - 1}]
-
-            # First check if there's an inline comment on the function declaration line itself
-            set inlineComment ""
-            if {[dict exists $commentDict $line]} {
-                set commentEntry [dict get $commentDict $line]
-                if {[dict exists $commentEntry comment]} {
-                    set inlineComment [dict get $commentEntry comment]
-                } else {
-                    set inlineComment $commentEntry
-                }
-                set inlineComment [string trim $inlineComment]
-            }
-
-            # Collect consecutive comment lines going backward from line-1
-            # Stop at separator, very short comments, or empty lines
-            for {set i 0} {$i < 15} {incr i} {
-                set searchLine [expr {$checkLine - $i}]
-                if {[dict exists $commentDict $searchLine]} {
-                    set commentEntry [dict get $commentDict $searchLine]
-                    if {[dict exists $commentEntry comment]} {
-                        set rawComment [dict get $commentEntry comment]
-                    } else {
-                        set rawComment $commentEntry
-                    }
-                    set trimmedComment [string trim $rawComment]
-
-                    # Check if it's a pure separator line (5+ separator chars)
-                    if {[regexp {^[-=*#_]{5,}\s*$} $trimmedComment]} {
-                        # Found separator - stop
-                        break
-                    } elseif {[string length $trimmedComment] <= 3} {
-                        # Very short comment (like "3", "4") - likely inline marker
-                        break
-                    } else {
-                        # Add comment
-                        lappend commentLines $rawComment
-                    }
-                } else {
-                    # No comment on this line - stop
-                    break
-                }
-            }
-
-            # Reverse what we collected (since we went backward)
-            if {[llength $commentLines] > 0} {
-                set commentLines [lreverse $commentLines]
-                set fullComment [join $commentLines "\n"]
-
-                # Only use block comment if it has @brief (complete documentation)
-                # Partial blocks (just "@param" or "Example:") indicate line number offset issues
-                if {[regexp {@brief} $fullComment]} {
-                    set funcComment $fullComment
-                } elseif {$inlineComment ne "" && [string length $inlineComment] <= 50} {
-                    # Block doesn't have @brief, use short inline comment instead
-                    set funcComment $inlineComment
-                }
-                # Otherwise leave funcComment empty (incomplete block, no valid inline)
-            } elseif {$inlineComment ne "" && [string length $inlineComment] <= 50} {
-                # No block comment found, use inline comment if short enough
-                set funcComment $inlineComment
-            }
-        }
+        # Comment: the shared association rule (_comment_for), searched from
+        # the line of the `function` keyword (or its purity prefix).
+        set funcComment [::aurig::core::analyze::_comment_for $commentDict \
+            [::aurig::core::analyze::_index_to_line $decl [lindex $matchIdx 0] $n]]
 
         # Create result dict
         set item [dict create \
@@ -2347,18 +2187,12 @@ proc ::aurig::core::analyze::_scan_functions {decl n {commentDict {}}} {
 # Matches patterns like:
 #   procedure name(params);
 #   procedure name(params) is
-# isLine: line of the `is` that opens the region (default $n). When the
-# region text starts below it, the lines in between hold only whitespace.
 # --------------------------------
-proc ::aurig::core::analyze::_scan_procedures {decl n {commentDict {}} {isLine {}}} {
+proc ::aurig::core::analyze::_scan_procedures {decl n {commentDict {}}} {
     set results {}
-    if {$isLine eq ""} {
-        set isLine $n
-    }
 
     set N [string length $decl]
     set idx 0
-    set declLines [split $decl "\n"]
 
     # Match procedure keyword and name, then a delimiter that is
     # either the param-list opening paren OR the `is` keyword
@@ -2377,7 +2211,7 @@ proc ::aurig::core::analyze::_scan_procedures {decl n {commentDict {}} {isLine {
     set re {(?i)\mprocedure\s+([a-zA-Z]\w*)\s*(\(|is\M)}
 
     while {$idx < $N} {
-        if {![regexp -indices -start $idx $re $decl -> nameIdx delimIdx]} {
+        if {![regexp -indices -start $idx $re $decl matchIdx nameIdx delimIdx]} {
             break
         }
 
@@ -2430,77 +2264,10 @@ proc ::aurig::core::analyze::_scan_procedures {decl n {commentDict {}} {isLine {
         # Line of the procedure name, computed like _scan_functions
         set line [::aurig::core::analyze::_index_to_line $decl $nStart $n]
 
-        # Search for comment - aggregate consecutive comment lines immediately above AND at the procedure line
-        # Collect all consecutive comments going backward, then forward to get full block
-        set procComment ""
-        set commentLines {}
-        set checkLine [expr {$line - 1}]
-
-        # Collect consecutive comment lines going backward from line-1
-        # Stop immediately if we hit a line with no comment, or a line
-        # containing code: only full-line comments form the block above,
-        # so a trailing comment on the previous code line is not taken.
-        # $decl holds comment-stripped lines, so a full-line comment is a
-        # blank line in it. Line $isLine is code; lines between it and $n
-        # are outside $decl and hold only whitespace.
-        for {set i 0} {$i < 15} {incr i} {
-            set scanLine [expr {$checkLine - $i}]
-            if {$scanLine <= $isLine} {
-                break
-            }
-            if {$scanLine >= $n && [string trim [lindex $declLines [expr {$scanLine - $n}]]] ne ""} {
-                break
-            }
-            if {[dict exists $commentDict $scanLine]} {
-                set commentEntry [dict get $commentDict $scanLine]
-                if {[dict exists $commentEntry comment]} {
-                    set cmt [dict get $commentEntry comment]
-                } else {
-                    set cmt $commentEntry
-                }
-                # Check if it's a separator
-                if {[regexp {^[-=*#_]{5,}\s*$} $cmt]} {
-                    # Found separator - if we have comments, stop; otherwise continue
-                    if {[llength $commentLines] > 0} {
-                        break
-                    }
-                } else {
-                    # Substantive comment (even if short/empty like "*")
-                    lappend commentLines $cmt
-                }
-            } else {
-                # No comment on this line - ALWAYS stop (don't skip gaps)
-                break
-            }
-        }
-
-        # Reverse what we collected (since we went backward)
-        if {[llength $commentLines] > 0} {
-            set commentLines [lreverse $commentLines]
-        }
-
-        # Inline comment on the procedure line itself, read like in
-        # _scan_functions; appended after the comment block above
-        if {[dict exists $commentDict $line]} {
-            set commentEntry [dict get $commentDict $line]
-            if {[dict exists $commentEntry comment]} {
-                set inlineComment [dict get $commentEntry comment]
-            } else {
-                set inlineComment $commentEntry
-            }
-            set inlineComment [string trim $inlineComment]
-            if {$inlineComment ne ""} {
-                lappend commentLines $inlineComment
-            }
-        }
-
-        # Don't collect forward - causes duplication. Only use backward collection.
-        # The line number calculation is accurate enough.
-
-        # Join all collected lines
-        if {[llength $commentLines] > 0} {
-            set procComment [join $commentLines "\n"]
-        }
+        # Comment: the shared association rule (_comment_for), searched from
+        # the `procedure` keyword's line.
+        set procComment [::aurig::core::analyze::_comment_for $commentDict \
+            [::aurig::core::analyze::_index_to_line $decl [lindex $matchIdx 0] $n]]
 
         set item [dict create \
             kind procedure \

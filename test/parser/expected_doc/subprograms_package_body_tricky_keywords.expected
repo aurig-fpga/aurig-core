@@ -37,7 +37,8 @@ begin
 return data = (data'range => '0');
 end function end_of_data;
 
-} file_name tricky_keywords.vhd line 19 name pkg_tricky} packages {{components {} declarations {{kind function line 9 name not_a_procedure params {x : integer} purity pure return integer} {kind function line 15 name end_of_data params {data : std_logic_vector} purity pure return boolean} {comment {Procedure with "function return" in comment} kind procedure line 12 name not_a_function params {signal data : out std_logic}}} declarative {function not_a_procedure(x : integer) return integer;
+} file_name tricky_keywords.vhd line 19 name pkg_tricky} packages {{components {} declarations {{comment {Function with "procedure" in comment
+This is not a procedure, it's a function} kind function line 9 name not_a_procedure params {x : integer} purity pure return integer} {comment {Function name contains keyword-like text} kind function line 15 name end_of_data params {data : std_logic_vector} purity pure return boolean} {comment {Procedure with "function return" in comment} kind procedure line 12 name not_a_function params {signal data : out std_logic}}} declarative {function not_a_procedure(x : integer) return integer;
 
 
 procedure not_a_function(signal data : out std_logic);

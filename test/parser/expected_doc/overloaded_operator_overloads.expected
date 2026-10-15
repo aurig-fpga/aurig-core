@@ -90,7 +90,7 @@ function convert(value : std_logic_vector) return integer is
 begin
 return value'length;
 end function convert;
-} file_name operator_overloads.vhd line 20 name mixed_overload_pkg} packages {{components {} declarations {{kind function line 15 name convert params {value : std_logic} purity pure return integer} {kind function line 16 name convert params {value : integer} purity pure return std_logic} {kind function line 17 name convert params {value : std_logic_vector} purity pure return integer}} declarative {function "+"(left, right : std_logic) return std_logic;
+} file_name operator_overloads.vhd line 20 name mixed_overload_pkg} packages {{components {} declarations {{comment {Regular function overloads} kind function line 15 name convert params {value : std_logic} purity pure return integer} {kind function line 16 name convert params {value : integer} purity pure return std_logic} {kind function line 17 name convert params {value : std_logic_vector} purity pure return integer}} declarative {function "+"(left, right : std_logic) return std_logic;
 function "+"(left : std_logic; right : integer) return std_logic;
 
 

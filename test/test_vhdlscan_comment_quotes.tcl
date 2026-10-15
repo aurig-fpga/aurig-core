@@ -10,10 +10,8 @@
 # mangling text that is not a string at all.
 #
 # Each case is a double-quoted string, a '"' character literal, or both, as a
-# full-line comment and as a trailing comment. Placements follow the current
-# association rules (not changed here): a procedure takes the line above and
-# its trailing comment, a function takes an @brief block above and a short
-# trailing comment, and a signal takes a comment two lines above.
+# full-line comment and as a trailing comment, attached to procedures,
+# functions (an @brief block above and a trailing comment) and signals.
 
 set script_anchor [file dirname [file normalize [info script]]]
 set aurig_core_root [file dirname $script_anchor]
@@ -146,7 +144,6 @@ try {
     dict for {key text} $texts {
         L {}
         dict set lines sig_$key [L "  -- $text"]
-        L {}
         L "  signal s_${key} : std_logic;"
     }
     L {begin}

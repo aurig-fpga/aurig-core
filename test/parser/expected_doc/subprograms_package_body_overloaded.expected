@@ -76,7 +76,7 @@ begin
 report "Vector length: " & integer'image(data'length);
 end procedure print;
 
-} file_name overloaded.vhd line 18 name pkg_overload} packages {{components {} declarations {{kind function line 8 name to_integer params {data : std_logic} purity pure return integer} {kind function line 9 name to_integer params {data : std_logic_vector} purity pure return integer} {comment {Overloaded print procedure} kind procedure line 12 name print params {message : string}} {kind procedure line 13 name print params {value : integer}} {kind procedure line 14 name print params {data : std_logic_vector}}} declarative {function to_integer(data : std_logic) return integer;
+} file_name overloaded.vhd line 18 name pkg_overload} packages {{components {} declarations {{comment {Overloaded to_integer function} kind function line 8 name to_integer params {data : std_logic} purity pure return integer} {kind function line 9 name to_integer params {data : std_logic_vector} purity pure return integer} {comment {Overloaded print procedure} kind procedure line 12 name print params {message : string}} {kind procedure line 13 name print params {value : integer}} {kind procedure line 14 name print params {data : std_logic_vector}}} declarative {function to_integer(data : std_logic) return integer;
 function to_integer(data : std_logic_vector) return integer;
 
 
