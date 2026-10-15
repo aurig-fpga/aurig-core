@@ -52,6 +52,19 @@ proc ::aurig::core::analyze::_adv {s stVar} {
     return 1
 }
 
+# 1 if a character literal ('X') starts at index $i of $s, else 0. The tick
+# must be followed by one character and a closing tick, AND must not directly
+# follow an identifier character or ')': there the tick is an attribute or
+# qualifier tick, as in t'('a') or s'high, and reading t'('a') as the literal
+# '(' loses a parenthesis and misplaces every later quote. Shared by _nextw
+# and _classify_subprogram_header so the two cannot drift.
+proc ::aurig::core::analyze::_char_literal_at {s i} {
+    if {[string index $s $i] ne "'"} { return 0 }
+    if {$i + 2 >= [string length $s] || [string index $s [expr {$i + 2}]] ne "'"} { return 0 }
+    set prev [expr {$i > 0 ? [string index $s [expr {$i - 1}]] : ""}]
+    return [expr {![string is alnum -strict $prev] && $prev ne "_" && $prev ne ")"}]
+}
+
 # Next identifier-like word; returns {word start end} or {"" i i}
 #
 # String literals are skipped, so a keyword inside "..." is never returned
@@ -59,13 +72,11 @@ proc ::aurig::core::analyze::_adv {s stVar} {
 # doubled-quote escape ("a""b") needs no special case, because reading ""
 # as close-then-reopen leaves exactly the same characters outside strings.
 # A bit-string literal such as X"FF" yields the word X, then the string is
-# skipped. A tick starts a character literal ('"') only when the character
-# two positions on is also a tick AND the tick does not directly follow an
-# identifier character or ')': in t'('"') the first tick is a qualifier,
-# and reading '(' as a literal would open a string on the next double
-# quote. The lookahead in split_arch_decl_body Phase 2 (`function` /
-# `procedure` prototype-or-body test) uses the plain three-character test
-# and still has that weakness; it is not changed here.
+# skipped. A tick starts a character literal ('"') only as decided by
+# _char_literal_at: in t'('"') the first tick is a qualifier, and reading
+# '(' as a literal would open a string on the next double quote.
+# _classify_subprogram_header uses the same predicate, so the two scans
+# cannot disagree about where a literal is.
 #
 # Parity: this assumes $i is outside a string literal. Several callers
 # start from a regexp hit (_mask_subprograms -> _find_subprogram_end,
@@ -86,12 +97,9 @@ proc ::aurig::core::analyze::_nextw {s i} {
             set i [expr {$close < 0 ? $n : $close + 1}]
             continue
         }
-        if {$ch eq "'" && $i + 2 < $n && [string index $s [expr {$i + 2}]] eq "'"} {
-            set prev [expr {$i > 0 ? [string index $s [expr {$i - 1}]] : ""}]
-            if {![string is alnum -strict $prev] && $prev ne "_" && $prev ne ")"} {
-                incr i 3
-                continue
-            }
+        if {[::aurig::core::analyze::_char_literal_at $s $i]} {
+            incr i 3
+            continue
         }
         if {[string is alpha $ch] || $ch eq "_"} { break }
         incr i
@@ -184,6 +192,132 @@ proc ::aurig::core::analyze::_end_is_shallow {nextWord next2Word} {
     return 0
 }
 
+# Classify a `function` / `procedure` keyword found by the architecture
+# splitter. b/e are the start and end (exclusive) of the keyword. Returns
+# {outcome next}:
+#   body      - header ends in a top-level `is`: a subprogram body follows,
+#               whose `begin` must not be taken for an enclosing one; next is
+#               just past `is`
+#   prototype - header ends in a top-level `;`: no body; next is past `;`
+#   inst      - `is new`: a subprogram instantiation, no body; next is just
+#               past `is`
+#   none      - not a subprogram header, or no terminator found; next is e.
+#               The keyword is an entity class in an attribute specification
+#               (`attribute a of p : procedure is "...";`) when the previous
+#               non-space character is `:`.
+# The lookahead is paren-aware (skip `;` inside the parameter list),
+# string-aware (`"..."`), character-literal-aware and comment-aware
+# (`-- ...\n`). It runs once per keyword, so the scans that call it stay
+# linear.
+#
+# Character literals are recognised by _char_literal_at, the same guarded
+# test _nextw uses, not by the plain three-character test this lookahead
+# had when only Phase 2 called it. Phase 1 now depends on this outcome to
+# decide where the architecture's own `begin` is, so a misread tick
+# reproduces the silent truncation of #58: in a parameter default such as
+# character'('a'), reading the qualifier tick as the literal '(' loses a
+# parenthesis, the parameter list's `;` looks top-level and the body is
+# classified as a prototype; with character'('"') a string opens and never
+# closes. Either way the body's `begin` is taken for the architecture's.
+proc ::aurig::core::analyze::_classify_subprogram_header {chunk b e} {
+    set n [string length $chunk]
+
+    # Attribute-specification entity class: the previous non-space character
+    # is `:`. This backward scan skips whitespace only, so a comment between
+    # `:` and the keyword defeats it. That matters only when comments reach
+    # the splitter unstripped: vhdlscan strips them first, so the two routes
+    # are a direct split_arch_decl_body call and #75 (a '"' earlier on the
+    # line hides the `--` from the stripper). A correct backward scan through
+    # a comment is not possible without rescanning the line forwards, since
+    # from behind a `--` cannot be told apart from one inside a string. If
+    # this ever needs to be robust, skip each `attribute ... ;` statement
+    # whole with a forward scan using this proc's string, character-literal,
+    # comment and parenthesis rules, rather than a smarter backward scan.
+    set _k [expr {$b - 1}]
+    while {$_k >= 0 && [string is space -strict [string index $chunk $_k]]} { incr _k -1 }
+    if {$_k >= 0 && [string index $chunk $_k] eq ":"} {
+        return [list none $e]
+    }
+
+    set _j $e
+    set _paren 0
+    set _in_dq 0
+    while {$_j < $n} {
+        set _c [string index $chunk $_j]
+        # VHDL string literal: doubled quotes ("") are a literal
+        # quote and do NOT end the string; a single " ends it.
+        # Backslash has no escape meaning.
+        if {$_in_dq} {
+            if {$_c eq "\""} {
+                if {$_j+1 < $n && [string index $chunk [expr {$_j+1}]] eq "\""} {
+                    incr _j 2
+                    continue
+                }
+                set _in_dq 0
+            }
+            incr _j
+            continue
+        }
+        if {$_c eq "\""} { set _in_dq 1; incr _j; continue }
+        if {$_c eq "'"} {
+            if {[::aurig::core::analyze::_char_literal_at $chunk $_j]} {
+                incr _j 3; continue
+            }
+            incr _j; continue
+        }
+        if {$_c eq "-" && $_j+1 < $n && [string index $chunk [expr {$_j+1}]] eq "-"} {
+            set _nl [string first "\n" $chunk $_j]
+            if {$_nl < 0} { set _j $n; continue }
+            set _j [expr {$_nl + 1}]; continue
+        }
+        if {$_c eq "("} { incr _paren; incr _j; continue }
+        if {$_c eq ")"} {
+            if {$_paren > 0} { incr _paren -1 }
+            incr _j; continue
+        }
+        if {$_paren == 0} {
+            if {$_c eq ";"} {
+                return [list prototype [expr {$_j + 1}]]
+            }
+            # Match top-level `is` as a keyword (whole-word, case
+            # insensitive). Surrounding chars must not be identifier
+            # characters.
+            if {($_c eq "i" || $_c eq "I") && $_j+1 < $n} {
+                set _c2 [string index $chunk [expr {$_j+1}]]
+                if {$_c2 eq "s" || $_c2 eq "S"} {
+                    set _before [expr {$_j > 0 ? [string index $chunk [expr {$_j-1}]] : " "}]
+                    set _after_idx [expr {$_j + 2}]
+                    set _after [expr {$_after_idx < $n ? [string index $chunk $_after_idx] : " "}]
+                    set _before_ok [expr {![string is alnum -strict $_before] && $_before ne "_"}]
+                    set _after_ok [expr {![string is alnum -strict $_after] && $_after ne "_"}]
+                    if {$_before_ok && $_after_ok} {
+                        # `is new`: skip whitespace and `-- ...` comments
+                        # between the two words, as the loop above does;
+                        # a comment is whitespace to VHDL.
+                        set _k $_after_idx
+                        while {$_k < $n} {
+                            if {[string is space -strict [string index $chunk $_k]]} {
+                                incr _k
+                            } elseif {[string range $chunk $_k [expr {$_k + 1}]] eq "--"} {
+                                set _nl [string first "\n" $chunk $_k]
+                                set _k [expr {$_nl < 0 ? $n : $_nl + 1}]
+                            } else {
+                                break
+                            }
+                        }
+                        if {[regexp -nocase -start $_k {\Anew\M} $chunk]} {
+                            return [list inst $_after_idx]
+                        }
+                        return [list body $_after_idx]
+                    }
+                }
+            }
+        }
+        incr _j
+    }
+    return [list none $e]
+}
+
 #=============================================================================
 # CORE: split_arch_decl_body
 # Input:  chunk that starts RIGHT AFTER 'is' of the architecture header
@@ -196,34 +330,53 @@ proc ::aurig::core::analyze::split_arch_decl_body {chunk} {
     set depth 0
     set beginStart -1
     set beginEnd   -1
+    # Number of subprogram bodies whose header has been read and whose
+    # `begin` has not: a subprogram declared in another's declarative part
+    # makes it 2, and each depth-0 `begin` consumes one (#58). It used to be
+    # a single bit, so a nested subprogram's `begin` cleared it and the
+    # enclosing subprogram's `begin` was taken for the architecture's.
+    #
+    # The count is only correct because each keyword is classified first
+    # (_classify_subprogram_header): a body counts, a prototype, an `is new`
+    # instantiation or an attribute-specification entity class does not. Do
+    # not replace that with "arm on the keyword, count on the next `is`".
+    # That was the old logic, and its stale arm (a prototype has no `is`, so
+    # the next `type ... is` armed it) was masked only because a bit set
+    # twice is still 1. As a real count, the stale arm consumes the
+    # architecture's own `begin` (MISSING_BEGIN on prototype, `type ... is`,
+    # body). `package` is not counted at all: a package declaration, package
+    # body or package instantiation never has a `begin` of its own.
     set pending_subprog 0
-    set seen_is_after_subprog 0
 
     while {$st(i) < $n} {
         lassign [::aurig::core::analyze::_nextw $chunk $st(i)] w b e
         if {$w eq ""} { ::aurig::core::analyze::_adv $chunk st; continue }
         set low [string tolower $w]
 
-
-        # Detect "function|procedure|package [body] ... is" in declarative part
-        if {$low in {"function" "procedure" "package"}} {
-            set seen_is_after_subprog 1
-            set st(i) $e
-            continue
-        }
-        if {$seen_is_after_subprog && $low eq "is"} {
-            set pending_subprog 1
-            set seen_is_after_subprog 0
-            set st(i) $e
+        if {$low in {"function" "procedure"}} {
+            lassign [::aurig::core::analyze::_classify_subprogram_header $chunk $b $e] outcome next
+            # In legal VHDL a header is only ever classified at depth 0:
+            # depth > 0 means we are inside a subprogram's statement part,
+            # where only sequential statements are allowed, so nesting
+            # happens in declarative parts, before the enclosing `begin`.
+            # Each count is therefore paired with a depth-0 `begin`, last in
+            # first out. For illegal input (a body declared after the
+            # enclosing `begin`) the count is left over, the architecture's
+            # own `begin` is consumed, and the split fails loudly with
+            # MISSING_BEGIN, as the single flag before #58 did. Counting
+            # only at depth 0 would make that illegal shape parse silently
+            # instead, so counting at every depth is deliberate.
+            if {$outcome eq "body"} { incr pending_subprog }
+            set st(i) $next
             continue
         }
 
         if {$low eq "begin"} {
             if {$depth == 0} {
-                if {$pending_subprog} {
-                    # This 'begin' starts a subprogram/package body in DECL part; treat as nested.
+                if {$pending_subprog > 0} {
+                    # This 'begin' starts a subprogram body in DECL part; treat as nested.
                     incr depth
-                    set pending_subprog 0
+                    incr pending_subprog -1
                     set st(i) $e
                     continue
                 }
@@ -273,9 +426,11 @@ proc ::aurig::core::analyze::split_arch_decl_body {chunk} {
     #   (no explicit `begin`); drop the stack entry so that the following
     #   `begin` of the process/block is counted normally.
     # - Subprogram bodies inside a generate's declarative region are
-    #   tracked like in Phase 1: a `function|procedure` keyword followed
-    #   later by `is` arms `sub_pending`, and the next `begin` then opens
-    #   a subprogram body (depth++) without consuming the generate marker.
+    #   tracked like in Phase 1: a `function|procedure` keyword classified
+    #   as a body by _classify_subprogram_header arms `sub_pending`, and
+    #   the next `begin` then opens a subprogram body (depth++) without
+    #   consuming the generate marker. Prototypes, `is new` instantiations
+    #   and attribute-specification entity classes do not arm it.
     # - 'end generate' decrements depth and pops the matching stack entry
     #   if the generate had no `begin` of its own.
     # - Other `end` constructs use `_end_is_shallow` to decide if depth
@@ -293,94 +448,15 @@ proc ::aurig::core::analyze::split_arch_decl_body {chunk} {
         if {$w eq ""} { ::aurig::core::analyze::_adv $chunk st2; continue }
         set low [string tolower $w]
 
-        # When a subprogram keyword (`function`|`procedure`) appears in the
-        # architecture body, look ahead once to its top-level terminator and
-        # classify it as a prototype or a body:
-        #   - if the next top-level token is `;`, it's a prototype: skip past
-        #     the `;` and continue (do NOT arm `sub_pending`).
-        #   - if the next top-level token is `is`, it's a body: arm
-        #     `sub_pending` so the following `begin` opens a real depth, and
-        #     skip past `is` so the surrounding scanner doesn't try to
-        #     re-classify it.
-        # The lookahead must be paren-aware (skip `;` inside the parameter
-        # list), string-aware (`"..."`), character-literal-aware (`'X'` via
-        # 3-char lookahead) and comment-aware (`-- ...\n`). Performing this
-        # once per subprogram keyword keeps the architecture body scan
-        # linear; the previous per-iteration rescan was O(n²).
+        # A subprogram keyword in a generate, block or process declarative
+        # region: a body arms `sub_pending` so the following `begin` opens a
+        # real depth; a prototype, an `is new` instantiation or an
+        # attribute-specification entity class does not. The scan resumes
+        # past the header so it is not re-classified.
         if {$low in {"function" "procedure"}} {
-            set _j $e
-            set _paren 0
-            set _in_dq 0
-            set _outcome "eof"
-            while {$_j < $n} {
-                set _c [string index $chunk $_j]
-                # VHDL string literal: doubled quotes ("") are a literal
-                # quote and do NOT end the string; a single " ends it.
-                # Backslash has no escape meaning.
-                if {$_in_dq} {
-                    if {$_c eq "\""} {
-                        if {$_j+1 < $n && [string index $chunk [expr {$_j+1}]] eq "\""} {
-                            incr _j 2
-                            continue
-                        }
-                        set _in_dq 0
-                    }
-                    incr _j
-                    continue
-                }
-                if {$_c eq "\""} { set _in_dq 1; incr _j; continue }
-                if {$_c eq "'"} {
-                    if {$_j+2 < $n && [string index $chunk [expr {$_j+2}]] eq "'"} {
-                        incr _j 3; continue
-                    }
-                    incr _j; continue
-                }
-                if {$_c eq "-" && $_j+1 < $n && [string index $chunk [expr {$_j+1}]] eq "-"} {
-                    set _nl [string first "\n" $chunk $_j]
-                    if {$_nl < 0} { set _j $n; continue }
-                    set _j [expr {$_nl + 1}]; continue
-                }
-                if {$_c eq "("} { incr _paren; incr _j; continue }
-                if {$_c eq ")"} {
-                    if {$_paren > 0} { incr _paren -1 }
-                    incr _j; continue
-                }
-                if {$_paren == 0} {
-                    if {$_c eq ";"} {
-                        set _outcome "prototype"
-                        set _j [expr {$_j + 1}]
-                        break
-                    }
-                    # Match top-level `is` as a keyword (whole-word, case
-                    # insensitive). Surrounding chars must not be identifier
-                    # characters.
-                    if {($_c eq "i" || $_c eq "I") && $_j+1 < $n} {
-                        set _c2 [string index $chunk [expr {$_j+1}]]
-                        if {$_c2 eq "s" || $_c2 eq "S"} {
-                            set _before [expr {$_j > 0 ? [string index $chunk [expr {$_j-1}]] : " "}]
-                            set _after_idx [expr {$_j + 2}]
-                            set _after [expr {$_after_idx < $n ? [string index $chunk $_after_idx] : " "}]
-                            set _before_ok [expr {![string is alnum -strict $_before] && $_before ne "_"}]
-                            set _after_ok [expr {![string is alnum -strict $_after] && $_after ne "_"}]
-                            if {$_before_ok && $_after_ok} {
-                                set _outcome "body"
-                                set _j $_after_idx
-                                break
-                            }
-                        }
-                    }
-                }
-                incr _j
-            }
-
-            if {$_outcome eq "body"} {
-                set sub_pending 1
-                set st2(i) $_j
-            } elseif {$_outcome eq "prototype"} {
-                set st2(i) $_j
-            } else {
-                set st2(i) $e
-            }
+            lassign [::aurig::core::analyze::_classify_subprogram_header $chunk $b $e] outcome next
+            if {$outcome eq "body"} { set sub_pending 1 }
+            set st2(i) $next
             continue
         }
 
