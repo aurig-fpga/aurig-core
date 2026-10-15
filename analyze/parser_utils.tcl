@@ -928,9 +928,18 @@ proc ::aurig::core::analyze::_find_end_of_process {text startIdx label} {
 #   ::aurig::core::analyze::_peek2w_stop_at_semicolon
 #
 # Depth +1 when we enter a nested declarative/compound that has its own 'begin'/'end':
-#   function, procedure (also 'pure|impure function')
+#   function, procedure (also 'pure|impure function'), only when the header
+#     is a body: see below
 #   package, protected  (no 'begin' inside, but they use 'end <kw>;' → still treated as nested)
 # For architecture/process/block/subprogram declaratives this is sufficient.
+#
+# A `function` / `procedure` keyword is classified by
+# _classify_subprogram_header, as the architecture splitter does, and only a
+# body adds a level. A prototype, an `is new` instantiation and an
+# attribute-specification entity class (`: procedure is "..."`) have no
+# `end` to close one, so counting them left the depth above 0 for the rest
+# of the scan: the `begin` was never found and the proc returned -1 (#76).
+# The scan resumes past the classified header, so each header is read once.
 proc ::aurig::core::analyze::_find_decl_body_begin {chunk startIdx endIdx} {
     set i $startIdx
     set N [string length $chunk]
@@ -946,8 +955,9 @@ proc ::aurig::core::analyze::_find_decl_body_begin {chunk startIdx endIdx} {
         if {$lw in {pure impure}} {
             lassign [::aurig::core::analyze::_nextw $chunk $e] w2 s2 e2
             if {[string tolower $w2] eq "function"} {
-                incr depth
-                set i $e2
+                lassign [::aurig::core::analyze::_classify_subprogram_header $chunk $s2 $e2] outcome next
+                if {$outcome eq "body"} { incr depth }
+                set i $next
                 continue
             }
             set i $e
@@ -955,7 +965,13 @@ proc ::aurig::core::analyze::_find_decl_body_begin {chunk startIdx endIdx} {
         }
 
         switch -- $lw {
-            function - procedure - package - protected {
+            function - procedure {
+                lassign [::aurig::core::analyze::_classify_subprogram_header $chunk $s $e] outcome next
+                if {$outcome eq "body"} { incr depth }
+                set i $next
+                continue
+            }
+            package - protected {
                 # Enter nested declaration scope
                 incr depth
                 set i $e
