@@ -1,1 +1,15 @@
-architectures {} comments {line {1 {comment {Test attribute specifications with tricky formatting}} 14 {comment {Attribute declarations with various formats}} 18 {comment {Attribute specifications with whitespace}} 21 {comment {Attribute with comment}} 22 {comment answer} 24 {comment {Multi-line attribute}}}} entities {{file attr_formatting.vhd generics {} line 5 name attr_formatting ports {{line 7 mode in name sig1 type std_logic} {line 8 mode in name sig2 type std_logic} {line 9 mode in name sig3 type {std_logic_vector(7 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file attr_formatting.vhd} package_bodies {} packages {} uses {{decl {use ieee.std_logic_1164.all;} lib ieee line 3 pkg std_logic_1164 selector all}}
+architectures {{assignments {} body_section {begin
+end architecture rtl;} decl_section {architecture rtl of attr_formatting is
+
+attribute    MY_ATTR    :    string;
+attribute NUMERIC_ATTR : integer;
+
+
+attribute    MY_ATTR    of    sig1    :    signal    is    "value1";
+
+
+attribute NUMERIC_ATTR of sig2 : signal is 42;
+
+
+attribute MY_ATTR of sig3 : signal is
+"long_value";} declarations {} entity attr_formatting file attr_formatting.vhd generates {} instantiations {} line 13 name rtl processes {}}} comments {line {1 {comment {Test attribute specifications with tricky formatting}} 14 {comment {Attribute declarations with various formats}} 18 {comment {Attribute specifications with whitespace}} 21 {comment {Attribute with comment}} 22 {comment answer} 24 {comment {Multi-line attribute}}}} entities {{file attr_formatting.vhd generics {} line 5 name attr_formatting ports {{line 7 mode in name sig1 type std_logic} {line 8 mode in name sig2 type std_logic} {line 9 mode in name sig3 type {std_logic_vector(7 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file attr_formatting.vhd} package_bodies {} packages {} uses {{decl {use ieee.std_logic_1164.all;} lib ieee line 3 pkg std_logic_1164 selector all}}

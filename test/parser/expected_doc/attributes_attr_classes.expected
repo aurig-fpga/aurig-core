@@ -1,1 +1,22 @@
-architectures {} comments {line {1 {comment {Test attributes on different object classes}} 12 {comment {Attributes for different classes}} 27 {comment {Attribute specifications for different classes}}}} entities {{file attr_classes.vhd generics {} line 5 name attr_classes ports {{line 7 mode in name port1 type std_logic}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file attr_classes.vhd} package_bodies {} packages {} uses {{decl {use ieee.std_logic_1164.all;} lib ieee line 3 pkg std_logic_1164 selector all}}
+architectures {{assignments {} body_section {begin
+end architecture rtl;} decl_section {architecture rtl of attr_classes is
+
+attribute ATTR_TYPE : string;
+attribute ATTR_SIGNAL : string;
+attribute ATTR_CONSTANT : string;
+attribute ATTR_VARIABLE : string;
+attribute ATTR_COMPONENT : string;
+
+type my_type is (A, B, C);
+signal my_signal : std_logic;
+constant my_const : integer := 10;
+
+component my_comp is
+port (x : in std_logic);
+end component my_comp;
+
+
+attribute ATTR_TYPE of my_type : type is "enumeration";
+attribute ATTR_SIGNAL of my_signal : signal is "critical";
+attribute ATTR_CONSTANT of my_const : constant is "timing";
+attribute ATTR_COMPONENT of my_comp : component is "synthesizable";} declarations {{args {{type std_logic init {}} {}} kind signal line 20 name my_signal} {args {{type integer init 10} {}} kind constant line 21 name my_const} {args {{subtype_kind enumerated literals {{name A kind identifier line 19} {name B kind identifier line 19} {name C kind identifier line 19}}} {}} kind type line 19 literals {{name A kind identifier line 19} {name B kind identifier line 19} {name C kind identifier line 19}} name my_type subtype_kind enumerated}} entity attr_classes file attr_classes.vhd generates {} instantiations {} line 11 name rtl processes {}}} comments {line {1 {comment {Test attributes on different object classes}} 12 {comment {Attributes for different classes}} 27 {comment {Attribute specifications for different classes}}}} entities {{file attr_classes.vhd generics {} line 5 name attr_classes ports {{line 7 mode in name port1 type std_logic}}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file attr_classes.vhd} package_bodies {} packages {} uses {{decl {use ieee.std_logic_1164.all;} lib ieee line 3 pkg std_logic_1164 selector all}}

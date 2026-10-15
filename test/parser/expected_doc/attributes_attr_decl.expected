@@ -1,4 +1,11 @@
-architectures {} comments {line {1 {comment {Test attribute declarations}} 27 {comment {Attribute specifications}} 6 {comment {Declare custom attributes}}}} entities {{file attr_decl.vhd generics {} line 17 name attr_decl ports {{line 19 mode in name clk type std_logic} {line 20 mode in name data type {std_logic_vector(7 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee} {decl {library ieee;} line 13 name ieee}} meta {file attr_decl.vhd} package_bodies {} packages {{components {} declarations {} declarative {attribute ENUM_ENCODING : string;
+architectures {{assignments {} body_section {begin
+end architecture rtl;} decl_section {architecture rtl of attr_decl is
+type state_type is (IDLE, ACTIVE, DONE);
+
+
+attribute ENUM_ENCODING of state_type : type is "one_hot";
+attribute MAX_FANOUT of clk : signal is 100;
+attribute IS_CRITICAL of data : signal is true;} declarations {{args {{subtype_kind enumerated literals {{name IDLE kind identifier line 25} {name ACTIVE kind identifier line 25} {name DONE kind identifier line 25}}} {}} kind type line 25 literals {{name IDLE kind identifier line 25} {name ACTIVE kind identifier line 25} {name DONE kind identifier line 25}} name state_type subtype_kind enumerated}} entity attr_decl file attr_decl.vhd generates {} instantiations {} line 24 name rtl processes {}}} comments {line {1 {comment {Test attribute declarations}} 27 {comment {Attribute specifications}} 6 {comment {Declare custom attributes}}}} entities {{file attr_decl.vhd generics {} line 17 name attr_decl ports {{line 19 mode in name clk type std_logic} {line 20 mode in name data type {std_logic_vector(7 downto 0)}}}}} libraries {{decl {library ieee;} line 2 name ieee} {decl {library ieee;} line 13 name ieee}} meta {file attr_decl.vhd} package_bodies {} packages {{components {} declarations {} declarative {attribute ENUM_ENCODING : string;
 attribute MAX_FANOUT : integer;
 attribute TIMING_CONSTRAINT : time;
 attribute IS_CRITICAL : boolean;
