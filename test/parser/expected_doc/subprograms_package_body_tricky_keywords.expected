@@ -19,7 +19,7 @@ begin
 return data = (data'range => '0');
 end function end_of_data;
 
-} file tricky_keywords.vhd functions {{body {} kind function line 21 name not_a_procedure params {x : integer} purity pure return integer} {body {} kind function line 34 name end_of_data params {data : std_logic_vector} purity pure return boolean}} line 19 name pkg_tricky procedures {{body {} kind procedure line 28 name not_a_function params {signal data : out std_logic}}}}} package_body {body {function not_a_procedure(x : integer) return integer is
+} file tricky_keywords.vhd functions {{body {} body_declarations {{kind constant name MSG type string init {"procedure inside string"} line 22}} kind function line 21 name not_a_procedure params {x : integer} purity pure return integer} {body {} kind function line 34 name end_of_data params {data : std_logic_vector} purity pure return boolean}} line 19 name pkg_tricky procedures {{body {} body_declarations {{kind constant name RESET type string init {"function return in string"} line 29}} kind procedure line 28 name not_a_function params {signal data : out std_logic}}}}} package_body {body {function not_a_procedure(x : integer) return integer is
 constant MSG : string := "procedure inside string";
 begin
 
