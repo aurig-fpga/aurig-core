@@ -1,4 +1,5 @@
-architectures {} comments {line {1 {comment {Test library and use clauses with tokens split across lines}}}} entities {{file split_library_use.vhd generics {} line 13 name split_library_use ports {{line 15 mode in name data type std_logic}}}} libraries {{decl {library
+architectures {{assignments {} body_section {begin
+end architecture rtl;} decl_section {architecture rtl of split_library_use is} declarations {} entity split_library_use file split_library_use.vhd generates {} instantiations {} line 19 name rtl processes {}}} comments {line {1 {comment {Test library and use clauses with tokens split across lines}}}} entities {{file split_library_use.vhd generics {} line 13 name split_library_use ports {{line 15 mode in name data type std_logic}}}} libraries {{decl {library
 ieee
 ;} line 2 name ieee}} meta {file split_library_use.vhd} package_bodies {} packages {} uses {{decl {use
 ieee

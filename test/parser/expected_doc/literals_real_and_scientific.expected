@@ -1,1 +1,26 @@
-architectures {} comments {line {1 {comment {Real literals and scientific notation (tests empty entity)}} 14 {comment {Scientific notation}} 15 {comment {1 million}} 16 {comment 0.0025} 17 {comment 12300} 19 {comment {Edge cases}} 21 {comment 1.0} 22 {comment {very large}} 24 {comment {With underscores}} 28 {comment {Integer literals with underscores}} 9 {comment {Basic real literals}}}} entities {{file real_and_scientific.vhd generics {} line 5 name real_literals ports {}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file real_and_scientific.vhd} package_bodies {} packages {} uses {{decl {use ieee.std_logic_1164.all;} lib ieee line 3 pkg std_logic_1164 selector all}}
+architectures {{assignments {} body_section {begin
+end architecture rtl;} decl_section {architecture rtl of real_literals is
+
+constant R1 : real := 3.14159;
+constant R2 : real := 0.5;
+constant R3 : real := 123.456;
+
+
+constant R4 : real := 1.0E6;
+constant R5 : real := 2.5E-3;
+constant R6 : real := 1.23E+4;
+
+
+constant R7 : real := 0.0;
+constant R8 : real := 1.0E0;
+constant R9 : real := 9.99E99;
+
+
+constant R10 : real := 1_000_000.5;
+constant R11 : real := 1.234_567_89;
+
+
+constant I1 : integer := 1_000_000;
+constant I2 : integer := 16#FF_FF#;
+constant I3 : integer := 2#1111_1111#;} declarations {{args {{type real init 3.14159} {}} comment {Basic real literals} kind constant line 10 name R1} {args {{type real init 0.5} {}} kind constant line 11 name R2} {args {{type real init 123.456} {}} kind constant line 12 name R3} {args {{type real init 1.0E6} {}} comment {Scientific notation
+1 million} kind constant line 15 name R4} {args {{type real init 2.5E-3} {}} comment 0.0025 kind constant line 16 name R5} {args {{type real init 1.23E+4} {}} comment 12300 kind constant line 17 name R6} {args {{type real init 0.0} {}} comment {Edge cases} kind constant line 20 name R7} {args {{type real init 1.0E0} {}} comment 1.0 kind constant line 21 name R8} {args {{type real init 9.99E99} {}} comment {very large} kind constant line 22 name R9} {args {{type real init 1_000_000.5} {}} comment {With underscores} kind constant line 25 name R10} {args {{type real init 1.234_567_89} {}} kind constant line 26 name R11} {args {{type integer init 1_000_000} {}} comment {Integer literals with underscores} kind constant line 29 name I1} {args {{type integer init 16#FF_FF#} {}} kind constant line 30 name I2} {args {{type integer init 2#1111_1111#} {}} kind constant line 31 name I3}} entity real_literals file real_and_scientific.vhd generates {} instantiations {} line 8 name rtl processes {}}} comments {line {1 {comment {Real literals and scientific notation (tests empty entity)}} 14 {comment {Scientific notation}} 15 {comment {1 million}} 16 {comment 0.0025} 17 {comment 12300} 19 {comment {Edge cases}} 21 {comment 1.0} 22 {comment {very large}} 24 {comment {With underscores}} 28 {comment {Integer literals with underscores}} 9 {comment {Basic real literals}}}} entities {{file real_and_scientific.vhd generics {} line 5 name real_literals ports {}}} libraries {{decl {library ieee;} line 2 name ieee}} meta {file real_and_scientific.vhd} package_bodies {} packages {} uses {{decl {use ieee.std_logic_1164.all;} lib ieee line 3 pkg std_logic_1164 selector all}}

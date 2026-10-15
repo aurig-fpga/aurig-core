@@ -63,7 +63,13 @@ namespace eval ::aurig::core::util::re {
   # 2. entity name associated
   # 3. architcture declarative part
   # 4. architecture body
-  variable re_architecture {^(architecture[\s\n]+([a-zA-Z]+[a-zA-Z0-9_]*)[\s\n]+of[\s\n]+([a-zA-Z]+[a-zA-Z0-9_]*)[\s\n]+is[\s\n]+(.*)begin[\s\n]+(.*)[\s\n]+(end[\s\n]+architecture|end[\s\n]+architecture[\s\n]+[a-zA-Z]+[a-zA-Z0-9_]*|end[\s\n]+[a-zA-Z]+[a-zA-Z0-9_]*|end)[\s\n]*;)}
+  # The body capture is optional: vhdlscan trims each line and joins them with
+  # a single "\n", so an empty body (`begin` then `end` on the next line) leaves
+  # exactly one whitespace character between them. The previous form,
+  # `begin[\s\n]+(.*)[\s\n]+end`, needed at least two and dropped such an
+  # architecture (#49). `begin` must still be followed by whitespace, so an
+  # identifier like `begin_cnt` is not taken for the keyword.
+  variable re_architecture {^(architecture[\s\n]+([a-zA-Z]+[a-zA-Z0-9_]*)[\s\n]+of[\s\n]+([a-zA-Z]+[a-zA-Z0-9_]*)[\s\n]+is[\s\n]+(.*)begin(?:[\s\n]+(.*))?[\s\n]+(end[\s\n]+architecture|end[\s\n]+architecture[\s\n]+[a-zA-Z]+[a-zA-Z0-9_]*|end[\s\n]+[a-zA-Z]+[a-zA-Z0-9_]*|end)[\s\n]*;)}
 
   # port list
   # description: extract port declaration from an entity item
