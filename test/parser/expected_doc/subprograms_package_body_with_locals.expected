@@ -42,4 +42,4 @@ end procedure set_value;
 
 } file_name with_locals.vhd line 10 name pkg_implementations} packages {{components {} declarations {{kind function line 6 name add params {a : integer; b : integer} purity pure return integer} {kind procedure line 7 name set_value params {signal data : out std_logic_vector; value : std_logic_vector}}} declarative {function add(a : integer; b : integer) return integer;
 procedure set_value(signal data : out std_logic_vector; value : std_logic_vector);
-} file with_locals.vhd generics {} line 5 name pkg_implementations ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}
+} file with_locals.vhd generics {} line 5 name pkg_implementations ports {}}} uses {{decl {use ieee.std_logic_1164.all;} lib ieee line 3 pkg std_logic_1164 selector all}}

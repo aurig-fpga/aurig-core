@@ -28,4 +28,4 @@ return value = '1';
 end function to_bool;
 } file_name package_and_entities.vhd line 10 name util_pkg} packages {{components {} declarations {{init 255 kind constant line 7 name MAX_COUNT type integer} {kind function line 6 name to_bool params {value : std_logic} purity pure return boolean}} declarative {function to_bool(value : std_logic) return boolean;
 constant MAX_COUNT : integer := 255;
-} file package_and_entities.vhd generics {} line 5 name util_pkg ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}} {decl ieee lib std_logic_1164 line 19 pkg all selector {}} {decl work lib util_pkg line 20 pkg all selector {}}}
+} file package_and_entities.vhd generics {} line 5 name util_pkg ports {}}} uses {{decl {use ieee.std_logic_1164.all;} lib ieee line 3 pkg std_logic_1164 selector all} {decl {use ieee.std_logic_1164.all;} lib ieee line 19 pkg std_logic_1164 selector all} {decl {use work.util_pkg.all;} lib work line 20 pkg util_pkg selector all}}

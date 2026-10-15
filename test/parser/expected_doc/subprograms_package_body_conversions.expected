@@ -34,4 +34,4 @@ end function from_slv;
 
 } file_name conversions.vhd line 11 name pkg_complex} packages {{components {} declarations {{kind function line 7 name to_slv params {value : integer; width : integer} purity pure return std_logic_vector} {kind function line 8 name from_slv params {data : std_logic_vector} purity pure return integer}} declarative {function to_slv(value : integer; width : integer) return std_logic_vector;
 function from_slv(data : std_logic_vector) return integer;
-} file conversions.vhd generics {} line 6 name pkg_complex ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}} {decl ieee lib numeric_std line 4 pkg all selector {}}}
+} file conversions.vhd generics {} line 6 name pkg_complex ports {}}} uses {{decl {use ieee.std_logic_1164.all;} lib ieee line 3 pkg std_logic_1164 selector all} {decl {use ieee.numeric_std.all;} lib ieee line 4 pkg numeric_std selector all}}

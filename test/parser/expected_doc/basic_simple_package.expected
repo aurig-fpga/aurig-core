@@ -33,4 +33,4 @@ function increment(value : integer) return integer;
 
 procedure reset_data(signal data : out std_logic_vector);
 
-} file simple_package.vhd generics {} line 5 name simple_package ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}
+} file simple_package.vhd generics {} line 5 name simple_package ports {}}} uses {{decl {use ieee.std_logic_1164.all;} lib ieee line 3 pkg std_logic_1164 selector all}}

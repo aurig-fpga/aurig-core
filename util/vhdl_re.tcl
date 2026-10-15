@@ -24,10 +24,14 @@ namespace eval ::aurig::core::util::re {
 
   # library use
   # description: parses the library use — use with -nocase flag
-  # 1. library name
-  # 2. package name (optional)
-  # 3. selector (e.g. "all" or type name)
-  variable re_library_use {^\s*use[\s\n]+([a-zA-Z]\w*)[\s\n]*\.[\s\n]*(?:([a-zA-Z]\w*)[\s\n]*\.[\s\n]*)?(all|[a-zA-Z]\w*(?:[\s\n]*,[\s\n]*[a-zA-Z]\w*)*)[\s\n]*;}
+  # Group 1: full match (the whole clause, like re_library_decl)
+  # Group 2: library name
+  # Group 3: package name (optional)
+  # Group 4: selector (e.g. "all" or type name)
+  # Anchored on `use` itself, like the other declaration patterns: blank
+  # lines before the clause are left to the caller's line-by-line path, so
+  # the clause is recorded at its own line and matched once.
+  variable re_library_use {^(use[\s\n]+([a-zA-Z]\w*)[\s\n]*\.[\s\n]*(?:([a-zA-Z]\w*)[\s\n]*\.[\s\n]*)?(all|[a-zA-Z]\w*(?:[\s\n]*,[\s\n]*[a-zA-Z]\w*)*)[\s\n]*;)}
 
   # package declaration
   # description: lazy! from package to end. Matches from "package <name> is" to the closing "end" statement.

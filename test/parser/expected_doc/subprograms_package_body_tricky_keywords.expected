@@ -46,4 +46,4 @@ procedure not_a_function(signal data : out std_logic);
 
 function end_of_data(data : std_logic_vector) return boolean;
 
-} file tricky_keywords.vhd generics {} line 5 name pkg_tricky ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}
+} file tricky_keywords.vhd generics {} line 5 name pkg_tricky ports {}}} uses {{decl {use ieee.std_logic_1164.all;} lib ieee line 3 pkg std_logic_1164 selector all}}

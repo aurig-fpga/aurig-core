@@ -43,6 +43,7 @@ jobs:
             test/test_vhdlscan_process_declarations.tcl
             test/test_vhdlscan_comment_quotes.tcl
             test/test_vhdlscan_comment_association.tcl
+            test/test_vhdlscan_use_clauses.tcl
             test/test_yaml_minimal_inline_comments.tcl
             test/test_project_files_anchors.tcl
             test/test_project_files_globstar.tcl

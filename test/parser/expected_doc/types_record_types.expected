@@ -29,4 +29,4 @@ enable : std_logic;
 reset  : std_logic;
 mode   : std_logic_vector(1 downto 0);
 end record control_reg;
-} file record_types.vhd generics {} line 6 name record_pkg ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}} {decl ieee lib numeric_std line 4 pkg all selector {}}}
+} file record_types.vhd generics {} line 6 name record_pkg ports {}}} uses {{decl {use ieee.std_logic_1164.all;} lib ieee line 3 pkg std_logic_1164 selector all} {decl {use ieee.numeric_std.all;} lib ieee line 4 pkg numeric_std selector all}}

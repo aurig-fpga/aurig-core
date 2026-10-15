@@ -19,4 +19,4 @@ constant MIN_VALUE : integer;
 constant MID_VALUE : integer := 128;
 
 function get_range return integer;
-} file simple_deferred.vhd generics {} line 5 name deferred_pkg ports {}}} uses {{decl ieee lib std_logic_1164 line 3 pkg all selector {}}}
+} file simple_deferred.vhd generics {} line 5 name deferred_pkg ports {}}} uses {{decl {use ieee.std_logic_1164.all;} lib ieee line 3 pkg std_logic_1164 selector all}}
