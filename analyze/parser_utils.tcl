@@ -7,6 +7,12 @@
 namespace eval ::aurig::core::analyze {}
 
 # Advance one character, honoring --comments, "..." (with "" escape), and '.' character literals
+#
+# Effectively dead: split_arch_decl_body calls it only when _nextw finds no
+# further word, i.e. in the word-free tail after every keyword decision, and
+# nothing reads the in_str/in_char state it keeps. Across 145 fixture and
+# sweep files it was reached in 11, once each, all parses that had already
+# failed (#34). _nextw now skips string literals itself.
 proc ::aurig::core::analyze::_adv {s stVar} {
     upvar 1 $stVar st
     set n [string length $s]
@@ -47,10 +53,46 @@ proc ::aurig::core::analyze::_adv {s stVar} {
 }
 
 # Next identifier-like word; returns {word start end} or {"" i i}
+#
+# String literals are skipped, so a keyword inside "..." is never returned
+# as a word (#34). A double quote jumps past the next double quote; the
+# doubled-quote escape ("a""b") needs no special case, because reading ""
+# as close-then-reopen leaves exactly the same characters outside strings.
+# A bit-string literal such as X"FF" yields the word X, then the string is
+# skipped. A tick starts a character literal ('"') only when the character
+# two positions on is also a tick AND the tick does not directly follow an
+# identifier character or ')': in t'('"') the first tick is a qualifier,
+# and reading '(' as a literal would open a string on the next double
+# quote. The lookahead in split_arch_decl_body Phase 2 (`function` /
+# `procedure` prototype-or-body test) uses the plain three-character test
+# and still has that weakness; it is not changed here.
+#
+# Parity: this assumes $i is outside a string literal. Several callers
+# start from a regexp hit (_mask_subprograms -> _find_subprogram_end,
+# _scan_processes -> _find_end_of_process, _find_keyword_end_semi, the
+# type scanner), and those regexps do not see strings, so the hit can be
+# inside one. From there the closing quote is read as an opening one and
+# the scan sees strings and code inverted. That is a property of this fix,
+# not a defect it introduces: the start position is already wrong in that
+# case, and on six adversarial cases built to provoke it the result was
+# never worse than with the previous string-blind scan. Making those
+# regexps string-aware is a separate change.
 proc ::aurig::core::analyze::_nextw {s i} {
     set n [string length $s]
     while {$i < $n} {
         set ch [string index $s $i]
+        if {$ch eq "\""} {
+            set close [string first "\"" $s [expr {$i + 1}]]
+            set i [expr {$close < 0 ? $n : $close + 1}]
+            continue
+        }
+        if {$ch eq "'" && $i + 2 < $n && [string index $s [expr {$i + 2}]] eq "'"} {
+            set prev [expr {$i > 0 ? [string index $s [expr {$i - 1}]] : ""}]
+            if {![string is alnum -strict $prev] && $prev ne "_" && $prev ne ")"} {
+                incr i 3
+                continue
+            }
+        }
         if {[string is alpha $ch] || $ch eq "_"} { break }
         incr i
     }
