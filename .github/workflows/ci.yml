@@ -48,6 +48,7 @@ jobs:
             test/test_vhdlscan_string_token_scan.tcl
             test/test_vhdlscan_nested_subprogram_scope.tcl
             test/test_vhdlscan_decl_body_begin_prototypes.tcl
+            test/test_vhdlscan_nested_subprogram_recursion.tcl
             test/test_yaml_minimal_inline_comments.tcl
             test/test_project_files_anchors.tcl
             test/test_project_files_globstar.tcl

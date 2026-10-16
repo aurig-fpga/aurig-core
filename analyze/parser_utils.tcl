@@ -1685,6 +1685,105 @@ proc ::aurig::core::analyze::_mask_subprograms {decl} {
     return $masked
 }
 
+# Mask the subprograms NESTED inside each outer-level subprogram body,
+# keeping the outer-level subprograms themselves (bodies and prototypes)
+# visible (#57). _scan_functions / _scan_procedures match on this text, so
+# one pass finds only outer-level subprograms; each then recurses into its
+# own declarative part (_scan_subprogram_body_declarations). Positions are
+# preserved, so indices into the result index the original text.
+proc ::aurig::core::analyze::_mask_nested_subprograms {decl} {
+    set masked $decl
+    set start 0
+    # Candidates come from _nextw and are classified by
+    # _classify_subprogram_header, as in the architecture splitter and
+    # _find_decl_body_begin. A regexp cannot see string literals: a keyword
+    # inside "..." taken for an outer body makes its "interior" run on and
+    # blank a real sibling (PR #78 review). The classifier cannot replace
+    # _nextw for that: it is told where a keyword is and only scans forward
+    # from it, so started inside a string it reads the closing quote as an
+    # opening one ("procedure is here" classifies as a body). _nextw skips
+    # strings (#69) but returns bare words, so it cannot see the `:` before
+    # an attribute specification's entity class (`attribute a of p :
+    # procedure is "...";`); the classifier does, and rejects prototypes and
+    # `is new` instantiations too. Only a body is masked.
+    while 1 {
+        lassign [::aurig::core::analyze::_nextw $decl $start] kw kwS kwEnd
+        if {$kw eq ""} { break }
+        if {[string tolower $kw] ni {function procedure}} {
+            set start $kwEnd
+            continue
+        }
+        lassign [::aurig::core::analyze::_classify_subprogram_header $decl $kwS $kwEnd] outcome
+        if {$outcome ne "body"} {
+            set start $kwEnd
+            continue
+        }
+        set semiEnd [::aurig::core::analyze::_find_subprogram_end $decl $kwS]
+        if {$semiEnd < 0} {
+            # A body whose end is not found: left unmasked.
+            set start $kwEnd
+            continue
+        }
+        # Blank the outer body by position, from just past the header's
+        # delimiter (the parameter list's `(`, else `return` or `is`) through
+        # its closing `;`. The scanners' header regexps need only the keyword,
+        # the name and that delimiter; every field, the body and the
+        # recursion are read from $decl. Blanking by position, not by
+        # searching the interior for keywords, leaves nothing of it standing:
+        # running _mask_subprograms here left a nested `impure` prefix that
+        # the next sibling's header absorbed (PR #78 review), and no word
+        # search inside the interior means no string literal can steer it.
+        lassign [::aurig::core::analyze::_nextw $decl $kwEnd] nameW nameS nameE
+        set keepEnd $nameE
+        set j $nameE
+        while {$j < $semiEnd && [string is space -strict [string index $decl $j]]} { incr j }
+        if {[string index $decl $j] eq "("} {
+            set keepEnd [expr {$j + 1}]
+        } else {
+            lassign [::aurig::core::analyze::_nextw $decl $j] dW dS dE
+            if {[string tolower $dW] in {return is}} { set keepEnd $dE }
+        }
+        if {$keepEnd <= $semiEnd} {
+            set masked [string replace $masked $keepEnd $semiEnd \
+                [string repeat " " [expr {$semiEnd - $keepEnd + 1}]]]
+        }
+        set start [expr {$semiEnd + 1}]
+    }
+    return $masked
+}
+
+# Declarations in a subprogram's declarative part ($sub_decl_raw, the text
+# between its `is` and its `begin`, starting on line $n): variables and
+# constants (LINT-PARSER-DEBT-021), then nested functions and procedures
+# (#57) with the records their scanners return, which carry their own
+# body_declarations. _scan_functions omits `kind`, so it is added here.
+proc ::aurig::core::analyze::_scan_subprogram_body_declarations {sub_decl_raw n {commentDict {}}} {
+    set body_decls {}
+    foreach v [::aurig::core::analyze::_scan_architecture_variables $sub_decl_raw $n] {
+        lappend body_decls [dict create \
+            kind variable \
+            name [dict get $v name] \
+            type [dict get $v type] \
+            init [dict get $v init] \
+            line [dict get $v line]]
+    }
+    foreach c [::aurig::core::analyze::_scan_architecture_constants $sub_decl_raw $n] {
+        lappend body_decls [dict create \
+            kind constant \
+            name [dict get $c name] \
+            type [dict get $c type] \
+            init [dict get $c init] \
+            line [dict get $c line]]
+    }
+    foreach f [::aurig::core::analyze::_scan_functions $sub_decl_raw $n $commentDict] {
+        lappend body_decls [dict merge [dict create kind function] $f]
+    }
+    foreach p [::aurig::core::analyze::_scan_procedures $sub_decl_raw $n $commentDict] {
+        lappend body_decls $p
+    }
+    return $body_decls
+}
+
 # ---------------------------------
 # Scan variable declarations in an architecture declarative part.
 # - Works like your signal scanner.
@@ -2135,7 +2234,10 @@ proc ::aurig::core::analyze::_find_keyword_end_semi {text startIdx endKw} {
 proc ::aurig::core::analyze::_scan_functions {decl n {commentDict {}}} {
     set results {}
 
-    # Don't mask for function search - we want to find function signatures even for definitions
+    # Match on a copy with nested subprograms masked (#57), so one pass
+    # finds only outer-level functions; headers, params and bodies are
+    # still read from $decl (same positions).
+    set masked [::aurig::core::analyze::_mask_nested_subprograms $decl]
     set N [string length $decl]
     set idx 0
 
@@ -2150,7 +2252,7 @@ proc ::aurig::core::analyze::_scan_functions {decl n {commentDict {}}} {
     set re {(?i)\m(pure\s+|impure\s+)?function\s+([a-zA-Z]\w*)\s*(\(|return\M)}
 
     while {$idx < $N} {
-        if {![regexp -indices -start $idx $re $decl matchIdx purityIdx nameIdx delimIdx]} {
+        if {![regexp -indices -start $idx $re $masked matchIdx purityIdx nameIdx delimIdx]} {
             break
         }
 
@@ -2284,23 +2386,8 @@ proc ::aurig::core::analyze::_scan_functions {decl n {commentDict {}}} {
             if {$bS > $afterIs} {
                 set sub_decl_raw  [string range $decl $afterIs [expr {$bS - 1}]]
                 set sub_base_line [::aurig::core::analyze::_index_to_line $decl $afterIs $n]
-                set body_decls {}
-                foreach v [::aurig::core::analyze::_scan_architecture_variables $sub_decl_raw $sub_base_line] {
-                    lappend body_decls [dict create \
-                        kind variable \
-                        name [dict get $v name] \
-                        type [dict get $v type] \
-                        init [dict get $v init] \
-                        line [dict get $v line]]
-                }
-                foreach c [::aurig::core::analyze::_scan_architecture_constants $sub_decl_raw $sub_base_line] {
-                    lappend body_decls [dict create \
-                        kind constant \
-                        name [dict get $c name] \
-                        type [dict get $c type] \
-                        init [dict get $c init] \
-                        line [dict get $c line]]
-                }
+                set body_decls [::aurig::core::analyze::_scan_subprogram_body_declarations \
+                    $sub_decl_raw $sub_base_line $commentDict]
                 if {[llength $body_decls]} {
                     dict set item body_declarations $body_decls
                 }
@@ -2325,6 +2412,9 @@ proc ::aurig::core::analyze::_scan_functions {decl n {commentDict {}}} {
 proc ::aurig::core::analyze::_scan_procedures {decl n {commentDict {}}} {
     set results {}
 
+    # Match on a copy with nested subprograms masked (#57); see
+    # _scan_functions.
+    set masked [::aurig::core::analyze::_mask_nested_subprograms $decl]
     set N [string length $decl]
     set idx 0
 
@@ -2345,7 +2435,7 @@ proc ::aurig::core::analyze::_scan_procedures {decl n {commentDict {}}} {
     set re {(?i)\mprocedure\s+([a-zA-Z]\w*)\s*(\(|is\M)}
 
     while {$idx < $N} {
-        if {![regexp -indices -start $idx $re $decl matchIdx nameIdx delimIdx]} {
+        if {![regexp -indices -start $idx $re $masked matchIdx nameIdx delimIdx]} {
             break
         }
 
@@ -2431,23 +2521,8 @@ proc ::aurig::core::analyze::_scan_procedures {decl n {commentDict {}}} {
             if {$bS > $afterIs} {
                 set sub_decl_raw  [string range $decl $afterIs [expr {$bS - 1}]]
                 set sub_base_line [::aurig::core::analyze::_index_to_line $decl $afterIs $n]
-                set body_decls {}
-                foreach v [::aurig::core::analyze::_scan_architecture_variables $sub_decl_raw $sub_base_line] {
-                    lappend body_decls [dict create \
-                        kind variable \
-                        name [dict get $v name] \
-                        type [dict get $v type] \
-                        init [dict get $v init] \
-                        line [dict get $v line]]
-                }
-                foreach c [::aurig::core::analyze::_scan_architecture_constants $sub_decl_raw $sub_base_line] {
-                    lappend body_decls [dict create \
-                        kind constant \
-                        name [dict get $c name] \
-                        type [dict get $c type] \
-                        init [dict get $c init] \
-                        line [dict get $c line]]
-                }
+                set body_decls [::aurig::core::analyze::_scan_subprogram_body_declarations \
+                    $sub_decl_raw $sub_base_line $commentDict]
                 if {[llength $body_decls]} {
                     dict set item body_declarations $body_decls
                 }

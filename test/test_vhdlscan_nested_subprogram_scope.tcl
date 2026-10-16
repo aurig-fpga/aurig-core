@@ -19,10 +19,11 @@
 # turns the old stale arm into a real count and consumes the architecture's
 # own `begin`.
 #
-# The declaration scanner lists nested subprograms (and the constants of a
-# nested package) as architecture-level declarations. That is #57, not
-# changed here; where a case below lists them, it records current behaviour
-# knowingly and does not endorse it.
+# Since #57 a nested subprogram is listed in its parent's body_declarations,
+# not at architecture level; the nested cases below show it as the parent's
+# "(N)" count. The constants of a nested package are still listed at
+# architecture level; that case records current behaviour knowingly and does
+# not endorse it.
 #=============================================================================
 
 set script_anchor [file dirname [file normalize [info script]]]
@@ -150,8 +151,10 @@ try {
 # ----------------------------------------------------------------------------
 # Positive: nested subprograms. Each previously truncated the declarative
 # part at the inner subprogram and lost the architecture body, silently.
-# inner_f, l2, l3 and pi appearing at architecture level is #57.
 # ----------------------------------------------------------------------------
+# #57: inner_f moved from the architecture's flat list into outer's
+# body_declarations, so outer counts 2 (v and inner_f) and inner_f is gone
+# from architecture level; late_f, declared after outer, stays there.
 check_summary "positive: function nested in a procedure, with declarations after it" \
     [arch_fixture nested {
         {  procedure outer(x : in integer) is}
@@ -168,8 +171,10 @@ check_summary "positive: function nested in a procedure, with declarations after
         {    return b;}
         {  end function late_f;}
     }] \
-    [list {*}$::base {procedure:outer(1)} function:inner_f function:late_f]
+    [list {*}$::base {procedure:outer(2)} function:late_f]
 
+# #57: l2 moved into l1's body_declarations and l3 into l2's, so only l1 is
+# at architecture level, counting 1 (l2).
 check_summary "positive: three levels of nesting" \
     [arch_fixture two_levels {
         {  procedure l1 is}
@@ -183,8 +188,10 @@ check_summary "positive: three levels of nesting" \
         {  begin}
         {  end procedure l1;}
     }] \
-    [list {*}$::base procedure:l1 procedure:l2 function:l3]
+    [list {*}$::base {procedure:l1(1)}]
 
+# #57: pi moved from the architecture's flat list into fo's
+# body_declarations, so fo counts 1 (pi).
 check_summary "positive: procedure nested in a function" \
     [arch_fixture nested_in_function {
         {  function fo(x : integer) return integer is}
@@ -195,7 +202,7 @@ check_summary "positive: procedure nested in a function" \
         {    return x;}
         {  end function fo;}
     }] \
-    [list {*}$::base function:fo procedure:pi]
+    [list {*}$::base {function:fo(1)}]
 
 # ----------------------------------------------------------------------------
 # Controls: prototypes. These parse before and after the fix; a counter
