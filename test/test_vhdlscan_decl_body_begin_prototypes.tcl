@@ -20,8 +20,11 @@
 # Controls hold before and after: a nested body closed by `end procedure X;`
 # or by `end;`, and declarative parts with no subprogram at all.
 #
-# A subprogram nested in another is listed beside it rather than under it;
-# that is #57, not changed here, and the assertions below do not depend on it.
+# Since #57 a subprogram nested in another is listed in its parent's
+# body_declarations, after the parent's variables and constants, so the
+# body_declarations assertions below also name the nested subprogram (prototype,
+# instantiation or body) at its own source line. What this test is about is
+# unchanged: the locals before and after it are still found.
 #=============================================================================
 
 set script_anchor [file dirname [file normalize [info script]]]
@@ -274,21 +277,34 @@ try {
     set B [parse $pkgbody_src]
 
     # --- Positive: a subprogram containing a header with no body keeps its locals
+    # #57: the nested prototype helper (line 11) moved from the architecture's
+    # flat list into p_proto's body_declarations, after its locals.
     check_eq "positive: procedure containing a procedure prototype keeps its locals" \
-        [arch_body_decls $A p_proto] {variable:v_a@12 constant:C_A@13}
+        [arch_body_decls $A p_proto] {variable:v_a@12 constant:C_A@13 procedure:helper@11}
+    # #57: the nested prototype g (line 18) moved from the flat list into
+    # f_pure_proto's body_declarations.
     check_eq "positive: function containing a pure function prototype keeps its locals" \
-        [arch_body_decls $A f_pure_proto] {variable:v_b@19}
+        [arch_body_decls $A f_pure_proto] {variable:v_b@19 function:g@18}
+    # Unchanged by #57: `procedure tick;` is a parameterless prototype, which
+    # _scan_procedures does not record at any level.
     check_eq "positive: procedure containing a parameterless prototype keeps its locals" \
         [arch_body_decls $A p_bare_proto] {variable:v_c@25}
+    # #57: the nested instantiation p_i (line 29) moved from the flat list into
+    # p_inst's body_declarations; _scan_procedures records `procedure ... is
+    # new` as a procedure, as it does at architecture level.
     check_eq "positive: procedure containing \`procedure ... is new\` keeps its locals" \
-        [arch_body_decls $A p_inst] {variable:v_d@30}
+        [arch_body_decls $A p_inst] {variable:v_d@30 procedure:p_i@29}
+    # #57: the nested body h (line 34) moved from the flat list into p_attr's
+    # body_declarations. The attribute specification itself is not recorded.
     check_eq "positive: procedure containing an attribute specification keeps its locals" \
-        [arch_body_decls $A p_attr] {variable:v_e@36}
+        [arch_body_decls $A p_attr] {variable:v_e@36 procedure:h@34}
 
+    # #57: the nested prototype helper (line 8) moved from the package body's
+    # procedures into pb_proto's body_declarations.
     set pb [named [dict get [lindex [dict get $B package_bodies] 0] procedures] pb_proto]
     check_eq "positive: package-body procedure containing a prototype keeps its locals" \
         [summary [expr {[dict exists $pb body_declarations] ? [dict get $pb body_declarations] : {}}]] \
-        {variable:v_pb@9}
+        {variable:v_pb@9 procedure:helper@8}
 
     # --- Positive: a process containing a header with no body keeps its declarations
     check_eq "positive: process containing a procedure prototype keeps its declarations" \
@@ -315,10 +331,14 @@ try {
         [::aurig::core::analyze::_find_subprogram_end $t 0] [expr {[string first "outer;" $t] + 5}]
 
     # --- Controls: hold before and after ----------------------------------------
+    # #57: the nested body h2 (line 40) moved from the flat list into c_body's
+    # body_declarations.
     check_eq "control: procedure containing a body closed by \`end procedure X;\`" \
-        [arch_body_decls $A c_body] {variable:v_f@43}
+        [arch_body_decls $A c_body] {variable:v_f@43 procedure:h2@40}
+    # #57: the nested body h3 (line 47) moved from the flat list into
+    # c_end_semi's body_declarations.
     check_eq "control: procedure containing a body closed by \`end;\`" \
-        [arch_body_decls $A c_end_semi] {variable:v_g@48}
+        [arch_body_decls $A c_end_semi] {variable:v_g@48 procedure:h3@47}
     check_eq "control: procedure with no nested subprogram" \
         [arch_body_decls $A c_plain] {variable:v_h@52}
     check_eq "control: process containing a body" \
