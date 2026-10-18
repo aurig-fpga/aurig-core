@@ -1551,7 +1551,15 @@ proc ::aurig::core::analyze::_find_vhdl_statement_semicolon {text start} {
         if {$ch eq "\""} {
             set in_dquote 1
         } elseif {$ch eq "'"} {
-            if {$i + 2 < $N && [string index $text [expr {$i + 2}]] eq "'"} {
+            # The shared _char_literal_at, not a local three-character test:
+            # a tick directly after an identifier character or ')' is a
+            # qualifier or attribute tick, not a literal. Read as the literal
+            # '(', the qualifier in character'('"') hides the next tick and
+            # opens a string on the '"' that swallows every later ';', so the
+            # declaration is dropped (#71). Local copies of this test drifted
+            # before: _nextw guarded it and _classify_subprogram_header did
+            # not, until #73 moved both onto the shared predicate.
+            if {[::aurig::core::analyze::_char_literal_at $text $i]} {
                 incr i 2
             }
         } elseif {$ch eq "("} {
