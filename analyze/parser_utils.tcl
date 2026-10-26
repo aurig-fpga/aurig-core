@@ -2429,8 +2429,8 @@ proc ::aurig::core::analyze::_scan_procedures {decl n {commentDict {}}} {
     # spurious duplicate entries. Parameterless procedure prototypes
     # (`procedure foo;` in a package spec, no `is`-body) remain
     # uncaptured by this scanner — an acceptable loss outside the
-    # eo_cpu / LINT-RULES-DEBT-039 use case, which is definitions
-    # inside a `package body`.
+    # LINT-RULES-DEBT-039 use case, which is definitions inside a
+    # `package body`.
     # (?i) = case insensitive
     set re {(?i)\mprocedure\s+([a-zA-Z]\w*)\s*(\(|is\M)}
 
