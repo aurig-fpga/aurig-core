@@ -1156,12 +1156,11 @@ namespace eval ::aurig::core::analyze {
 			# between `:` and `<type>`. VHDL allows generics to declare
 			# mode (`in` only, since `out`/`inout` generics are exotic
 			# VHDL-2008 and not relevant here); most code omits it
-			# (mode `in` is the default) but the eo_cpu BFM family
-			# (Adc_bfm.vhd:47-48, fileName/readColumn) writes the
-			# explicit `: in <type>` form. The original regex did not
-			# accept this and silently dropped the generic from the
-			# parser's entity.generics list, which surfaced in the
-			# 2026-05-24 real-field run as 2 false negatives on
+			# (mode `in` is the default), but some testbench models
+			# write the explicit `: in <type>` form on their generics.
+			# The original regex did not accept this and silently
+			# dropped the generic from the parser's entity.generics
+			# list, which surfaced as false negatives on
 			# `generic_naming`. The new `(?:[iI][nN][\s\n]+)?`
 			# non-capturing optional group consumes the mode keyword
 			# case-insensitively (VHDL keywords are case-insensitive)
