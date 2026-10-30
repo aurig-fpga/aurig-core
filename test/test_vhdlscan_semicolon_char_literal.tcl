@@ -169,8 +169,9 @@ check_decls "positive: the same qualified expression in a signal declaration" \
 # because it is correct. The comment is not the cause, and this is not the
 # #75 route (a '"' earlier on the line hiding `--` from the stripper): the
 # comment is stripped cleanly, leaving a line break between the type mark and
-# the qualifier tick. _char_literal_at decides from the single character
-# before the tick, so after any separator it reads '(' as a literal. The
+# the qualifier tick. _char_literal_at looks at the character before the
+# tick and, only when that character is part of a word, at the whole word;
+# after a separator it reads '(' as a literal. The
 # second case shows the same loss with a plain space and no comment at all.
 check_decls "current, not endorsed: comment between type mark and tick still loses constant c" \
     [arch_fixture qualified_comment_before_tick {
