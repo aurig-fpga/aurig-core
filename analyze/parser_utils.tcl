@@ -52,17 +52,68 @@ proc ::aurig::core::analyze::_adv {s stVar} {
     return 1
 }
 
-# 1 if a character literal ('X') starts at index $i of $s, else 0. The tick
-# must be followed by one character and a closing tick, AND must not directly
-# follow an identifier character or ')': there the tick is an attribute or
-# qualifier tick, as in t'('a') or s'high, and reading t'('a') as the literal
-# '(' loses a parenthesis and misplaces every later quote. Shared by _nextw
-# and _classify_subprogram_header so the two cannot drift.
+# VHDL-2008 reserved words (IEEE 1076-2008, 15.10), lower case, as dict
+# keys for a constant-time lookup by _char_literal_at. Three PSL words of
+# that list are left out: assume_guarantee, fairness and strong. GHDL 5.0.1
+# with --std=08 accepts each of them as an identifier (`signal strong :
+# bit;` analyses), so a type may carry that name, and treating it as
+# reserved would read the tick of a qualifier on that type, strong'('x'),
+# as the start of a literal.
+namespace eval ::aurig::core::analyze {
+    variable _vhdl_reserved_words [dict create]
+    foreach _w {
+        abs access after alias all and architecture array assert assume
+        attribute begin block body buffer bus case component configuration
+        constant context cover default disconnect downto else elsif end
+        entity exit file for force function generate generic group guarded
+        if impure in inertial inout is label library linkage literal loop
+        map mod nand new next nor not null of on open or others out package
+        parameter port postponed procedure process property protected pure
+        range record register reject release rem report restrict
+        restrict_guarantee return rol ror select sequence severity shared
+        signal sla sll sra srl subtype then to transport type unaffected
+        units until use variable vmode vprop vunit wait when while with xnor
+        xor
+    } {
+        dict set _vhdl_reserved_words $_w 1
+    }
+    unset _w
+}
+
+# 1 if a character literal ('X') starts at index $i of $s, else 0. Shared by
+# _nextw, _classify_subprogram_header and _find_vhdl_statement_semicolon so
+# the three cannot drift.
+#
+# The tick must be followed by one character and a closing tick. When it is,
+# the character before the tick decides:
+#   - ')', ']' or the '\' closing an extended identifier: 0. The tick is an
+#     attribute or qualifier tick after a name, as in f(x)'length,
+#     f[integer return integer]'att or \my type\'('x').
+#   - a letter, a digit or '_': the word [A-Za-z0-9_]+ ending there is read
+#     backwards. A reserved word other than `all` gives 1: the word is read
+#     as the end of a keyword and the tick opens a literal, as in true
+#     and';', as the GHDL lexer does. GHDL 5.0.1 with --std=08 rejects
+#     k'subtype'('"') for the same reason (missing ";" at the tick after
+#     subtype), so a reserved attribute designator followed by a qualifier
+#     does not occur in code GHDL compiles.
+#     Any other word gives 0: the tick follows a name, as in t'('a') or
+#     s'high. `all` is excluded because it does end a name, the dereference
+#     p.all, so the tick after it is an attribute tick (p.all'length).
+#   - anything else, including the start of $s: 1.
+# Reading a qualifier tick as a literal, t'('a') as '(', loses a parenthesis
+# and misplaces every later quote; reading a literal's tick as an attribute
+# tick, and';' as and', ends the statement at the ';' inside the literal.
 proc ::aurig::core::analyze::_char_literal_at {s i} {
+    variable _vhdl_reserved_words
     if {[string index $s $i] ne "'"} { return 0 }
     if {$i + 2 >= [string length $s] || [string index $s [expr {$i + 2}]] ne "'"} { return 0 }
     set prev [expr {$i > 0 ? [string index $s [expr {$i - 1}]] : ""}]
-    return [expr {![string is alnum -strict $prev] && $prev ne "_" && $prev ne ")"}]
+    if {$prev in {) ] \\}} { return 0 }
+    if {![string is alnum -strict $prev] && $prev ne "_"} { return 1 }
+    set j [expr {$i - 1}]
+    while {$j >= 0 && [string match {[A-Za-z0-9_]} [string index $s $j]]} { incr j -1 }
+    set word [string tolower [string range $s [expr {$j + 1}] [expr {$i - 1}]]]
+    return [expr {$word ne "all" && [dict exists $_vhdl_reserved_words $word]}]
 }
 
 # Next identifier-like word; returns {word start end} or {"" i i}
@@ -1551,7 +1602,15 @@ proc ::aurig::core::analyze::_find_vhdl_statement_semicolon {text start} {
         if {$ch eq "\""} {
             set in_dquote 1
         } elseif {$ch eq "'"} {
-            if {$i + 2 < $N && [string index $text [expr {$i + 2}]] eq "'"} {
+            # The shared _char_literal_at, not a local test: the comment on
+            # _char_literal_at describes when a tick opens a literal and when
+            # it is a qualifier or attribute tick. Read as the literal
+            # '(', the qualifier in character'('"') hides the next tick and
+            # opens a string on the '"' that swallows every later ';', so the
+            # declaration is dropped (#71). Local copies of this test drifted
+            # before: _nextw guarded it and _classify_subprogram_header did
+            # not, until #73 moved both onto the shared predicate.
+            if {[::aurig::core::analyze::_char_literal_at $text $i]} {
                 incr i 2
             }
         } elseif {$ch eq "("} {
