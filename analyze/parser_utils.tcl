@@ -65,9 +65,12 @@ proc ::aurig::core::analyze::_adv {s stVar} {
 #     in VHDL-93, and GHDL 5.0.1 accepts them with --std=08 as well.
 # A type may carry any of these names, and treating it as reserved would
 # read the tick of a qualifier on that type, strong'('x'), as the start of
-# a literal. The residual cost: in VHDL-2008 code, force'1' with no space
-# is read as an attribute tick after the name force, not as the keyword
-# followed by a literal.
+# a literal. The residual cost: with the rule in _char_literal_at that
+# reads '"', ';' and '\' as literals whatever precedes the tick, a word
+# reserved only in VHDL-2008 followed with no space by any other literal,
+# as in force'1', is read as an attribute tick after a name. That is
+# harmless except for the literals '(' and ')', which unbalance the
+# parentheses.
 namespace eval ::aurig::core::analyze {
     variable _vhdl_reserved_words [dict create]
     foreach _w {
@@ -91,8 +94,14 @@ namespace eval ::aurig::core::analyze {
 # _nextw, _classify_subprogram_header and _find_vhdl_statement_semicolon so
 # the three cannot drift.
 #
-# The tick must be followed by one character and a closing tick. When it is,
-# the character before the tick decides:
+# The tick must be followed by one character and a closing tick. When that
+# character is '"', ';' or '\', the answer is 1 before the character before
+# the tick is looked at: in legal VHDL an attribute or qualifier tick is
+# never followed by one of these three and another tick (a qualifier tick
+# needs '(', and a designator does not start with '"' or ';'), and these
+# are the three characters that, read as syntax, open a string or an
+# extended identifier or end a statement. Otherwise the character before
+# the tick decides:
 #   - ')', ']' or the '\' closing an extended identifier: 0. The tick is an
 #     attribute or qualifier tick after a name, as in f(x)'length,
 #     f[integer return integer]'att or \my type\'('x').
@@ -117,6 +126,7 @@ proc ::aurig::core::analyze::_char_literal_at {s i} {
     variable _vhdl_reserved_words
     if {[string index $s $i] ne "'"} { return 0 }
     if {$i + 2 >= [string length $s] || [string index $s [expr {$i + 2}]] ne "'"} { return 0 }
+    if {[string index $s [expr {$i + 1}]] in {\" ; \\}} { return 1 }
     set prev [expr {$i > 0 ? [string index $s [expr {$i - 1}]] : ""}]
     if {$prev in {) ] \\}} { return 0 }
     if {![string is wordchar -strict $prev]} { return 1 }

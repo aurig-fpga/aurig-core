@@ -44,6 +44,11 @@
 #        parameter list: _classify_subprogram_header.
 #   15   \a\\'"'\, a doubled backslash inside an extended identifier: the
 #        name does not close there. _find_vhdl_statement_semicolon.
+#   15b  _extended_identifier_end called directly: the index of the
+#        closing '\' with a doubled backslash inside the name, just before
+#        the close and repeated, and -1 for a name that is not closed.
+#        Case 15 alone does not tell a correct end from one that stops at
+#        the first '\' of a pair and reopens on the second.
 #   16   context'('x'), `context` as a VHDL-93 identifier: the word set
 #        holds only words reserved in both VHDL-93 and VHDL-2008.
 #        _classify_subprogram_header.
@@ -57,6 +62,15 @@
 #        process after it: _nextw, through split_arch_decl_body.
 #   21   Control: procedure \p q\ with a nested procedure, the name that
 #        _mask_nested_subprograms reads with _nextw.
+#   21b  _nextw called directly on procedure \p q\(x : integer) from the
+#        end of `procedure`: the whole extended identifier, with its start
+#        and end indices, is the word returned.
+#   22-24 force'\', force'"' and force';' in a process statement: the
+#        VHDL-2008 keyword force followed by a character literal. force is
+#        not in the reserved word set (see case 16); the middle character
+#        '\', '"' or ';' makes _char_literal_at answer 1 whatever the word
+#        before the tick. _nextw, through _find_end_of_process. Case 24
+#        is a control.
 #
 # There is no case 19. It was to be a tick after an extended identifier
 # naming an object, \x\'('"') with \x\ a signal; GHDL 5.0.1 rejects it (a
@@ -255,6 +269,24 @@ proc run_case {label path checks} {
             puts "      $p"
         }
         incr ::fail_count
+    }
+}
+
+# Run one direct assertion on a helper: $cmd is a command list evaluated at
+# global level, and the case PASSes when it returns $want. An error, a
+# missing helper included, makes the case FAIL and never aborts the run.
+proc run_value_case {label cmd want} {
+    if {[catch {uplevel #0 $cmd} got]} {
+        puts "FAIL: $label"
+        puts "      raised: $got"
+        incr ::fail_count
+    } elseif {$got ne $want} {
+        puts "FAIL: $label"
+        puts "      expected {$want}, got {$got}"
+        incr ::fail_count
+    } else {
+        puts "PASS: $label"
+        incr ::pass_count
     }
 }
 
@@ -545,6 +577,30 @@ run_case "case 15: constant \\a\\\\'\"'\\ : integer := 1" \
         [list decl constant "\\a\\\\'\"'\\" init 1] \
         {decl constant m init 2}]
 
+# _extended_identifier_end on the name alone, opening '\' at index 0. A
+# helper that closed the name on the first '\' of a pair would still pass
+# case 15: it would reopen on the second '\' and hide the same quotes. Each
+# assertion below tells the two apart.
+set xend ::aurig::core::analyze::_extended_identifier_end
+# \a\\'"'\ : the closing '\' is at index 7.
+run_value_case "case 15b: _extended_identifier_end \\a\\\\'\"'\\ -> 7" \
+    [list $xend "\\a\\\\'\"'\\" 0] 7
+# \a\\\ : a pair just before the close, which is at index 4.
+run_value_case "case 15b: _extended_identifier_end \\a\\\\\\ -> 4, pair before the close" \
+    [list $xend "\\a\\\\\\" 0] 4
+# \a\\b\\c\ : two pairs apart, the close at index 8.
+run_value_case "case 15b: _extended_identifier_end \\a\\\\b\\\\c\\ -> 8, two pairs" \
+    [list $xend "\\a\\\\b\\\\c\\" 0] 8
+# \a\\\\b\ : two adjacent pairs, the close at index 7.
+run_value_case "case 15b: _extended_identifier_end \\a\\\\\\\\b\\ -> 7, adjacent pairs" \
+    [list $xend "\\a\\\\\\\\b\\" 0] 7
+# \a\\b : not closed, a pair inside.
+run_value_case "case 15b: _extended_identifier_end \\a\\\\b -> -1, not closed" \
+    [list $xend "\\a\\\\b" 0] -1
+# \ab\\ : not closed, ending in a pair.
+run_value_case "case 15b: _extended_identifier_end \\ab\\\\ -> -1, not closed, ends in a pair" \
+    [list $xend "\\ab\\\\" 0] -1
+
 # `context` is reserved from VHDL-2008 on; before it, an identifier (GHDL
 # accepts this fixture with --std=93). Decided by
 # _classify_subprogram_header, as in case 12. The case is kept for legacy
@@ -628,6 +684,83 @@ run_case "case 21: procedure \\p q\\ with a nested procedure" \
         {  end procedure;}
     }] \
     $after
+
+# _nextw on the outer procedure's header, from index 9, the end of
+# `procedure`: the word is the whole extended identifier \p q\, from its
+# opening '\' at index 10 to its closing '\' at index 14, end exclusive 15.
+# Case 21 passes as well when _nextw skips the extended identifier and
+# returns the next plain word; this assertion does not.
+run_value_case "case 21b: _nextw on procedure \\p q\\(x : integer) from 9 -> {\\p q\\ 10 15}" \
+    [list ::aurig::core::analyze::_nextw "procedure \\p q\\(x : integer)" 9] \
+    [list "\\p q\\" 10 15]
+
+# ----------------------------------------------------------------------------
+# A character literal after the VHDL-2008 keyword force
+# ----------------------------------------------------------------------------
+# Decided by _nextw, through _find_end_of_process. force is reserved only
+# from VHDL-2008 on and is not in the word set, but the middle character
+# '\' makes _char_literal_at answer 1 whatever the word before the tick.
+# Read as an attribute tick, the '\' of the literal '\' would open an
+# extended identifier that never closes, and process p_force would be
+# lost. GHDL 5.0.1 accepts this fixture with --std=08.
+run_case "case 22: c <= force'\\'; in a process statement" \
+    [arch_fixture c22_force_backslash {
+        {  signal c : character;}
+    } {
+        {  p_force : process}
+        {    variable v : integer := 5;}
+        {  begin}
+        {    c <= force'\';}
+        {    wait;}
+        {  end process;}
+    }] \
+    [list \
+        {decl signal c type character} \
+        {process p_force} \
+        {pdecl p_force variable v init 5} \
+        {*}$after]
+
+# As case 22 with the literal '"': the middle character '"' makes
+# _char_literal_at answer 1 whatever the word before the tick. Read as an
+# attribute tick, the '"' would open a string that never closes, and
+# process p_force would be lost. GHDL 5.0.1 accepts this fixture with
+# --std=08.
+run_case "case 23: c <= force'\"'; in a process statement" \
+    [arch_fixture c23_force_quote {
+        {  signal c : character;}
+    } {
+        {  p_force : process}
+        {    variable v : integer := 5;}
+        {  begin}
+        {    c <= force'"';}
+        {    wait;}
+        {  end process;}
+    }] \
+    [list \
+        {decl signal c type character} \
+        {process p_force} \
+        {pdecl p_force variable v init 5} \
+        {*}$after]
+
+# Control: as case 22 with the literal ';'. In a process statement part a
+# ';' read as syntax loses nothing, and force appears only in sequential
+# assignments. GHDL 5.0.1 accepts this fixture with --std=08.
+run_case "case 24: c <= force';'; in a process statement" \
+    [arch_fixture c24_force_semicolon {
+        {  signal c : character;}
+    } {
+        {  p_force : process}
+        {    variable v : integer := 5;}
+        {  begin}
+        {    c <= force';';}
+        {    wait;}
+        {  end process;}
+    }] \
+    [list \
+        {decl signal c type character} \
+        {process p_force} \
+        {pdecl p_force variable v init 5} \
+        {*}$after]
 
 } finally {
     cleanup_tmp_files
