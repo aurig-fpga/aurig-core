@@ -52,27 +52,34 @@ proc ::aurig::core::analyze::_adv {s stVar} {
     return 1
 }
 
-# VHDL-2008 reserved words (IEEE 1076-2008, 15.10), lower case, as dict
-# keys for a constant-time lookup by _char_literal_at. Three PSL words of
-# that list are left out: assume_guarantee, fairness and strong. GHDL 5.0.1
-# with --std=08 accepts each of them as an identifier (`signal strong :
-# bit;` analyses), so a type may carry that name, and treating it as
-# reserved would read the tick of a qualifier on that type, strong'('x'),
-# as the start of a literal.
+# Words reserved in both VHDL-93 and VHDL-2008 (IEEE 1076-2008, 15.10),
+# lower case, as dict keys for a constant-time lookup by _char_literal_at.
+# The parser does not know which standard a file is written in, so the set
+# holds only words reserved in both. Eighteen words of the VHDL-2008 list
+# are left out:
+#   - protected, reserved since VHDL-2000, and assume context cover default
+#     force parameter property release restrict restrict_guarantee sequence
+#     vmode vprop vunit, reserved since VHDL-2008: all are legal identifiers
+#     in VHDL-93;
+#   - the PSL words assume_guarantee, fairness and strong: legal identifiers
+#     in VHDL-93, and GHDL 5.0.1 accepts them with --std=08 as well.
+# A type may carry any of these names, and treating it as reserved would
+# read the tick of a qualifier on that type, strong'('x'), as the start of
+# a literal. The residual cost: in VHDL-2008 code, force'1' with no space
+# is read as an attribute tick after the name force, not as the keyword
+# followed by a literal.
 namespace eval ::aurig::core::analyze {
     variable _vhdl_reserved_words [dict create]
     foreach _w {
-        abs access after alias all and architecture array assert assume
-        attribute begin block body buffer bus case component configuration
-        constant context cover default disconnect downto else elsif end
-        entity exit file for force function generate generic group guarded
-        if impure in inertial inout is label library linkage literal loop
-        map mod nand new next nor not null of on open or others out package
-        parameter port postponed procedure process property protected pure
-        range record register reject release rem report restrict
-        restrict_guarantee return rol ror select sequence severity shared
-        signal sla sll sra srl subtype then to transport type unaffected
-        units until use variable vmode vprop vunit wait when while with xnor
+        abs access after alias all and architecture array assert attribute
+        begin block body buffer bus case component configuration constant
+        disconnect downto else elsif end entity exit file for function
+        generate generic group guarded if impure in inertial inout is label
+        library linkage literal loop map mod nand new next nor not null of
+        on open or others out package port postponed procedure process pure
+        range record register reject rem report return rol ror select
+        severity shared signal sla sll sra srl subtype then to transport
+        type unaffected units until use variable wait when while with xnor
         xor
     } {
         dict set _vhdl_reserved_words $_w 1
@@ -89,13 +96,16 @@ namespace eval ::aurig::core::analyze {
 #   - ')', ']' or the '\' closing an extended identifier: 0. The tick is an
 #     attribute or qualifier tick after a name, as in f(x)'length,
 #     f[integer return integer]'att or \my type\'('x').
-#   - a letter, a digit or '_': the word [A-Za-z0-9_]+ ending there is read
-#     backwards. A reserved word other than `all` gives 1: the word is read
-#     as the end of a keyword and the tick opens a literal, as in true
-#     and';', as the GHDL lexer does. GHDL 5.0.1 with --std=08 rejects
-#     k'subtype'('"') for the same reason (missing ";" at the tick after
-#     subtype), so a reserved attribute designator followed by a qualifier
-#     does not occur in code GHDL compiles.
+#   - a word character (Tcl `string is wordchar`: a Unicode letter or digit,
+#     or connector punctuation such as '_'): the run of word characters
+#     ending there is read backwards, with the same class as the test on the
+#     character before the tick. A reserved word other than `all` gives 1:
+#     the word is read as the end of a keyword and the tick opens a literal,
+#     as in true and';', as the GHDL lexer does. With the tick right after
+#     subtype, GHDL 5.0.1 with --std=08 reads a literal too and rejects
+#     k'subtype'('"') (missing ";" at that tick). With a space,
+#     k'subtype' ('"'), which GHDL accepts, the tick after subtype does not
+#     have the 'x' shape and this predicate is not consulted.
 #     Any other word gives 0: the tick follows a name, as in t'('a') or
 #     s'high. `all` is excluded because it does end a name, the dereference
 #     p.all, so the tick after it is an attribute tick (p.all'length).
@@ -109,14 +119,41 @@ proc ::aurig::core::analyze::_char_literal_at {s i} {
     if {$i + 2 >= [string length $s] || [string index $s [expr {$i + 2}]] ne "'"} { return 0 }
     set prev [expr {$i > 0 ? [string index $s [expr {$i - 1}]] : ""}]
     if {$prev in {) ] \\}} { return 0 }
-    if {![string is alnum -strict $prev] && $prev ne "_"} { return 1 }
+    if {![string is wordchar -strict $prev]} { return 1 }
     set j [expr {$i - 1}]
-    while {$j >= 0 && [string match {[A-Za-z0-9_]} [string index $s $j]]} { incr j -1 }
+    while {$j >= 0 && [string is wordchar -strict [string index $s $j]]} { incr j -1 }
     set word [string tolower [string range $s [expr {$j + 1}] [expr {$i - 1}]]]
     return [expr {$word ne "all" && [dict exists $_vhdl_reserved_words $word]}]
 }
 
+# Index of the '\' that closes the extended identifier opened by the '\' at
+# index $i of $s, or -1 if it is not closed. A doubled backslash "\\" is a
+# backslash inside the name and does not close it. Shared by _nextw,
+# _classify_subprogram_header and _find_vhdl_statement_semicolon: a tick, a
+# '"' or a ';' inside an extended identifier, as in \a'"'b\ or \x;y\, is
+# part of the name, not syntax, and read as syntax it would open a
+# character literal or a string, or end a statement.
+proc ::aurig::core::analyze::_extended_identifier_end {s i} {
+    set n [string length $s]
+    for {set j [expr {$i + 1}]} {$j < $n} {incr j} {
+        if {[string index $s $j] eq "\\"} {
+            if {$j + 1 < $n && [string index $s [expr {$j + 1}]] eq "\\"} {
+                incr j
+                continue
+            }
+            return $j
+        }
+    }
+    return -1
+}
+
 # Next identifier-like word; returns {word start end} or {"" i i}
+#
+# An extended identifier is returned as one word, from its opening '\' to
+# its closing '\' included, so a keyword spelled inside it (\end\) is never
+# returned as that keyword. One that is not closed returns {"" n n}, as an
+# unclosed string does. The tick test comes first, so '\' stays a character
+# literal.
 #
 # String literals are skipped, so a keyword inside "..." is never returned
 # as a word (#34). A double quote jumps past the next double quote; the
@@ -151,6 +188,11 @@ proc ::aurig::core::analyze::_nextw {s i} {
         if {[::aurig::core::analyze::_char_literal_at $s $i]} {
             incr i 3
             continue
+        }
+        if {$ch eq "\\"} {
+            set close [::aurig::core::analyze::_extended_identifier_end $s $i]
+            if {$close < 0} { return [list "" $n $n] }
+            return [list [string range $s $i $close] $i [expr {$close + 1}]]
         }
         if {[string is alpha $ch] || $ch eq "_"} { break }
         incr i
@@ -315,6 +357,14 @@ proc ::aurig::core::analyze::_classify_subprogram_header {chunk b e} {
                 incr _j 3; continue
             }
             incr _j; continue
+        }
+        # Extended identifier: skipped whole, after the tick test so '\'
+        # stays a literal. Not closed: the scan ends, as in an unclosed
+        # string.
+        if {$_c eq "\\"} {
+            set _close [::aurig::core::analyze::_extended_identifier_end $chunk $_j]
+            if {$_close < 0} { set _j $n; continue }
+            set _j [expr {$_close + 1}]; continue
         }
         if {$_c eq "-" && $_j+1 < $n && [string index $chunk [expr {$_j+1}]] eq "-"} {
             set _nl [string first "\n" $chunk $_j]
@@ -1613,6 +1663,12 @@ proc ::aurig::core::analyze::_find_vhdl_statement_semicolon {text start} {
             if {[::aurig::core::analyze::_char_literal_at $text $i]} {
                 incr i 2
             }
+        } elseif {$ch eq "\\"} {
+            # Extended identifier: skipped whole, after the tick test so
+            # '\' stays a literal. Not closed: -1, as an unclosed string.
+            set close [::aurig::core::analyze::_extended_identifier_end $text $i]
+            if {$close < 0} { return -1 }
+            set i $close
         } elseif {$ch eq "("} {
             incr level
         } elseif {$ch eq ")"} {

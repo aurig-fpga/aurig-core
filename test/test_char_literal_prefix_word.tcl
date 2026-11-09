@@ -13,18 +13,64 @@
 # and with '"' a string would open and run on.
 #
 # Three scans call the predicate: _nextw, _classify_subprogram_header and
-# _find_vhdl_statement_semicolon. Each of them reaches the tick in several
-# cases; the comment on each case names the one whose answer alone decides
-# it. Cases 1, 2, 3 and 4: _find_vhdl_statement_semicolon, through the
-# constant, signal and variable scanners. Case 8, a parameter default:
-# _classify_subprogram_header. Case 10, a process statement: _nextw, through
-# _find_end_of_process. Cases 5, 6, 7 and 9 are controls: an identifier
-# ending in "and", `all` and signature prefixes, and the tick literal. Cases
-# 11 and 11b qualify with an extended identifier: \my type\'('x') is a
-# control, \my type\'('"') is decided by _find_vhdl_statement_semicolon.
+# _find_vhdl_statement_semicolon. The same three skip an extended identifier
+# whole (_extended_identifier_end), so a tick, a '"' or a ';' inside one is
+# not syntax. Each entry below names the scan that decides the case (for
+# case 20, one per element asserted); a control passes whatever that scan
+# answers.
 #
-# Every lookup into the parse result is guarded: a missing architecture, record or field makes the assertion FAIL
-# and the script go on, so every case is reported.
+#   1-4  A literal after the reserved word `and`, true and';'=';', in a
+#        constant, a signal, a shared variable and in upper case:
+#        _find_vhdl_statement_semicolon.
+#   5    band'('"'), an identifier ending in "and" as qualifier: the tick
+#        after an identifier is a qualifier tick.
+#        _find_vhdl_statement_semicolon.
+#   6    Control: p.all'length, `all` as the end of a name.
+#   7    Control: f[integer return integer]'att, a signature prefix.
+#   8    A literal after `and` in a parameter default:
+#        _classify_subprogram_header.
+#   9    Control: the tick literal '''.
+#   10   A literal after `and` in a process statement: _nextw, through
+#        _find_end_of_process.
+#   11   Control: \my type\'('x'), an extended identifier as qualifier.
+#   11b  \my type\'('"'): the '\' closing an extended identifier ends a
+#        name, so the tick after it is a qualifier tick.
+#        _find_vhdl_statement_semicolon.
+#   12   a<e9>and'('x') in a parameter default, an ISO-8859-1 identifier
+#        ending in the letters of `and`: _classify_subprogram_header.
+#   13   The same identifier in a process statement: _nextw, through
+#        _find_end_of_process.
+#   14   \and'"'x"\, a tick and quotes inside an extended identifier in a
+#        parameter list: _classify_subprogram_header.
+#   15   \a\\'"'\, a doubled backslash inside an extended identifier: the
+#        name does not close there. _find_vhdl_statement_semicolon.
+#   16   context'('x'), `context` as a VHDL-93 identifier: the word set
+#        holds only words reserved in both VHDL-93 and VHDL-2008.
+#        _classify_subprogram_header.
+#   17   Control: the literal '\'. Its backslash is consumed with the
+#        literal, so no extended identifier opens on it.
+#   18   \a"b\, a '"' inside an extended identifier:
+#        _find_vhdl_statement_semicolon.
+#   20   \a'"'b\ declared and used in a process. Process p_ext: _nextw,
+#        through _find_end_of_process. Its variable: _nextw through
+#        _find_decl_body_begin, and _find_vhdl_statement_semicolon. The
+#        process after it: _nextw, through split_arch_decl_body.
+#   21   Control: procedure \p q\ with a nested procedure, the name that
+#        _mask_nested_subprograms reads with _nextw.
+#
+# There is no case 19. It was to be a tick after an extended identifier
+# naming an object, \x\'('"') with \x\ a signal; GHDL 5.0.1 rejects it (a
+# type mark must denote a type or a subtype). After an object name the
+# tick is an attribute tick followed by an identifier, and no legal form
+# of it hides a '"' or a ';' whichever way the tick is read.
+#
+# Cases 12 to 16 have their own architecture, written byte for byte as
+# given; the others use arch_fixture, which adds constant m, signal s and
+# process p_after after the code under test.
+#
+# Every lookup into the parse result is guarded: a missing architecture,
+# record or field makes the assertion FAIL and the script go on, so every
+# case is reported.
 #=============================================================================
 
 set script_anchor [file dirname [file normalize [info script]]]
@@ -266,13 +312,15 @@ run_case "case 4: constant k : boolean := TRUE AND';'=';'" \
 # ----------------------------------------------------------------------------
 # band ends in "and" but is an ordinary identifier, so its tick is a
 # qualifier: _char_literal_at must answer 0 after it, as it does after any
-# identifier, in _find_vhdl_statement_semicolon and _nextw alike.
-run_case "case 5: constant c : band := band'('x'), band a subtype of character" \
+# identifier. Decided by _find_vhdl_statement_semicolon: '(' read as a
+# literal hides the tick after it, the '"' opens a string that swallows
+# every later ';', and constant c is lost.
+run_case "case 5: constant c : band := band'('\"'), band a subtype of character" \
     [arch_fixture c5_band {
         {  subtype band is character;}
-        {  constant c : band := band'('x');}
+        {  constant c : band := band'('"');}
     }] \
-    [list {decl constant c init {band'('x')}} {*}$after]
+    [list {decl constant c init {band'('"')}} {*}$after]
 
 # Non-regression control: p.all'length, the attribute of a dereferenced
 # access value. The tick is not followed by one character and a second
@@ -397,6 +445,189 @@ run_case "case 11b: constant c : \\my type\\ := \\my type\\'('\"')" \
         {  constant c : \my type\ := \my type\'('"');}
     }] \
     [list {decl constant c init {\my type\'('"')}} {*}$after]
+
+# ----------------------------------------------------------------------------
+# A name ending in the letters of a reserved word
+# ----------------------------------------------------------------------------
+# a<e9>and is an identifier whose last three letters spell `and`; <e9> stands
+# for e acute, written by tmp_vhd_lines in binary mode as the single byte
+# E9, as in ISO-8859-1. The tick after it is a qualifier tick.
+proc latin1 {text} {
+    return [string map [list <e9> \u00e9] $text]
+}
+
+# Decided by _classify_subprogram_header: '(' read as a literal loses a
+# parenthesis, the ')' after x closes the parameter list, the ';' after it
+# looks top-level and the header is classified as a prototype, so the
+# procedure's `begin` is taken for the architecture's and constant m is
+# lost.
+run_case "case 12: procedure p(a : character := a<e9>and'('x'); ...) is, ISO-8859-1" \
+    [tmp_vhd_lines latin_word [latin1 {
+        {entity latin_word is end entity;}
+        {architecture rtl of latin_word is}
+        {subtype a<e9>and is character;}
+        {procedure p(a : character := a<e9>and'('x'); b : integer := 1) is}
+        {begin}
+        {end procedure;}
+        {constant m : integer := 2;}
+        {begin}
+        {}
+        {end architecture;}
+    }]] \
+    [latin1 {
+        {decl subtype a<e9>and}
+        {decl procedure p params {a : character := a<e9>and'('x'); b : integer := 1}}
+        {decl constant m init 2}
+    }]
+
+# Decided by _nextw, through _find_end_of_process: '(' read as a literal
+# hides the tick after it, the '"' opens a string that never closes, and
+# process p is lost.
+run_case "case 13: c := a<e9>and'('\"'); in a process, ISO-8859-1" \
+    [tmp_vhd_lines latin_process [latin1 {
+        {entity latin_process is end entity;}
+        {architecture rtl of latin_process is}
+        {subtype a<e9>and is character;}
+        {begin}
+        {p : process}
+        {    variable c : character;}
+        {begin}
+        {    c := a<e9>and'('"');}
+        {    wait;}
+        {end process;}
+        {q : process begin wait; end process;}
+        {end architecture;}
+    }]] \
+    [latin1 {
+        {decl subtype a<e9>and}
+        {process p}
+        {pdecl p variable c type character}
+        {process q}
+    }]
+
+# The tick inside the extended identifier \and'"'x"\ belongs to the name.
+# Decided by _classify_subprogram_header: read as the literal '"' after
+# `and`, it hides that quote, the '"' after x opens a string that never
+# closes, the header is not classified as a body and constant m is lost.
+run_case "case 14: procedure p(a : integer := 1; \\and'\"'x\"\\ : integer := 2) is" \
+    [tmp_vhd_lines extended_header {
+        {entity extended_header is end entity;}
+        {architecture rtl of extended_header is}
+        {procedure p(a : integer := 1; \and'"'x"\ : integer := 2) is}
+        {begin}
+        {end procedure;}
+        {constant m : integer := 2;}
+        {begin}
+        {}
+        {end architecture;}
+    }] \
+    {
+        {decl procedure p params {a : integer := 1; \and'"'x"\ : integer := 2}}
+        {decl constant m init 2}
+    }
+
+# In \a\\'"'\ the doubled backslash is a backslash inside the name, so the
+# tick and the '"' after it are inside the name too. Decided by
+# _find_vhdl_statement_semicolon: the '\' before the tick taken for the
+# closing one gives 0, the '"' opens a string that swallows the ';', and
+# the constant is lost.
+run_case "case 15: constant \\a\\\\'\"'\\ : integer := 1" \
+    [tmp_vhd_lines escaped_tick {
+        {entity escaped_tick is end entity;}
+        {architecture rtl of escaped_tick is}
+        {constant \a\\'"'\ : integer := 1;}
+        {constant m : integer := 2;}
+        {begin}
+        {}
+        {end architecture;}
+    }] \
+    [list \
+        [list decl constant "\\a\\\\'\"'\\" init 1] \
+        {decl constant m init 2}]
+
+# `context` is reserved from VHDL-2008 on; before it, an identifier (GHDL
+# accepts this fixture with --std=93). Decided by
+# _classify_subprogram_header, as in case 12. The case is kept for legacy
+# code.
+run_case "case 16: procedure p(a : character := context'('x'); ...) is, VHDL-93" \
+    [tmp_vhd_lines old_context {
+        {entity old_context is end entity;}
+        {architecture rtl of old_context is}
+        {subtype context is character;}
+        {procedure p(a : character := context'('x'); b : integer := 1) is}
+        {begin}
+        {end procedure;}
+        {constant m : integer := 2;}
+        {begin}
+        {}
+        {end architecture;}
+    }] \
+    {
+        {decl subtype context}
+        {decl procedure p params {a : character := context'('x'); b : integer := 1}}
+        {decl constant m init 2}
+    }
+
+# ----------------------------------------------------------------------------
+# A backslash or a double quote that delimits nothing
+# ----------------------------------------------------------------------------
+# '\' is the backslash character literal: its backslash does not open an
+# extended identifier, and the tick after it closes the literal. GHDL 5.0.1
+# accepts this fixture with --std=08.
+run_case "case 17: constant c : character := '\\'" \
+    [arch_fixture c17_backslash_literal {
+        {  constant c : character := '\';}
+    }] \
+    [list {decl constant c init {'\'}} {*}$after]
+
+# The '"' inside the extended identifier \a"b\ belongs to the name and
+# opens no string. GHDL 5.0.1 accepts this fixture with --std=08.
+run_case "case 18: constant \\a\"b\\ : integer := 1" \
+    [arch_fixture c18_extended_quote_name {
+        {  constant \a"b\ : integer := 1;}
+    }] \
+    [list [list decl constant "\\a\"b\\" init 1] {*}$after]
+
+# ----------------------------------------------------------------------------
+# Extended identifiers in a process and as a subprogram name
+# ----------------------------------------------------------------------------
+# The variable \a'"'b\ appears three times in process p_ext, so its '"'
+# occurs an odd number of times: a scan that takes it for a string delimiter
+# is left inside a string. The tick after the a is a qualifier tick, so
+# _char_literal_at does not hide the '"'. Process p_ext is decided by
+# _nextw, through _find_end_of_process: taken for a string, the last '"'
+# hides `end process` and p_ext is lost. Its variable also depends on _nextw
+# through _find_decl_body_begin and on _find_vhdl_statement_semicolon;
+# p_after on _nextw through split_arch_decl_body. GHDL 5.0.1 accepts this
+# fixture with --std=08.
+run_case "case 20: variable \\a'\"'b\\ used in a process" \
+    [arch_fixture c20_extended_process_variable {} {
+        {  p_ext : process}
+        {    variable \a'"'b\ : integer;}
+        {  begin}
+        {    \a'"'b\ := \a'"'b\ + 1;}
+        {    wait;}
+        {  end process;}
+    }] \
+    [list \
+        {process p_ext} \
+        [list pdecl p_ext variable "\\a'\"'b\\"] \
+        {*}$after]
+
+# An outer procedure named with the extended identifier \p q\, with a
+# procedure nested in its declarative part. _mask_nested_subprograms reads
+# the name after the keyword with _nextw to decide where to start blanking
+# the outer body. GHDL 5.0.1 accepts this fixture with --std=08.
+run_case "case 21: procedure \\p q\\ with a nested procedure" \
+    [arch_fixture c21_extended_outer_procedure {
+        {  procedure \p q\(x : integer) is}
+        {    procedure inner(y : integer) is}
+        {    begin}
+        {    end procedure;}
+        {  begin}
+        {  end procedure;}
+    }] \
+    $after
 
 } finally {
     cleanup_tmp_files
