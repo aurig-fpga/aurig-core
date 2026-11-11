@@ -240,10 +240,10 @@ check_summary "positive: character literal '\"' followed by a keyword string" \
 
 # t'('"'): the tick after `character` is a qualifier, not the start of a
 # character literal; reading `'('` as a literal would open a string on the
-# following double quote. Only the split is asserted: constant c itself is
-# lost by _find_vhdl_statement_semicolon, which has the plain three-character
-# tick test and drops it even without any keyword string (pre-existing, not
-# part of this change), so the full declaration list is not asserted here.
+# following double quote. Only the split is asserted: whether constant c
+# itself is kept depends on _find_vhdl_statement_semicolon, which decides
+# through _char_literal_at, and test_vhdlscan_semicolon_char_literal.tcl
+# covers it, so the full declaration list is not asserted here.
 set got [summary [arch_fixture qualified_char_quote {
     {  constant c : character := character'('"');}
     {  constant m : string := "x begin y";}
