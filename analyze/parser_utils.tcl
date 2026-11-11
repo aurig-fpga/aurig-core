@@ -65,12 +65,13 @@ proc ::aurig::core::analyze::_adv {s stVar} {
 #     in VHDL-93, and GHDL 5.0.1 accepts them with --std=08 as well.
 # A type may carry any of these names, and treating it as reserved would
 # read the tick of a qualifier on that type, strong'('x'), as the start of
-# a literal. The residual cost: with the rule in _char_literal_at that
-# reads '"', ';' and '\' as literals whatever precedes the tick, a word
-# reserved only in VHDL-2008 followed with no space by any other literal,
-# as in force'1', is read as an attribute tick after a name. That is
-# harmless except for the literals '(' and ')', which unbalance the
-# parentheses.
+# a literal. The residual cost: _char_literal_at reads '"' and ';' as
+# literals whatever precedes the tick, and '\' as a literal except after
+# the end of a name with an extended identifier that closes on the same
+# line (see the comment of _char_literal_at). A word reserved only in
+# VHDL-2008 followed with no space by any other literal, as in force'1',
+# is read as an attribute tick after a name. That is harmless except for
+# the literals '(' and ')', which unbalance the parentheses.
 namespace eval ::aurig::core::analyze {
     variable _vhdl_reserved_words [dict create]
     foreach _w {
@@ -95,45 +96,71 @@ namespace eval ::aurig::core::analyze {
 # the three cannot drift.
 #
 # The tick must be followed by one character and a closing tick. When that
-# character is '"', ';' or '\', the answer is 1 before the character before
-# the tick is looked at: in legal VHDL an attribute or qualifier tick is
-# never followed by one of these three and another tick (a qualifier tick
-# needs '(', and a designator does not start with '"' or ';'), and these
-# are the three characters that, read as syntax, open a string or an
-# extended identifier or end a statement. Otherwise the character before
-# the tick decides:
-#   - ')', ']' or the '\' closing an extended identifier: 0. The tick is an
-#     attribute or qualifier tick after a name, as in f(x)'length,
-#     f[integer return integer]'att or \my type\'('x').
+# character is '"' or ';', the answer is 1 before the character before the
+# tick is looked at: a designator never starts with '"' or ';', and a
+# qualifier tick needs '(', so in legal VHDL the tick is not an attribute
+# or qualifier tick. These two characters, read as syntax, open a string
+# or end a statement.
+#
+# Otherwise the character before the tick decides whether the tick follows
+# the end of a name:
+#   - ')', ']' or the '\' closing an extended identifier: yes, as in
+#     f(x)'length, f[integer return integer]'att or \my type\'('x').
 #   - a word character (Tcl `string is wordchar`: a Unicode letter or digit,
 #     or connector punctuation such as '_'): the run of word characters
 #     ending there is read backwards, with the same class as the test on the
-#     character before the tick. A reserved word other than `all` gives 1:
-#     the word is read as the end of a keyword and the tick opens a literal,
-#     as in true and';', as the GHDL lexer does. With the tick right after
+#     character before the tick. A reserved word other than `all`: no, the
+#     word is read as the end of a keyword and the tick opens a literal, as
+#     in true and';', as the GHDL lexer does. With the tick right after
 #     subtype, GHDL 5.0.1 with --std=08 reads a literal too and rejects
 #     k'subtype'('"') (missing ";" at that tick). With a space,
 #     k'subtype' ('"'), which GHDL accepts, the tick after subtype does not
 #     have the 'x' shape and this predicate is not consulted.
-#     Any other word gives 0: the tick follows a name, as in t'('a') or
-#     s'high. `all` is excluded because it does end a name, the dereference
-#     p.all, so the tick after it is an attribute tick (p.all'length).
-#   - anything else, including the start of $s: 1.
-# Reading a qualifier tick as a literal, t'('a') as '(', loses a parenthesis
-# and misplaces every later quote; reading a literal's tick as an attribute
-# tick, and';' as and', ends the statement at the ';' inside the literal.
+#     Any other word: yes, the tick follows a name, as in t'('a') or
+#     s'high. `all` counts as a name because it does end one, the
+#     dereference p.all, so the tick after it is an attribute tick
+#     (p.all'length).
+#   - anything else, including the start of $s: no.
+#
+# When the middle character is '\', a '\' can start an extended designator,
+# as in x'\'a\, the attribute \'a\ of x, while the literal '\' cannot. The
+# answer is 0 when the tick follows the end of a name and an extended
+# identifier opened by that '\' closes before the first line end (an
+# extended identifier cannot span lines); otherwise 1. The residual cost:
+# a literal '\' after a word that is not reserved, as in force'\' (force
+# is reserved only in VHDL-2008), followed on the same line by another
+# extended name, is read as an attribute tick and a designator.
+#
+# For any other middle character the answer is 0 when the tick follows the
+# end of a name, 1 otherwise. Reading a qualifier tick as a literal,
+# t'('a') as '(', loses a parenthesis and misplaces every later quote;
+# reading a literal's tick as an attribute tick, and';' as and', ends the
+# statement at the ';' inside the literal.
 proc ::aurig::core::analyze::_char_literal_at {s i} {
     variable _vhdl_reserved_words
     if {[string index $s $i] ne "'"} { return 0 }
     if {$i + 2 >= [string length $s] || [string index $s [expr {$i + 2}]] ne "'"} { return 0 }
-    if {[string index $s [expr {$i + 1}]] in {\" ; \\}} { return 1 }
+    set mid [string index $s [expr {$i + 1}]]
+    if {$mid in {\" ;}} { return 1 }
     set prev [expr {$i > 0 ? [string index $s [expr {$i - 1}]] : ""}]
-    if {$prev in {) ] \\}} { return 0 }
-    if {![string is wordchar -strict $prev]} { return 1 }
-    set j [expr {$i - 1}]
-    while {$j >= 0 && [string is wordchar -strict [string index $s $j]]} { incr j -1 }
-    set word [string tolower [string range $s [expr {$j + 1}] [expr {$i - 1}]]]
-    return [expr {$word ne "all" && [dict exists $_vhdl_reserved_words $word]}]
+    if {$prev in {) ] \\}} {
+        set name_end 1
+    } elseif {[string is wordchar -strict $prev]} {
+        set j [expr {$i - 1}]
+        while {$j >= 0 && [string is wordchar -strict [string index $s $j]]} { incr j -1 }
+        set word [string tolower [string range $s [expr {$j + 1}] [expr {$i - 1}]]]
+        set name_end [expr {$word eq "all" || ![dict exists $_vhdl_reserved_words $word]}]
+    } else {
+        set name_end 0
+    }
+    if {$mid eq "\\"} {
+        if {!$name_end} { return 1 }
+        set close [::aurig::core::analyze::_extended_identifier_end $s [expr {$i + 1}]]
+        if {$close < 0} { return 1 }
+        set eol [string first "\n" $s [expr {$i + 1}]]
+        return [expr {$eol >= 0 && $close > $eol}]
+    }
+    return [expr {!$name_end}]
 }
 
 # Index of the '\' that closes the extended identifier opened by the '\' at

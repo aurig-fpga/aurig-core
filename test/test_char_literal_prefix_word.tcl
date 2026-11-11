@@ -67,10 +67,18 @@
 #        and end indices, is the word returned.
 #   22-24 force'\', force'"' and force';' in a process statement: the
 #        VHDL-2008 keyword force followed by a character literal. force is
-#        not in the reserved word set (see case 16); the middle character
-#        '\', '"' or ';' makes _char_literal_at answer 1 whatever the word
-#        before the tick. _nextw, through _find_end_of_process. Case 24
-#        is a control.
+#        not in the reserved word set (see case 16). The middle character
+#        '"' or ';' makes _char_literal_at answer 1 whatever the word
+#        before the tick. '\' gives 1 in case 22 because no extended
+#        identifier opened by it closes on the same line; cases 25-27 are
+#        the counterpart, where x'\'a\ closes. _nextw, through
+#        _find_end_of_process. Case 24 is a control.
+#   25-27 x'\'a\, the attribute \'a\ of x: an extended identifier whose
+#        first character is a tick, after an attribute tick. The tick, the
+#        '\' and the tick after it are not a character literal '\'. In a
+#        constant: _find_vhdl_statement_semicolon (25). In a parameter
+#        default: _classify_subprogram_header (26). In a process statement:
+#        _nextw, through _find_end_of_process (27).
 #
 # There is no case 19. It was to be a tick after an extended identifier
 # naming an object, \x\'('"') with \x\ a signal; GHDL 5.0.1 rejects it (a
@@ -698,11 +706,13 @@ run_value_case "case 21b: _nextw on procedure \\p q\\(x : integer) from 9 -> {\\
 # A character literal after the VHDL-2008 keyword force
 # ----------------------------------------------------------------------------
 # Decided by _nextw, through _find_end_of_process. force is reserved only
-# from VHDL-2008 on and is not in the word set, but the middle character
-# '\' makes _char_literal_at answer 1 whatever the word before the tick.
-# Read as an attribute tick, the '\' of the literal '\' would open an
-# extended identifier that never closes, and process p_force would be
-# lost. GHDL 5.0.1 accepts this fixture with --std=08.
+# from VHDL-2008 on and is not in the word set, so the tick follows the end
+# of a name; _char_literal_at still answers 1, because no extended
+# identifier opened by the middle '\' closes on the same line. Cases 25 to
+# 27 are the counterpart, where x'\'a\ closes. Read as an attribute tick,
+# the '\' of the literal '\' would open an extended identifier that never
+# closes, and process p_force would be lost. GHDL 5.0.1 accepts this
+# fixture with --std=08.
 run_case "case 22: c <= force'\\'; in a process statement" \
     [arch_fixture c22_force_backslash {
         {  signal c : character;}
@@ -761,6 +771,92 @@ run_case "case 24: c <= force';'; in a process statement" \
         {process p_force} \
         {pdecl p_force variable v init 5} \
         {*}$after]
+
+# ----------------------------------------------------------------------------
+# An extended attribute name that starts with a tick
+# ----------------------------------------------------------------------------
+# In x'\'a\ the first tick is an attribute tick and \'a\ is the attribute,
+# an extended identifier whose first character is a tick. Read as the
+# literal '\', the attribute tick and the tick inside the name are
+# consumed, and the closing '\' of the name opens an extended identifier
+# that never closes. Cases 25 to 27 have their own architecture, written
+# byte for byte as given. GHDL 5.0.1 accepts each with --std=93 and
+# --std=08.
+
+# Decided by _find_vhdl_statement_semicolon: with the attribute read as a
+# literal, the ';' that ends constant c is inside the unclosed name, and
+# constant c is lost.
+run_case "case 25: constant c : integer := x'\\'a\\;" \
+    [tmp_vhd_lines attr_decl {
+        {entity attr_decl is end entity;}
+        {architecture rtl of attr_decl is}
+        {constant x : integer := 0;}
+        {attribute \'a\ : integer;}
+        {attribute \'a\ of x : constant is 7;}
+        {constant c : integer := x'\'a\;}
+        {constant m : integer := 2;}
+        {begin}
+        {p : process begin wait; end process;}
+        {end architecture;}
+    }] \
+    [list \
+        {decl constant x init 0} \
+        [list decl constant c init "x'\\'a\\"] \
+        {decl constant m init 2} \
+        {process p}]
+
+# Decided by _classify_subprogram_header: with the attribute read as a
+# literal, the ')' that closes the parameter list is inside the unclosed
+# name, the header is not classified as a body, the procedure's `begin` is
+# taken for the architecture's, and constant m and process p are lost.
+run_case "case 26: procedure f(v : integer := x'\\'a\\) is" \
+    [tmp_vhd_lines attr_header {
+        {entity attr_header is end entity;}
+        {architecture rtl of attr_header is}
+        {constant x : integer := 0;}
+        {attribute \'a\ : integer;}
+        {attribute \'a\ of x : constant is 7;}
+        {procedure f(v : integer := x'\'a\) is}
+        {begin}
+        {null;}
+        {end procedure;}
+        {constant m : integer := 2;}
+        {begin}
+        {p : process begin wait; end process;}
+        {end architecture;}
+    }] \
+    [list \
+        {decl constant x init 0} \
+        [list decl procedure f params "v : integer := x'\\'a\\"] \
+        {decl constant m init 2} \
+        {process p}]
+
+# Decided by _nextw, through _find_end_of_process: with the attribute read
+# as a literal, `end process` is inside the unclosed name, and process p
+# and its variable v are lost.
+run_case "case 27: v := x'\\'a\\; in a process statement" \
+    [tmp_vhd_lines attr_process {
+        {entity attr_process is end entity;}
+        {architecture rtl of attr_process is}
+        {signal x : integer := 0;}
+        {attribute \'a\ : integer;}
+        {attribute \'a\ of x : signal is 7;}
+        {begin}
+        {p : process}
+        {variable v : integer;}
+        {begin}
+        {v := x'\'a\;}
+        {wait;}
+        {end process;}
+        {q : process begin wait; end process;}
+        {end architecture;}
+    }] \
+    {
+        {decl signal x init 0}
+        {process p}
+        {pdecl p variable v type integer}
+        {process q}
+    }
 
 } finally {
     cleanup_tmp_files
