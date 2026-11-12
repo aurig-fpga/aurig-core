@@ -472,13 +472,38 @@ namespace eval ::aurig::core::analyze {
 		# set parseDict [dict create]
 		set parseDict [::aurig::core::analyze::init $vhdFile]
 
-		# read input file into a string
-		if {[catch {set fh [open $vhdFile r]} err] } {
+		# Read bytes so the system encoding cannot corrupt UTF-8 input.
+		if {[catch {set fh [open $vhdFile rb]} err] } {
 			error "ERROR: Could not open file $vhdFile: $err"
 			return
 		}
-		set content [read $fh]
+		set bytes [read $fh]
 		close $fh
+		# Remove exactly one initial UTF-8 signature, including on fallback.
+		if {[string range $bytes 0 2] eq "\xef\xbb\xbf"} {
+			set bytes [string range $bytes 3 end]
+		}
+		# Tcl decoders can tolerate malformed UTF-8. Validate the RFC 3629
+		# byte ranges explicitly: no overlong forms, surrogates or > U+10FFFF.
+		# A UTF-8 round trip can also preserve invalid surrogate encodings.
+		if {[regexp {(?x)\A(?:
+			[\x00-\x7f] |
+			[\xc2-\xdf][\x80-\xbf] |
+			\xe0[\xa0-\xbf][\x80-\xbf] |
+			[\xe1-\xec\xee-\xef][\x80-\xbf]{2} |
+			\xed[\x80-\x9f][\x80-\xbf] |
+			\xf0[\x90-\xbf][\x80-\xbf]{2} |
+			[\xf1-\xf3][\x80-\xbf]{3} |
+			\xf4[\x80-\x8f][\x80-\xbf]{2}
+		)*\Z} $bytes]} {
+			set source_encoding utf-8
+		} else {
+			# The entire file falls back to cp1252, regardless of system encoding.
+			set source_encoding cp1252
+		}
+		set content [encoding convertfrom $source_encoding $bytes]
+		# Preserve the text channel's automatic CRLF/CR newline handling.
+		set content [string map [list "\r\n" "\n" "\r" "\n"] $content]
 
 		if {$lint_enabled} {
 			::aurig::core::analyze::_validate_vhdl_lint_syntax $content $vhdFile
