@@ -241,6 +241,49 @@ This is exactly how AURIG Lint and AURIG Doc resolve their parser/util/schema la
 they vendor no copy of it and declare `package require aurig::core` at the top of each
 file that uses it. On Windows, use forward slashes in `TCLLIBPATH`.
 
+## Reading VHDL source
+
+```tcl
+package require aurig::core
+set source [::aurig::core::util::read_vhdl_source $path]
+set text [dict get $source text]
+```
+
+The utility reads a path as binary and decodes one snapshot of its bytes. It
+removes one initial UTF-8 BOM, preserves subsequent U+FEFF characters, and
+validates UTF-8 according to RFC 3629. A BOM requires valid UTF-8. For unsigned
+files with malformed UTF-8, it decodes the whole file as cp1252, including
+Tcl's same-numbered C1 mappings for bytes 81, 8D, 8F, 90 and 9D (hex).
+CRLF and lone CR become LF. Tabs, Ctrl-Z, blank lines and final-newline
+presence are preserved. Empty and BOM-only files are valid. Embedded NUL
+is rejected, including in comments. Successful decoding only establishes
+the encoding and newline contract. VHDL syntax validation is separate.
+
+| Returned dictionary key | Value |
+| --- | --- |
+| `text` | The decoded, LF-normalized Tcl string |
+| `encoding` | `utf-8` or `cp1252` |
+| `bom_removed` | `1` if an initial signature was removed, otherwise `0` |
+| `fallback` | `1` for whole-file legacy fallback, otherwise `0` |
+| `invalid_utf8_offset` | Zero-based original byte offset of the first malformed UTF-8 sequence, or `-1` |
+
+| Tcl `-errorcode` list | Meaning |
+| --- | --- |
+| `{AURIG CORE SOURCE INVALID_UTF8 offset}` | Signed input has malformed UTF-8. |
+| `{AURIG CORE SOURCE NUL offset}` | The source contains an embedded NUL. |
+| `{AURIG CORE SOURCE IO stage nativeCode}` | File access failed at `OPEN`, `READ` or `CLOSE`. The original Tcl error code is a nested list. |
+| `{AURIG CORE SOURCE DECODE nativeCode}` | Snapshot conversion failed. The original Tcl error code is a nested list. |
+
+The error message includes the path and, for `INVALID_UTF8` and `NUL`, the
+original byte offset. A malformed sequence is reported at its lead byte,
+or at the stray byte when there is no valid lead. Offsets include the
+initial three signature bytes. For signed input the earlier of the malformed
+sequence and a raw NUL takes precedence. Unsigned input with a raw NUL
+always raises the NUL error. The text uses native Tcl string indices.
+A supplementary scalar occupies two indices on Tcl 8.5 and 8.6. A byte
+offset can differ from a string index after a signature, a multibyte
+character or a normalized newline.
+
 ## The manifest schema
 
 `schema/manifest-v1.json` is the canonical AURIG project-manifest contract, vendored
