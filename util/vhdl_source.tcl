@@ -65,7 +65,7 @@ proc ::aurig::core::util::read_vhdl_source {path} {
         }
         if {$bom} {
             return -code error -errorcode [list AURIG CORE SOURCE INVALID_UTF8 $invalid] \
-                "Cannot decode VHDL source \"$path\": malformed UTF-8 at byte $invalid after the UTF-8 BOM; repair the sequence or resave as UTF-8"
+                "Cannot decode VHDL source \"$path\": malformed UTF-8 at byte $invalid after the UTF-8 BOM. Repair the sequence or resave as UTF-8"
         }
         set nul [vhdl_source::first_nul $bytes [expr {$invalid + 1}]]
         if {$nul >= 0} {
@@ -89,7 +89,7 @@ proc ::aurig::core::util::vhdl_source::io_error {path stage message options} {
 
 proc ::aurig::core::util::vhdl_source::nul_error {path offset} {
     return -code error -errorcode [list AURIG CORE SOURCE NUL $offset] \
-        "Cannot decode VHDL source \"$path\": embedded NUL at byte $offset; remove the NUL or check the file's encoding"
+        "Cannot decode VHDL source \"$path\": embedded NUL at byte $offset. Remove the NUL or check the file's encoding"
 }
 
 # Return an exclusive end, extending the single nominal cut through up
@@ -208,16 +208,19 @@ proc ::aurig::core::util::vhdl_source::decode_legacy_utf8 {bytes start} {
         }
         set raw [string range $bytes $start [expr {$end - 1}]]
         set decoded {}
-        set from 0
+        set from $start
+        # Regexp can give the slice a Unicode representation. Index the
+        # original bytearray for conversion to keep byte access constant-time.
         foreach match [regexp -all -inline -indices -- {[\xf0-\xf4][\x80-\xbf]{3}} $raw] {
-            lassign $match first last
-            append decoded [encoding convertfrom utf-8 [string range $raw $from [expr {$first - 1}]]]
-            binary scan $raw @${first}cccc lead b c d
-            set value [expr {(($lead & 7) << 18 | ($b & 63) << 12 | ($c & 63) << 6 | ($d & 63)) - 0x10000}]
+            set first [expr {$start + [lindex $match 0]}]
+            append decoded [encoding convertfrom utf-8 [string range $bytes $from [expr {$first - 1}]]]
+            binary scan $bytes @${first}cccc lead second third fourth
+            set value [expr {((($lead & 7) << 18) | (($second & 63) << 12) |
+                (($third & 63) << 6) | ($fourth & 63)) - 0x10000}]
             append decoded [format %c%c [expr {0xd800 + ($value >> 10)}] [expr {0xdc00 + ($value & 1023)}]]
-            set from [expr {$last + 1}]
+            set from [expr {$first + 4}]
         }
-        append decoded [encoding convertfrom utf-8 [string range $raw $from end]]
+        append decoded [encoding convertfrom utf-8 [string range $bytes $from [expr {$end - 1}]]]
         append text [string map [list "\r\n" "\n" "\r" "\n"] $decoded]
     }
     return $text
