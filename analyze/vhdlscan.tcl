@@ -423,6 +423,26 @@ namespace eval ::aurig::core::analyze {
 		}
 	}
 
+	# Called only at an unmatched top-level line after a cp1252 fallback.
+	# Confirm a design unit with the scanner's own patterns at the end of
+	# a non-ASCII prefix. Keep the original buffer and fail before skipping it.
+	proc _check_legacy_unit_prefix {buffer line invalid_offset} {
+		if {![regexp -indices -- {^[^\x00-\x7f]+[ \t]*} $buffer prefix]} {
+			return
+		}
+		set start [expr {[lindex $prefix 1] + 1}]
+		foreach name {re_package_decl re_package_body re_entity re_architecture} {
+			# \A anchors at the regexp start offset. This avoids slicing
+			# the remaining file to match a unit after the prefix.
+			set pattern [string replace [set ::aurig::core::util::re::$name] 0 0 {\A}]
+			if {[regexp -nocase -start $start -- $pattern $buffer]} {
+				return -code error \
+					-errorcode [list AURIG CORE SOURCE UNIT_PREFIX $line $invalid_offset] \
+					"Unexpected cp1252 text before a design unit at line $line (first invalid UTF-8 at byte $invalid_offset). Check the prefix and source encoding."
+			}
+		}
+	}
+
 	proc vhdlscan {args} {
 
 		set verbose 0
@@ -472,13 +492,15 @@ namespace eval ::aurig::core::analyze {
 		# set parseDict [dict create]
 		set parseDict [::aurig::core::analyze::init $vhdFile]
 
-		# read input file into a string
-		if {[catch {set fh [open $vhdFile r]} err] } {
-			error "ERROR: Could not open file $vhdFile: $err"
-			return
+		# Acquire and decode once. Source errors retain their reader error code.
+		set source [::aurig::core::util::read_vhdl_source $vhdFile]
+		set content [dict get $source text]
+		set fallback [dict get $source fallback]
+		set invalid_offset [dict get $source invalid_utf8_offset]
+		unset source
+		if {$fallback && $verbose >= 1} {
+			puts "ACARSER: VHDL source $vhdFile decoded as cp1252 (first invalid UTF-8 at byte $invalid_offset)"
 		}
-		set content [read $fh]
-		close $fh
 
 		if {$lint_enabled} {
 			::aurig::core::analyze::_validate_vhdl_lint_syntax $content $vhdFile
@@ -589,6 +611,9 @@ namespace eval ::aurig::core::analyze {
 					set endTail      [dict get $S end_tail]
 					parse_architecture file4parser $res parseDict linenum $architectureName $entityName $archDeclPart $archBody $vhdFile
 				} else {
+					if {$fallback} {
+						_check_legacy_unit_prefix $file4parser $linenum $invalid_offset
+					}
 					# parse a single line
 					regexp {(.*?)\n} $file4parser -> res
 					incr linenum
@@ -604,7 +629,7 @@ namespace eval ::aurig::core::analyze {
 		} parse_error parse_options]} {
 			set parse_message "vhdlscan: $vhdFile: $parse_error"
 			if {![dict exists $parse_options -errorcode] ||
-				[lrange [dict get $parse_options -errorcode] 0 2] ne {AURIG CORE PARSE}} {
+				[lrange [dict get $parse_options -errorcode] 0 2] ni {{AURIG CORE PARSE} {AURIG CORE SOURCE}}} {
 				dict set parse_options -errorcode {AURIG CORE PARSE PARSE_INTERNAL}
 				set parse_message "vhdlscan: $vhdFile: PARSE_INTERNAL: $parse_error"
 			}

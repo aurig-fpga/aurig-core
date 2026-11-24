@@ -284,6 +284,19 @@ A supplementary scalar occupies two indices on Tcl 8.5 and 8.6. A byte
 offset can differ from a string index after a signature, a multibyte
 character or a normalized newline.
 
+The parser uses this reader for `vhdlscan -in`. Reader errors propagate
+with their `AURIG CORE SOURCE` codes. Verbosity 1 and above report cp1252
+fallback and its first invalid UTF-8 byte offset. Call the reader directly
+for structured decoding metadata. The parser result keeps its existing
+dictionary shape.
+
+If an unmatched top-level line starts with a non-ASCII cp1252 prefix and
+the scanner recognizes a design unit immediately after that prefix,
+`vhdlscan` raises `{AURIG CORE SOURCE UNIT_PREFIX line invalidOffset}`.
+The line is 1-based. The offset is the first invalid UTF-8 byte in the
+file and can refer to an earlier line. General unmatched-source
+diagnostics are tracked in [Core #66](https://github.com/aurig-fpga/aurig-core/issues/66).
+
 ## The manifest schema
 
 `schema/manifest-v1.json` is the canonical AURIG project-manifest contract, vendored
