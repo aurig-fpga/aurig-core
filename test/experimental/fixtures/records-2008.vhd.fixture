@@ -1,0 +1,13 @@
+package indefinite_records is
+    type vectors is array (integer range <>) of bit_vector;
+    type payload_t is record
+        data : bit_vector;
+        storage : vectors(0 to 2)(3 downto 0);
+        indefinite_storage : vectors(open)(7 downto 0);
+    end record payload_t;
+    type packet_t is record
+        payload : payload_t(data(1 downto 0), indefinite_storage(0 to 1));
+    end record;
+    constant exemplar : bit_vector(1 downto 0) := "10";
+    type attribute_record is record tag : exemplar'subtype; end record;
+end;

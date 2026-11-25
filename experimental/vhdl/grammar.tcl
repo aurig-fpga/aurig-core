@@ -135,6 +135,7 @@ proc ::vhdl_index::grammar::declaration_start {state context} {
 # declarator is recognized at its first name, before consuming its comma.
 proc ::vhdl_index::grammar::item_prefix {state} {
     upvar 1 $state c
+    if {$c(grammarNamePrefix) eq "record"} {return [record_field_prefix c]}
     set first [kind c]
     return [expr {$first in $c(grammarPrefixes) ||
         ($c(grammarNamePrefix) && $first in {identifier extended_identifier} && [kind c 1] in {: ,})}]
@@ -416,6 +417,20 @@ proc ::vhdl_index::grammar::simple_declarator {state} {
     upvar 1 $state c
     return [expr {[is_name [kind c 1] 0] && [kind c 2] eq ":" &&
         [is_name [kind c 3] 0] && [kind c 4] eq ";"}]
+}
+
+# A record field start is proved by its entire identifier list and colon.
+# A single following name is also legal as the type mark after a resolution name.
+proc ::vhdl_index::grammar::record_field_prefix {state} {
+    upvar 1 $state c
+    set offset 0
+    while {[is_name [kind c $offset] 0]} {
+        set next [kind c [incr offset]]
+        if {$next eq ":"} {return 1}
+        if {$next ne ","} {break}
+        incr offset
+    }
+    return 0
 }
 
 proc ::vhdl_index::grammar::identifier_list {state} {

@@ -34,7 +34,7 @@ proc ::vhdl_index::parser::is_context_item {state} {
     return [expr {$kind in {library use} || ($kind eq "context" && [peek c 2] ne "is")}]
 }
 
-proc ::vhdl_index::parser::terminator {state kind name {allowName 1} {matching 0}} {
+proc ::vhdl_index::parser::terminator {state kind name {allowName 1} {matching 0} {recoverRecordSeparator 0}} {
     upvar 1 $state c
     set start [lindex [span c] 0]
     expect c end
@@ -66,6 +66,14 @@ proc ::vhdl_index::parser::terminator {state kind name {allowName 1} {matching 0
             }
             lappend c(diagnostics) [dict create code MISMATCHED_END_NAME severity error span $extent \
                 related_span [lindex $name 1] expected [lindex $name 0] found $spelling]
+        }
+    }
+    if {$recoverRecordSeparator && [peek c] ne ";"} {
+        set next [peek c]
+        if {$next in {end begin} ||
+            ([::vhdl_index::grammar::declaration_family $next] ne {} &&
+             [::vhdl_index::grammar::declaration_start c object] eq "safe")} {
+            return [list $start [lindex [span c previous] 1]]
         }
     }
     expect c {;}
@@ -150,6 +158,31 @@ proc ::vhdl_index::parser::opaque_object_boundary {state observing} {
     return 1
 }
 
+# Collect the physical field fences with the common delimiter walk. A
+# declaration-shaped prefix inside the record is evidence of a lost boundary.
+proc ::vhdl_index::parser::record_boundary {state name} {
+    upvar 1 $state c
+    set sites {}
+    set obscured {}
+    while {[peek c] ne "end"} {
+        set first $c(i)
+        set marker [boundary c {{;} end begin} opaque_tail]
+        if {$marker eq "begin"} {fail c UNEXPECTED_BEGIN}
+        if {$obscured eq {}} {set obscured $c(opaqueBoundary)}
+        set separated [expr {$marker eq ";"}]
+        if {$separated} {incr c(i)}
+        lappend sites [list $first $c(i) $separated]
+    }
+    terminator c record $name 1 0 1
+    if {$obscured ne {}} {
+        set c(opaqueBoundary) $obscured
+        opaque_object_boundary c 1
+        return uncertain_opaque_item
+    }
+    set c(recordSites) $sites
+    return record
+}
+
 proc ::vhdl_index::parser::declaration {state depth {owner {}}} {
     upvar 1 $state c
     set first [peek c]
@@ -209,7 +242,9 @@ proc ::vhdl_index::parser::declaration {state depth {owner {}}} {
                 if {$type in {record protected}} {
                     incr c(i)
                     if {$type eq "protected" && [accept c body]} {set type protected_body}
-                    scope c $type $name [descend c $depth] forbid
+                    set child [descend c $depth]
+                    if {$type eq "record" && $observe} {return [record_boundary c $name]}
+                    scope c $type $name $child forbid
                     return $type
                 }
                 set marker $type

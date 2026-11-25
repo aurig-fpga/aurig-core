@@ -163,7 +163,7 @@ foreach {name direction left right} {bounded to {(1 + 2)} 7 descending downto 5 
 foreach {name kind} {distance physical samples array link access numbers_file file} {
     set item [lindex [dict get $byName $name] 0]
     check "$name typed envelope" $kind [dict get $item kind]
-    set expectedStatus [expr {$kind eq "array" ? "parsed" : "recognized-but-unsupported"}]
+    set expectedStatus [expr {$kind in {array record} ? "parsed" : "recognized-but-unsupported"}]
     check "$name status" $expectedStatus [dict get $item status]
     check "$name terminator" {;} [field $r $item terminator_span]
 }
@@ -248,7 +248,7 @@ check verified-absence parsed [dict get $r capabilities type_declarations]
 check verified-absence-rows {} [inventory $r]
 
 set fixtureNames [lsort [glob -tails -directory [file join $tests fixtures] *.vhd.fixture]]
-check isolated-fixture-count 33 [llength $fixtureNames]
+check isolated-fixture-count 37 [llength $fixtureNames]
 check no-production-vhdl-fixtures {} [glob -nocomplain -directory [file join $tests fixtures] *.vhd *.vhdl]
 puts [list Tcl [info patchlevel] assertions $assertions failures $failures]
 exit [expr {$failures > 0}]

@@ -61,6 +61,63 @@ proc ::vhdl_index::type_declaration::array_definition {state recordVar} {
     set item [dict merge $item [composite_subtype c {{;} eof}]]
 }
 
+proc ::vhdl_index::type_declaration::record_field {state fieldVar} {
+    upvar 1 $state c $fieldVar field
+    lassign [identifier_list c] names separators colon
+    dict set field names $names
+    dict set field separator_spans $separators
+    dict set field colon_span $colon
+    if {[record_field_prefix c]} {reject c EXPECTED_NAME}
+    set field [dict merge $field [composite_subtype c {{;} eof}]]
+    dict set field terminator_span [require c {;} MISSING_FIELD_SEMICOLON]
+}
+
+proc ::vhdl_index::type_declaration::record_definition {state recordVar} {
+    upvar 1 $state c $recordVar item
+    dict set item record_keyword_span [require c record EXPECTED_RECORD]
+    set sites $c(recordSites)
+    unset c(recordSites)
+    set fence $c(grammarFence)
+    set parent [lindex [dict get $item span] 0]
+    set fields {}
+    set c(grammarNamePrefix) record
+    foreach site $sites {
+        lassign $site c(i) c(grammarFence) separated
+        while {$c(i) < $c(grammarFence)} {
+            set start [lindex [span c] 0]
+            set field [dict create record_id $parent names {} terminator_span {} status parsed diagnostics {}]
+            if {[catch {record_field c field} issue options]} {
+                if {[dict get $options -errorcode] ne {VHDL_INDEX TYPE}} {
+                    return -options $options $issue
+                }
+                dict set issue phase type
+                set code [dict get $issue code]
+                dict lappend item diagnostics $issue
+                dict set field diagnostics [list $issue]
+                dict set field status [expr {[string match EDITION_* $code] ?
+                    "recognized-but-unsupported" : "malformed"}]
+                if {$code ne "TYPE_MISSING_FIELD_SEMICOLON" || ![record_field_prefix c]} {
+                    set c(i) $c(grammarFence)
+                    if {$separated} {dict set field terminator_span [span c previous]}
+                }
+            }
+            dict set field span [extent c $start]
+            lappend fields $field
+        }
+    }
+    set c(grammarFence) $fence
+    set c(grammarNamePrefix) 0
+    dict set item fields $fields
+    if {$fields eq {}} {reject c EXPECTED_RECORD_FIELD}
+    set start [lindex [span c] 0]
+    dict set item end_span [require c end EXPECTED_RECORD_END]
+    dict set item end_record_span [require c record EXPECTED_RECORD]
+    if {[is_name [kind c] 0]} {dict set item end_name_span [take c]}
+    set tail [extent c $start]
+    if {[kind c] eq ";"} {set tail [list $start [lindex [span c] 1]]}
+    dict set item record_terminator_span $tail
+}
+
 # The typed boundary walk already proved the outer envelope. A complex
 # definition is skipped using its fence, including any nested terminators.
 proc ::vhdl_index::type_declaration::syntax {state ownerKind category recordVar} {
@@ -85,9 +142,9 @@ proc ::vhdl_index::type_declaration::syntax {state ownerKind category recordVar}
             dict set item type_mark_span $mark
             dict set item resolution_span $resolution
             dict set item resolution_kind $form
-        } elseif {$category in {units record protected protected_body} || [kind c] in {access file}} {
+        } elseif {$category in {units protected protected_body} || [kind c] in {access file}} {
             set form [kind c]
-            if {$category in {record protected protected_body}} {set form $category}
+            if {$category in {protected protected_body}} {set form $category}
             if {$category eq "units"} {
                 if {$form ne "range"} {reject c EXPECTED_RANGE}
                 set form physical
@@ -104,6 +161,10 @@ proc ::vhdl_index::type_declaration::syntax {state ownerKind category recordVar}
                 array {
                     dict set item kind array
                     array_definition c item
+                }
+                record {
+                    dict set item kind record
+                    record_definition c item
                 }
                 ( {
                     dict set item kind enumeration
@@ -155,6 +216,7 @@ proc ::vhdl_index::type_declaration::index {state ownerKind owner first region c
             dict set item name_span [take c]
             if {[kind c] eq "is"} {dict set item is_span [take c]}
             dict set item header_span [extent c [lindex $intro 0]]
+            if {[kind c] in {array record}} {dict set item kind [kind c]}
         }
         set issue [at TYPE_UNPROVEN_DECLARATION_BOUNDARY $region]
         if {$category eq "uncertain_opaque_item"} {

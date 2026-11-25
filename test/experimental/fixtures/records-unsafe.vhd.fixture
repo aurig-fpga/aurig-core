@@ -1,0 +1,8 @@
+package validated_before is
+    type kept is record x : bit; end record;
+end;
+package uncertain is
+    type never_closed is record
+        x : bit;
+    signal hidden : bit;
+end;

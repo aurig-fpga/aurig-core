@@ -1,0 +1,24 @@
+entity record_recovery is
+    constant clipped : integer := 1
+    type recovered is record x : bit; end record;
+    type missing_separator is record
+        a : integer range 1 to 2
+        b, c : bit;
+        d : bit
+    end record;
+    type missing_colon is record a bit; saved_in_record : boolean; end record;
+    type missing_subtype is record a : ; saved_in_record : boolean; end record;
+    type missing_bound is record a : bit_vector(0 to); good : bit; end record;
+    type empty_record is record end record;
+    type closing_mismatch is record x : bit; end record wrong;
+    type clips_before_object is record a : bit; end record
+    signal recovered_object : bit;
+    type clips_before_type is record a : bit; end record
+    type kept is (present);
+    type obscured is record
+        a : bit;
+        signal hidden : bit;
+        type hidden_type is (absent);
+    end record;
+    signal last_object : bit;
+end;
