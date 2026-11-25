@@ -1,0 +1,573 @@
+# Context clauses keep exact whole-clause, selected-name and component spans.
+proc ::vhdl_index::parser::context_item {state} {
+    upvar 1 $state c
+    set kind [peek c]
+    set start [lindex [take c] 0]
+    set names {}
+    while {1} {
+        lassign [read_name c] spelling extent
+        set components [list $extent]
+        if {$kind ne "library"} {
+            expect c .
+            while {1} {
+                set suffix [peek c]
+                if {$kind eq "use" && $suffix in {all character string}} {
+                    lappend components [take c]
+                    break
+                }
+                lassign [read_name c] _ part
+                lappend components $part
+                if {![accept c .]} {break}
+            }
+        }
+        set selection [list [lindex $extent 0] [lindex $components end 1]]
+        lappend names [dict create span $selection components $components]
+        if {![accept c ,]} {break}
+    }
+    expect c {;}
+    return [dict create kind $kind span [list $start [lindex [span c previous] 1]] names $names]
+}
+
+proc ::vhdl_index::parser::is_context_item {state} {
+    upvar 1 $state c
+    set kind [peek c]
+    return [expr {$kind in {library use} || ($kind eq "context" && [peek c 2] ne "is")}]
+}
+
+proc ::vhdl_index::parser::terminator {state kind name {allowName 1} {matching 0}} {
+    upvar 1 $state c
+    set start [lindex [span c] 0]
+    expect c end
+    set explicit 0
+    if {$kind eq "process"} {accept c postponed}
+    if {$kind in {package_body protected_body}} {
+        set keyword [lindex [split $kind _] 0]
+        if {[accept c $keyword]} {
+            set explicit 1
+            expect c body
+        }
+    } else {
+        set explicit [accept c $kind]
+    }
+    if {!$explicit && $kind ni {entity architecture package package_body configuration context function procedure alternative}} {
+        fail c MISMATCHED_END_KIND [list expected $kind found [peek c]]
+    }
+    if {$kind eq "case" && [accept c ?] != $matching} {
+        fail c MISMATCHED_CASE_MARKER
+    }
+    if {$allowName && [peek c] in {identifier extended_identifier string}} {
+        if {$kind ni {function procedure} && [peek c] eq "string"} {
+            fail c EXPECTED_NAME
+        }
+        lassign [read_name c 1] spelling extent key
+        if {[lindex $name 2] ne $key || $name eq {}} {
+            if {!$explicit} {
+                fail c UNCERTAIN_END_NAME [list actual_span $extent expected [lindex $name 0] found $spelling]
+            }
+            lappend c(diagnostics) [dict create code MISMATCHED_END_NAME severity error span $extent \
+                related_span [lindex $name 1] expected [lindex $name 0] found $spelling]
+        }
+    }
+    expect c {;}
+    return [list $start [lindex [span c previous] 1]]
+}
+
+proc ::vhdl_index::parser::header {state} {
+    upvar 1 $state c
+    set kind [peek c]
+    if {$kind ni {entity architecture configuration package context}} {
+        fail c UNRECOGNIZED_ROOT [list found $kind]
+    }
+    set start [lindex [take c] 0]
+    if {$kind eq "package" && [accept c body]} {set kind package_body}
+    set name [read_name c]
+    set target {}
+    if {$kind in {architecture configuration}} {
+        expect c of
+        set target [read_name c]
+    }
+    expect c is
+    return [list $kind $name [list $start [lindex [span c previous] 1]] $target]
+}
+
+# Recognize the package instantiation name and the generic map envelope.
+# The actual associations remain deliberately opaque.
+proc ::vhdl_index::parser::instantiation {state} {
+    upvar 1 $state c
+    if {$c(edition) < 2008} {fail c EDITION_PACKAGE_INSTANTIATION}
+    expect c new
+    read_name c
+    while {[accept c .]} {read_name c}
+    if {[accept c generic]} {
+        expect c map
+        consume_group c
+    }
+    return [take_semicolon c]
+}
+
+proc ::vhdl_index::parser::take_semicolon {state} {
+    upvar 1 $state c
+    if {[peek c] ne ";"} {fail c EXPECTED_TOKEN [list expected {;} found [peek c]]}
+    return [take c]
+}
+
+proc ::vhdl_index::parser::boundary {state stops} {
+    upvar 1 $state c
+    set marker [scan c $stops]
+    if {$marker eq "eof"} {fail c TRUNCATED_SCOPE}
+    return $marker
+}
+
+proc ::vhdl_index::parser::opaque_item {state} {
+    upvar 1 $state c
+    set start [lindex [span c] 0]
+    set first $c(i)
+    set marker [boundary c {{;} end begin}]
+    if {$marker eq ";"} {
+        incr c(i)
+    } elseif {$c(i) == $first} {
+        fail c UNEXPECTED_BOUNDARY [list found $marker]
+    } else {
+        lappend c(diagnostics) [dict create code MISSING_SEMICOLON severity error \
+            span [list $start [lindex [span c] 0]]]
+    }
+}
+
+proc ::vhdl_index::parser::descend {state depth} {
+    upvar 1 $state c
+    if {$depth >= $c(scopes)} {fail c SCOPE_LIMIT}
+    return [expr {$depth + 1}]
+}
+
+proc ::vhdl_index::parser::declaration {state depth} {
+    upvar 1 $state c
+    set first [peek c]
+    switch -- $first {
+        impure - pure - function - procedure {
+            if {$first in {impure pure}} {incr c(i)}
+            set kind [peek c]
+            if {$kind ni {function procedure}} {fail c EXPECTED_SUBPROGRAM}
+            incr c(i)
+            set name [read_name c 1]
+            set marker [boundary c {is {;} end begin}]
+            if {$marker eq "is"} {
+                incr c(i)
+                if {[peek c] ne "new"} {
+                    scope c $kind $name [descend c $depth] require
+                    return
+                }
+                if {$c(edition) < 2008} {fail c EDITION_SUBPROGRAM_INSTANTIATION}
+                opaque_item c
+            } elseif {$marker eq ";"} {
+                incr c(i)
+            } else {
+                fail c INCOMPLETE_SUBPROGRAM_SPEC
+            }
+        }
+        package {
+            if {$c(edition) < 2008} {fail c EDITION_NESTED_PACKAGE}
+            lassign [header c] kind name
+            if {$kind eq "package" && [peek c] eq "new"} {
+                instantiation c
+            } else {
+                scope c $kind $name [descend c $depth] forbid
+            }
+        }
+        component {
+            incr c(i)
+            set name [read_name c]
+            accept c is
+            scope c component $name [descend c $depth] forbid
+        }
+        type {
+            incr c(i)
+            set name [read_name c]
+            if {[accept c is]} {
+                set type [peek c]
+                if {$type in {record protected}} {
+                    incr c(i)
+                    if {$type eq "protected" && [accept c body]} {set type protected_body}
+                    scope c $type $name [descend c $depth] forbid
+                    return
+                }
+                if {$type eq "units" || [boundary c {units {;} end begin}] eq "units"} {
+                    expect c units
+                    scope c units $name [descend c $depth] forbid
+                    return
+                }
+            }
+            opaque_item c
+        }
+        for {
+            opaque_item c
+            if {$c(edition) >= 2008 && [peek c] eq "end" && [peek c 1] eq "for"} {
+                terminator c for {} 0
+            }
+        }
+        entity - architecture - context - configuration {
+            fail c UNSAFE_UNIT_BOUNDARY [list found $first]
+        }
+        default {
+            opaque_item c
+        }
+    }
+}
+
+proc ::vhdl_index::parser::configuration_block {state depth} {
+    upvar 1 $state c
+    set child [descend c $depth]
+    expect c for
+    set start $c(i)
+    set marker [boundary c {for end use {;}}]
+    if {$start == $c(i)} {fail c INCOMPLETE_CONFIGURATION_HEADER}
+    if {$marker eq ";"} {incr c(i)}
+    configuration_part c $child
+    terminator c for {} 0
+}
+
+# Configuration for-headers end before the first child, use binding or end.
+proc ::vhdl_index::parser::configuration_part {state depth} {
+    upvar 1 $state c
+    while {[peek c] ne "end"} {
+        set next [peek c]
+        if {$next eq "for"} {
+            configuration_block c $depth
+        } elseif {$next in {use attribute group}} {
+            opaque_item c
+        } else {
+            fail c EXPECTED_CONFIGURATION_ITEM [list found $next]
+        }
+    }
+}
+
+proc ::vhdl_index::parser::generate_body {state label depth} {
+    upvar 1 $state c
+    set phase flexible
+    set sawBegin 0
+    while {1} {
+        switch -- [peek c] {
+            end {
+                if {$phase eq "declare"} {fail c MISSING_BEGIN}
+                if {[peek c 1] eq "generate"} {return}
+                if {$c(edition) < 2008} {fail c EDITION_GENERATE_BODY_END}
+                terminator c alternative $label
+                return
+            }
+            elsif - else - when {
+                if {$phase eq "declare"} {fail c MISSING_BEGIN}
+                return
+            }
+            begin {
+                if {$c(edition) < 2008} {fail c EDITION_GENERATE_BEGIN}
+                if {$sawBegin} {fail c DUPLICATE_BEGIN}
+                incr c(i)
+                set sawBegin 1
+                set phase concurrent
+            }
+            eof {fail c TRUNCATED_GENERATE}
+            default {
+                set first [peek c]
+                if {$phase eq "flexible" && $first in {alias attribute component constant disconnect file
+                    function group impure package procedure pure shared signal subtype type use variable}} {
+                    if {$c(edition) < 2008} {fail c EDITION_GENERATE_DECLARATION}
+                    declaration c $depth
+                    set phase declare
+                } elseif {$phase eq "declare"} {
+                    declaration c $depth
+                } else {
+                    statement c $depth concurrent
+                    set phase concurrent
+                }
+            }
+        }
+    }
+}
+
+proc ::vhdl_index::parser::generate {state depth name form alternative} {
+    upvar 1 $state c
+    if {$name eq {}} {fail c MISSING_GENERATE_LABEL}
+    set child [descend c $depth]
+    if {$form eq "case"} {
+        if {$c(edition) < 2008} {fail c EDITION_CASE_GENERATE}
+        expect c when
+        while {1} {
+            set alternative [optional_label c]
+            branch_header c =>
+            generate_body c $alternative $child
+            if {![accept c when]} {break}
+        }
+    } else {
+        set sawElse 0
+        while {1} {
+            generate_body c $alternative $child
+            set marker [peek c]
+            if {$marker ni {elsif else}} {break}
+            if {$form ne "if" || $c(edition) < 2008 || $sawElse} {fail c UNEXPECTED_GENERATE_ALTERNATIVE}
+            incr c(i)
+            set alternative [optional_label c]
+            if {$marker eq "else"} {
+                expect c generate
+                set sawElse 1
+            } else {
+                branch_header c generate
+            }
+        }
+    }
+    terminator c generate $name
+}
+
+proc ::vhdl_index::parser::optional_label {state} {
+    upvar 1 $state c
+    if {[peek c] in {identifier extended_identifier} && [peek c 1] eq ":"} {
+        set name [read_name c]
+        incr c(i)
+        return $name
+    }
+    return {}
+}
+
+proc ::vhdl_index::parser::branch_header {state marker} {
+    upvar 1 $state c
+    set start $c(i)
+    if {[boundary c [list $marker {;} end begin]] ne $marker || $start == $c(i)} {
+        fail c INCOMPLETE_BRANCH_HEADER [list expected $marker]
+    }
+    incr c(i)
+}
+
+proc ::vhdl_index::parser::statement {state depth phase} {
+    upvar 1 $state c
+    set label [optional_label c]
+    set first [peek c]
+    if {$first eq "postponed" && [peek c 1] eq "process"} {
+        incr c(i)
+        set first process
+    }
+    switch -- $first {
+        process - block {
+            if {$phase ne "concurrent"} {fail c UNEXPECTED_CONCURRENT_SCOPE}
+            incr c(i)
+            # Headers can have a delimiter group and an optional IS. The
+            # declaration scan handles the following item independently.
+            if {[peek c] eq "("} {consume_group c}
+            accept c is
+            scope c $first $label [descend c $depth] require
+        }
+        if - case - for - while - loop {
+            incr c(i)
+            set alternative {}
+            if {$phase eq "concurrent" && $first eq "if" && $c(edition) >= 2008} {
+                set alternative [optional_label c]
+            }
+            set matching 0
+            if {$first eq "case" && $phase eq "sequential"} {set matching [accept c ?]}
+            if {$first eq "loop"} {
+                set marker loop
+            } else {
+                set headerStart $c(i)
+                set marker [boundary c {generate then loop is {;} end begin}]
+                if {$headerStart == $c(i)} {fail c INCOMPLETE_STATEMENT_HEADER}
+                incr c(i)
+            }
+            if {$marker eq "generate" && $phase eq "concurrent" && $first in {if case for}} {
+                generate c $depth $label $first $alternative
+            } elseif {$phase eq "sequential" &&
+                [dict exists {if then case is for loop while loop loop loop} $first] &&
+                [dict get {if then case is for loop while loop loop loop} $first] eq $marker} {
+                set kind $first
+                if {$marker eq "loop"} {set kind loop}
+                sequential_control c [descend c $depth] $kind $label $matching
+            } else {
+                fail c UNEXPECTED_STATEMENT_HEADER [list found $marker opener $first]
+            }
+        }
+        entity - component - configuration {
+            if {$phase ne "concurrent" || $label eq {}} {fail c UNSAFE_UNIT_BOUNDARY [list found $first]}
+            opaque_item c
+        }
+        architecture - package - context {fail c UNSAFE_UNIT_BOUNDARY [list found $first]}
+        else - elsif - when {fail c UNEXPECTED_ALTERNATIVE [list found $first]}
+        default {opaque_item c}
+    }
+}
+
+proc ::vhdl_index::parser::sequential_control {state depth kind name matching} {
+    upvar 1 $state c
+    if {$kind eq "case"} {
+        expect c when
+        branch_header c =>
+    }
+    set sawElse 0
+    while {1} {
+        set next [peek c]
+        if {$next eq "end"} {break}
+        if {$kind eq "if" && $next in {elsif else} && !$sawElse} {
+            incr c(i)
+            if {$next eq "elsif"} {
+                branch_header c then
+            } else {
+                set sawElse 1
+            }
+        } elseif {$kind eq "case" && [accept c when]} {
+            branch_header c =>
+        } else {
+            statement c $depth sequential
+        }
+    }
+    return [terminator c $kind $name 1 $matching]
+}
+
+proc ::vhdl_index::parser::consume_group {state} {
+    upvar 1 $state c
+    expect c (
+    # Scan with ')' as a stop at relative depth zero.
+    if {[boundary c {) {;} end begin}] ne ")"} {fail c UNCLOSED_DELIMITER}
+    expect c )
+}
+
+proc ::vhdl_index::parser::scope {state kind name depth beginPolicy} {
+    upvar 1 $state c
+    set phase declare
+    set entityScope [expr {$kind eq "entity"}]
+    set entityHeader $entityScope
+    while {1} {
+        set next [peek c]
+        if {$next eq "end"} {
+            if {$beginPolicy eq "require" && $phase eq "declare"} {fail c MISSING_BEGIN}
+            return [terminator c $kind $name]
+        }
+        if {$next eq "begin"} {
+            if {$beginPolicy eq "forbid" || $phase ne "declare"} {fail c UNEXPECTED_BEGIN}
+            incr c(i)
+            if {$kind in {process procedure function}} {
+                set phase sequential
+            } else {
+                set phase concurrent
+            }
+        } elseif {$phase eq "declare"} {
+            set split {}
+            if {$entityScope && $next eq "identifier"} {
+                set split [::vhdl_index::interface::split_keyword c]
+            }
+            if {$entityScope && ($next in {generic port} || $split ne {})} {
+                set first $c(i)
+                set c(interfacePending) [span c]
+                declaration c $depth
+                lappend c(interfaceSites) [list $first $c(i) $entityHeader $split]
+                set c(interfacePending) {}
+            } else {
+                set entityHeader 0
+                declaration c $depth
+            }
+        } else {
+            statement c $depth $phase
+        }
+    }
+}
+
+proc ::vhdl_index::parser::unit {state pending} {
+    upvar 1 $state c
+    set count [llength $c(diagnostics)]
+    lassign [header c] kind name head target
+    set internal {}
+    set status parsed
+    set opaque {}
+    if {$kind eq "entity"} {set c(interfaceSites) {}}
+    if {$kind eq "package" && [peek c] eq "new"} {
+        set kind package_instantiation
+        set tail [instantiation c]
+        set status recognized-but-unsupported
+    } elseif {$kind eq "context"} {
+        while {[is_context_item c]} {lappend internal [context_item c]}
+        set tail [terminator c $kind $name]
+    } else {
+        if {$kind eq "configuration"} {
+            while {[peek c] in {use attribute group}} {opaque_item c}
+            if {[peek c] ne "for"} {fail c MISSING_BLOCK_CONFIGURATION}
+            configuration_block c 1
+            set tail [terminator c $kind $name]
+        } else {
+            set policy [dict get {architecture require entity allow package forbid package_body forbid} $kind]
+            set tail [scope c $kind $name 1 $policy]
+        }
+    }
+    if {$kind ne "context" && [lindex $head 1] < [lindex $tail 0]} {
+        set opaque [list [lindex $head 1] [lindex $tail 0]]
+    }
+    if {[llength $c(diagnostics)] > $count} {set status malformed}
+    lassign $name spelling extent
+    set result [dict create kind $kind name $spelling name_span $extent \
+        span [list [lindex $head 0] [lindex $tail 1]] header_span $head terminator_span $tail \
+        status $status context $pending context_items $internal opaque $opaque]
+    if {$target ne {}} {
+        dict set result target [lindex $target 0]
+        dict set result target_span [lindex $target 1]
+    }
+    if {$kind eq "entity" && $c(interfaceSites) ne {}} {
+        set started [clock microseconds]
+        set owner [::vhdl_index::interface::index_entity c $result $c(interfaceSites)]
+        incr c(interfaceTime) [expr {[clock microseconds] - $started}]
+        lappend c(interfaces) $owner
+        lappend c(interfaceDiagnostics) {*}[dict get $owner diagnostics]
+        set c(interfaceStatus) [::vhdl_index::interface::combine $c(interfaceStatus) [dict get $owner status]]
+    }
+    return $result
+}
+
+proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
+    variable ::vhdl_index::lexer::labels
+    variable ::vhdl_index::lexer::symbols
+    array set c [list snapshot $snapshot labels $labels symbols $symbols edition $edition i 0 diagnostics {}]
+    foreach key {scopes delimiters} {set c($key) [dict get $limits $key]}
+    foreach key {kinds starts significant} {set c($key) [dict get $tape $key]}
+    set c(unitTriggers) {}
+    foreach {opener connector} {entity is architecture of configuration of package is context is} {
+        dict set c(unitTriggers) [dict get $symbols $opener] [dict get $symbols $connector]
+    }
+    set c(pairs) {}
+    set c(closers) {}
+    foreach {left right} {( ) {[} {]} << >>} {
+        set closer [dict get $symbols $right]
+        dict set c(pairs) [dict get $symbols $left] $closer
+        lappend c(closers) $closer
+    }
+
+    array set c [list interfaces {} interfaceDiagnostics {} interfaceStatus parsed interfaceTime 0         interfacePending {} interfaceLexical [dict get $tape diagnostics] interfaceLexicalAt 0]
+    set units {}
+    set pending {}
+    set recovery {}
+    while {[peek c] ne "eof"} {
+        set begin [lindex [span c] 0]
+        set compound [is_context_item c]
+        if {$compound} {
+            set status [catch {context_item c} item options]
+        } else {
+            set status [catch {unit c $pending} item options]
+        }
+        if {$status} {
+            if {[dict get $options -errorcode] ne {VHDL_INDEX STRUCTURE}} {
+                return -options $options $item
+            }
+            lappend c(diagnostics) $item
+            set recovery [list $begin [dict get $snapshot length]]
+            set c(interfaceStatus) unrecognized
+            if {$c(interfacePending) ne {}} {
+                lappend c(interfaceDiagnostics) [dict create code INTERFACE_UNPROVEN_SCOPE severity error                     span $c(interfacePending) related_span [dict get $item span] cause [dict get $item code]]
+            }
+            break
+        }
+        if {$compound} {
+            lappend pending $item
+        } else {
+            lappend units $item
+            set pending {}
+        }
+    }
+    if {$pending ne {}} {
+        lappend c(diagnostics) [dict create code DANGLING_CONTEXT severity error \
+            span [list [lindex [dict get [lindex $pending 0] span] 0] \
+                [lindex [dict get [lindex $pending end] span] 1]]]
+    }
+    return [dict create units $units structural_diagnostics $c(diagnostics) recovery $recovery \
+        unowned_context $pending entity_interfaces $c(interfaces) interface_diagnostics $c(interfaceDiagnostics)         interface_status $c(interfaceStatus) interface_time_us $c(interfaceTime)]
+}

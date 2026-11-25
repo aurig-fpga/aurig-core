@@ -1,0 +1,52 @@
+context-identifier	1993,2002	entity:e architecture:rtl
+empty-body	1993,2002,2008	entity:e architecture:rtl
+grouped-interface	1993,2002,2008	entity:e
+i2019-keyword	2008	entity:e architecture:rtl
+i47-extended-enum	1993,2002,2008	entity:e architecture:rtl
+i64-multi-use	1993,2002,2008	entity:e
+i65-local-use	1993,2002,2008	entity:e architecture:rtl
+i66-config	1993,2002,2008	entity:e architecture:rtl configuration:cfg
+i66-context	2008	context:ctx
+i66-invalid	1993,2002,2008	!UNRECOGNIZED_ROOT
+i68-phantom-declaration	1993,2002,2008	entity:e architecture:rtl
+i71-control	1993,2002,2008	entity:e architecture:rtl
+i71-quote	1993,2002,2008	entity:e architecture:rtl
+i72-short-generate-body	2008	entity:e architecture:rtl
+i75-comment	1993,2002,2008	entity:e architecture:rtl
+i82-1	1993,2002,2008	package:p package_body:p
+i85-context-use	2008	entity:e
+i85-multi-library	1993,2002,2008	entity:e
+i86-control	1993,2002,2008	entity:e architecture:rtl
+i86-wide	1993,2002,2008	entity:e architecture:rtl
+i87-1	1993,2002,2008	entity:e architecture:rtl
+i87-2	1993,2002,2008	entity:e architecture:rtl
+i88-1	1993,2002,2008	entity:e architecture:rtl
+i89-1	1993,2002,2008	entity:e architecture:rtl
+i90-1	1993,2002,2008	entity:e architecture:rtl
+i90-2	1993,2002,2008	entity:e architecture:rtl
+i90-3	1993,2002,2008	entity:e architecture:rtl
+i90-4	1993,2002,2008	entity:e architecture:rtl
+i91-1	1993,2002,2008	entity:e architecture:\A\ architecture:rtl
+i91-2	1993,2002,2008	entity:\Leaf\ architecture:rtl
+i91-3	1993,2002,2008	package:\Pk\ package_body:\Pk\
+i92-1	2008	entity:e architecture:rtl
+i93-1	2008	entity:e architecture:rtl
+i93-2	2008	entity:e architecture:rtl
+i93-3	2008	entity:e architecture:rtl
+i94-1	1993,2002,2008	entity:e architecture:rtl
+i94-2	1993,2002,2008	entity:e entity:f
+i94-3	1993,2002,2008	entity:e architecture:rtl
+i95-1	1993,2002,2008	package:pk package_body:pk package:pq package_body:pq
+i95-2	1993,2002,2008	package:pk package:pq package_body:pk entity:e package_body:pq
+i95-3	1993,2002,2008	package:pk package_body:pk entity:e architecture:rtl
+lint-bare-Dut	1993,2002,2008	entity:Dut
+lint-label-control	1993,2002,2008	entity:e architecture:rtl
+lint-label	1993,2002,2008	entity:e architecture:rtl
+lint-named-Dut	1993,2002,2008	entity:Dut
+malformed-same-line	1993,2002,2008	entity:e !UNRECOGNIZED_ROOT
+protected-identifier	1993	entity:e architecture:rtl
+spaced-qualifier	1993,2002,2008	entity:e architecture:rtl
+support	1993,2002,2008	package:p package:comps entity:leaf architecture:rtl
+tick-and	1993,2002,2008	entity:e architecture:rtl
+top-level-line	1993,2002,2008	entity:a entity:b
+wrong-end-name	1993,2002,2008	entity:e !MISMATCHED_END_NAME

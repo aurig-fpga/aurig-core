@@ -1,0 +1,24 @@
+fixture	axis	classification	reason
+formatting/entity_name_split.vhd	analysis	independently confirmed legacy defect	GHDL rejects the isolated underscore-prefixed identifier. Legacy returns a result without a source-syntax failure.
+formatting/entity_name_split.vhd	*	unresolved	The invalid entity header obscures context ownership and recovery policy for the following architecture.
+formatting/library_name_split.vhd	analysis	independently confirmed legacy defect	GHDL rejects the initial standalone lib identifier. Legacy skips the invalid prefix.
+formatting/library_name_split.vhd	*	unresolved	A partial root inventory after an unchecked prefix and a conservative unrecognized tail have different guarantees.
+formatting/std_logic_split.vhd	analysis	independently confirmed legacy defect	GHDL rejects the trailing underscore in the split basic identifier.
+generate/unlabeled_generate.vhd	analysis	independently confirmed legacy defect	GHDL rejects an unlabeled generate opener.
+generate/unlabeled_generate.vhd	architectures	unresolved	The outer header is clear but the illegal nested opener prevents a proven experimental envelope.
+invalid_syntax/malformed_entity.vhd	analysis	independently confirmed legacy defect	GHDL rejects the entity opener without a name. This difference applies where the legacy call succeeds.
+invalid_syntax/malformed_entity.vhd	*	unresolved	The fixture contains a malformed opener and a later entity with duplicate ports. Recovery stops at the malformed opener.
+invalid_syntax/mismatched_parens.vhd	analysis	independently confirmed legacy defect	GHDL reports malformed port input with unbalanced delimiters. The open stack prevents a proven experimental envelope.
+invalid_syntax/mismatched_parens.vhd	*	unresolved	No safe structural resynchronization was established across the unmatched opening parenthesis.
+invalid_syntax/missing_end.vhd	analysis	independently confirmed legacy defect	GHDL expects the entity end before the architecture opener. This distinction applies where the legacy call succeeds.
+invalid_syntax/missing_end.vhd	*	unresolved	Context ownership requires a proven following unit. The first unit never closes.
+invalid_syntax/missing_semicolons.vhd	analysis	independently confirmed legacy defect	GHDL rejects the root library clause with the missing semicolon.
+invalid_syntax/missing_semicolons.vhd	*	unresolved	The source also has nested and root separator errors. Inventory recovery is deferred.
+invalid_syntax/port_keyword_split.vhd	analysis	unresolved	The strict legacy validator rejects an invalid entity interface whose delimiters balance. Interface item grammar is deliberately opaque.
+invalid_syntax/unterminated_string.vhd	analysis	independently confirmed legacy defect	GHDL rejects the lexical region. The experimental lexer preserves the bad token range through the line end.
+invalid_syntax/wrong_types.vhd	analysis	unresolved	The strict legacy validator rejects interface syntax inside a structurally bounded opaque region. Interface and type checks are outside the slice.
+vhdl2008/context_clause.vhd	new_capabilities	unresolved	Static spelling identifies a context reference. The exact fixture has no library declaration and standalone GHDL cannot resolve ieee.
+vhdl2008/mixed_context_library.vhd	new_capabilities	independently confirmed legacy defect	Standalone GHDL accepts the exact file. The legacy projection does not represent the context reference.
+vhdl2008/user_context.vhd	new_capabilities	independently confirmed legacy defect	GHDL accepts the exact file with a user context and its reference. Legacy has neither record.
+vhdl2008/user_context.vhd	libraries	independently confirmed legacy defect	GHDL accepts the file. The context declaration owns the second library ieee clause, which legacy flattens into file context.
+vhdl2008/user_context.vhd	uses	independently confirmed legacy defect	GHDL accepts the file. The context declaration owns the second use clause pair, which legacy flattens into file context.
