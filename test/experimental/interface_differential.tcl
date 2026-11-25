@@ -1,5 +1,5 @@
 source [file join [file dirname [info script]] startup.tcl]
-source [file join $task tests interface_projection.tcl]
+source [file join $tests interface_projection.tcl]
 lassign $argv corpus output
 set lines [open $corpus]
 set out [open $output w]

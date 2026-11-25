@@ -1,7 +1,8 @@
 source [file join [file dirname [info script]] startup.tcl]
-set fixtureDir [file join $task fixtures]
+set fixtureDir [file join $tests fixtures]
 set archived [file join $workspace _tasks AURIG-004-A fixtures]
-set scratch [file join $task scratch]
+set scratch $::env(AURIG_EXPERIMENTAL_SCRATCH)
+file mkdir $scratch
 set assertions 0
 set failures 0
 
@@ -354,10 +355,10 @@ foreach name {empty comment-only} spelling {{} {-- just trivia}} {
     assertions_for_source $result $name
 }
 
-set manifest [open [file join $task raw generated.tsv]]
+set manifest [open [file join $archivedTask raw generated.tsv]]
 while {[gets $manifest row] >= 0} {
     lassign [split $row "\t"] edition relative
-    set result [result_for [file join $task $relative] $edition]
+    set result [result_for [file join $archivedTask $relative] $edition]
     equal "$relative generated inventory" {entity:e architecture:rtl package:p} [inventory $result 1]
     equal "$relative generated diagnostics" {} [diagnoses $result]
     set clauses [context $result 0]
@@ -366,10 +367,10 @@ while {[gets $manifest row] >= 0} {
     assertions_for_source $result $relative
 }
 close $manifest
-set manifest [open [file join $task raw mutations.tsv]]
+set manifest [open [file join $archivedTask raw mutations.tsv]]
 while {[gets $manifest row] >= 0} {
     lassign [split $row "\t"] edition relative expected code
-    set result [result_for [file join $task $relative] $edition]
+    set result [result_for [file join $archivedTask $relative] $edition]
     equal "$relative mutation inventory" $expected [inventory $result]
     equal "$relative mutation diagnostics" $code [lindex [diagnoses $result] 0]
     assertions_for_source $result $relative

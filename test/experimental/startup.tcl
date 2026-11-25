@@ -1,13 +1,17 @@
 # The Python drivers verify the source bytes against Git before either load.
-set task [file dirname [file dirname [file normalize [info script]]]]
-set workspace [file dirname [file dirname $task]]
-set core [file join $workspace aurig-core]
-set experimentalTask $task
+set tests [file dirname [file normalize [info script]]]
+set core [file dirname [file dirname $tests]]
+set workspace [file dirname [file dirname $core]]
+set archivedTask [file join $workspace _tasks AURIG-004-C]
+set frontend [file join $core experimental vhdl frontend.tcl]
+if {[info exists ::env(AURIG_EXPERIMENTAL_FRONTEND)]} {
+    set frontend $::env(AURIG_EXPERIMENTAL_FRONTEND)
+}
 if {[lsearch -exact $argv --baseline-engine] >= 0} {
     set argv [lsearch -all -inline -not -exact $argv --baseline-engine]
-    set experimentalTask [file join $workspace _tasks AURIG-004-B]
+    set frontend [file join $workspace _tasks AURIG-004-B lib frontend.tcl]
 }
-source [file join $experimentalTask lib frontend.tcl]
+source $frontend
 proc remember_loaded_source {command operation} {
     lappend ::loadedSources [file normalize [lindex $command end]]
 }
@@ -23,4 +27,4 @@ if {[lsearch -exact $argv --legacy] >= 0} {
     ::vhdl_index::load_reader [file join $core util vhdl_source.tcl]
 }
 trace remove execution ::source enter remember_loaded_source
-source [file join $task tests projection.tcl]
+source [file join $tests projection.tcl]

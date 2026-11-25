@@ -36,7 +36,12 @@ proc inventory {r} {
     return $out
 }
 proc input {relative {edition 2008}} {
-    return [::vhdl_index::analyze_file [file join $::task $relative] $edition]
+    if {[lindex [file split $relative] 0] eq "fixtures"} {
+        set root $::tests
+    } else {
+        set root $::archivedTask
+    }
+    return [::vhdl_index::analyze_file [file join $root $relative] $edition]
 }
 proc records {result {index 0}} {
     return [dict get [lindex [dict get $result entity_interfaces] $index] clauses]
@@ -136,7 +141,7 @@ proc geometry {tag r} {
     eq_test "$tag declarations opaque" opaque [dict get $r capabilities declarations]
 }
 
-set manifest [open [file join $task raw interface-cases.tsv]]
+set manifest [open [file join $archivedTask raw interface-cases.tsv]]
 while {[gets $manifest row] >= 0} {
     lassign [split $row "\t"] edition path status code
     set r [input $path $edition]
