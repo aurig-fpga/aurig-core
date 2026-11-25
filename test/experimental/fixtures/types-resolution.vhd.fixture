@@ -1,0 +1,17 @@
+package type_resolution is
+    function resolve_bit (driver : bit_vector) return bit;
+    subtype resolved_bit is resolve_bit std.standard.bit;
+    subtype vector_elements is (resolve_bit) bit_vector(3 downto 0);
+    type matrix_t is array (natural range <>) of bit_vector;
+    subtype matrix_shape is matrix_t(1 to 2)(7 downto 0);
+    constant selected_vector : bit_vector(3 downto 0) := "1000";
+    subtype from_attribute is selected_vector'subtype;
+    subtype normal_range is natural range selected_vector'range;
+end package;
+
+package body type_resolution is
+    function resolve_bit (driver : bit_vector) return bit is
+    begin
+        return '0';
+    end function;
+end package body;

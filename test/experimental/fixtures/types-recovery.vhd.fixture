@@ -1,0 +1,21 @@
+package malformed_types is
+    type is (a, b);
+    subtype is integer;
+    type split is (a b);
+    type trailing is (a,);
+    type empty is ();
+    subtype no_is integer;
+    type no_definition is ;
+    type bad_range is range 1 2;
+    type missing_right is range 0 to ;
+    subtype bad_direction is integer range 1 downto 2 to 3;
+    type no_terminator is (x, y)
+end package;
+
+entity recovery_after is
+    constant broken : integer := 3
+    type recovered is (a, b);
+    type unknown is (x, y)
+    signal hidden : bit;
+    signal saved : bit;
+end entity;

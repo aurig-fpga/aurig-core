@@ -1,0 +1,69 @@
+package type_catalog is
+    type \State\\Set\ is
+        (Ready, \Comma, and ;\, '(', ')', ',', ';', '"', ''');
+    subtype simple is integer;
+    subtype selected_mark is std.standard.integer range -2 to 9;
+    type bounded is range (1 + 2) to 7;
+    type descending is range 5 downto -1;
+    type fraction is range -1.5 to +1.5;
+    constant sample : bit_vector(0 to 3) := "0101";
+    subtype slots is natural range sample'reverse_range(1);
+    type distance is range 0 to 100 units
+        tick;
+        long_tick = 10 tick;
+    end units distance;
+    type samples is array (natural range <>) of bounded;
+    type cell;
+    type link is access cell;
+    type cell is record
+        value : bounded;
+        next_cell : link;
+    end record cell;
+    type numbers_file is file of integer;
+    constant later : bounded := 3;
+end package;
+
+package body type_catalog is
+    type body_only is (first, second);
+
+    function f return integer is
+        subtype fn is integer range 0 to 12;
+        procedure p is
+            type proc_t is (up, down);
+        begin
+            null;
+        end procedure;
+    begin
+        return 0;
+    end function;
+end package body;
+
+entity typed is
+    subtype ent is integer;
+end entity;
+architecture structure of typed is
+    type arch_t is (idle, busy);
+    package hidden_package is
+        type nested_package_t is (hidden);
+    end package;
+    signal saved : arch_t;
+begin
+    p : process is
+        subtype proc_local is bit;
+        type proc_state is (foo, bar);
+        variable local : proc_local;
+    begin
+        wait;
+    end process;
+    b : block is
+        type nested_block_t is (hidden);
+    begin
+    end block;
+    g : if true generate
+        type nested_generate_t is (hidden);
+    begin
+    else generate
+        subtype nested_alternative_t is bit;
+    begin
+    end generate;
+end architecture;

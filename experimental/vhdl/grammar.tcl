@@ -176,8 +176,10 @@ proc ::vhdl_index::grammar::selected_name {state {operator 0} {attributes 0}} {
             name_span c $operator
         } elseif {$attributes && $next eq "'"} {
             incr c(i)
-            if {$c(edition) == 2008 && [kind c] eq "subtype"} {
+            if {[kind c] eq "subtype" && $c(edition) == 2008} {
                 incr c(i)
+            } elseif {[kind c] eq "subtype" && $c(grammarDomain) eq "TYPE"} {
+                reject c EDITION_SUBTYPE_ATTRIBUTE
             } else {
                 name_span c
             }
@@ -188,14 +190,100 @@ proc ::vhdl_index::grammar::selected_name {state {operator 0} {attributes 0}} {
     return [extent c $start]
 }
 
-proc ::vhdl_index::grammar::subtype_indication {state rangeStops} {
+# These two attributes can constitute the whole range. A name prefix may
+# contain selected components, indices, calls and other attributes.
+proc ::vhdl_index::grammar::range_attribute {state stops} {
+    upvar 1 $state c
+    set start [lindex [span c] 0]
+    name_span c
+    while {1} {
+        switch -- [kind c] {
+            . {
+                incr c(i)
+                name_span c
+            }
+            ( {group c}
+            ' {
+                incr c(i)
+                set attribute [kind c]
+                set attributeSpan [span c]
+                if {$attribute eq "range" || ($attribute eq "identifier" &&
+                    [string equal -nocase reverse_range [::vhdl_index::slice $c(snapshot) $attributeSpan]])} {
+                    incr c(i)
+                    if {[kind c] eq "("} {group c}
+                    if {[kind c] in $stops} {return [extent c $start]}
+                    reject c EXPECTED_RANGE_DIRECTION
+                }
+                if {$c(edition) == 2008 && $attribute eq "subtype"} {
+                    incr c(i)
+                } else {
+                    name_span c
+                }
+            }
+            default {reject c EXPECTED_RANGE_DIRECTION}
+        }
+    }
+}
+
+proc ::vhdl_index::grammar::range_payload {state stops} {
+    upvar 1 $state c
+    set first $c(i)
+    set left [payload c [concat $stops {to downto}]]
+    set direction [kind c]
+    if {$direction in {to downto}} {
+        set directionSpan [take c]
+        set right [payload c [concat $stops {to downto}]]
+        if {[kind c] in {to downto}} {reject c MULTIPLE_RANGE_DIRECTIONS}
+        return [list $left $direction $directionSpan $right {}]
+    }
+    set c(i) $first
+    if {![is_name [kind c] 0]} {reject c EXPECTED_RANGE_DIRECTION}
+    return [list {} {} {} {} [range_attribute c $stops]]
+}
+
+# VHDL-2008 element resolution is either one indication for array
+# elements or a list of named record elements with their own indications.
+# The structural fence already enforced the global delimiter depth limit.
+proc ::vhdl_index::grammar::resolution_group {state} {
+    upvar 1 $state c
+    set start [lindex [require c ( EXPECTED_RESOLUTION_OPEN] 0]
+    if {[kind c] eq "("} {
+        resolution_group c
+    } else {
+        set first $c(i)
+        selected_name c 1
+        if {[kind c] ne ")"} {
+            if {$c(i) != $first + 1 || ![is_name [peek c -1] 0]} {
+                reject c EXPECTED_RESOLVED_ELEMENT_NAME
+            }
+            while {1} {
+                if {[kind c] eq "("} {
+                    resolution_group c
+                } else {
+                    selected_name c 1
+                }
+                if {[kind c] ne ","} {break}
+                incr c(i)
+                name_span c
+            }
+        }
+    }
+    require c ) EXPECTED_RESOLUTION_CLOSE
+    return [extent c $start]
+}
+
+proc ::vhdl_index::grammar::subtype_indication {state rangeStops {structuredRange 0}} {
     upvar 1 $state c
     set start [lindex [span c] 0]
     set resolution {}
     set resolutionKind {}
     if {[kind c] eq "("} {
         if {$c(edition) < 2008} {reject c EDITION_COMPOSITE_RESOLUTION}
-        set resolution [group c]
+        if {$structuredRange} {
+            set resolution [resolution_group c]
+        } else {
+            set resolution [group c]
+        }
         set resolutionKind composite
         set mark [selected_name c 0 1]
     } else {
@@ -211,7 +299,11 @@ proc ::vhdl_index::grammar::subtype_indication {state rangeStops} {
     if {[kind c] in {range (}} {set constraintStart [lindex [span c] 0]}
     if {[kind c] eq "range"} {
         incr c(i)
-        payload c $rangeStops
+        if {$structuredRange} {
+            range_payload c $rangeStops
+        } else {
+            payload c $rangeStops
+        }
     } else {
         set count 0
         while {[kind c] eq "("} {

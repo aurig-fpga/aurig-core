@@ -1,0 +1,17 @@
+package type_locks is
+    type lock is protected
+        procedure acquire;
+    end protected lock;
+end package;
+
+package body type_locks is
+    type lock is protected body
+        type private_t is (hidden);
+        procedure acquire is
+            subtype deeper is bit;
+        begin
+            null;
+        end procedure;
+    end protected body lock;
+    subtype after_lock is integer;
+end package body;

@@ -1,0 +1,14 @@
+package type_record_resolution is
+    function resolve_bit (driver : bit_vector) return bit;
+    type pair_t is record
+        left_element : bit;
+        right_element : bit;
+    end record;
+    subtype pair_elements is (left_element resolve_bit, right_element resolve_bit) pair_t;
+end package;
+package body type_record_resolution is
+    function resolve_bit (driver : bit_vector) return bit is
+    begin
+        return '0';
+    end function;
+end package body;

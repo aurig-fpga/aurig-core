@@ -1,0 +1,7 @@
+package proved is
+    subtype outside is integer;
+end;
+package lost is
+    type broken is (a, b;
+    signal hidden : bit;
+end;
