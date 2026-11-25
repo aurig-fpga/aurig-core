@@ -39,16 +39,24 @@ proc ::vhdl_index::parser::expect {state kind} {
     if {![accept c $kind]} {fail c EXPECTED_TOKEN [list expected $kind found [peek c]]}
 }
 
+proc ::vhdl_index::parser::diagnostic {state code details} {
+    upvar 1 $state c
+    return [dict merge [dict create code $code severity error span [span c]] $details]
+}
+
 proc ::vhdl_index::parser::fail {state code {details {}}} {
     upvar 1 $state c
-    return -code error -errorcode {VHDL_INDEX STRUCTURE} \
-        [dict merge [dict create code $code severity error span [span c]] $details]
+    return -code error -errorcode {VHDL_INDEX STRUCTURE} [diagnostic c $code $details]
+}
+
+proc ::vhdl_index::parser::is_name {kind operator} {
+    return [expr {$kind in {identifier extended_identifier} || ($operator && $kind eq "string")}]
 }
 
 proc ::vhdl_index::parser::read_name {state {designator 0}} {
     upvar 1 $state c
     set kind [peek c]
-    if {$kind ni {identifier extended_identifier} && !($designator && $kind eq "string")} {
+    if {![is_name $kind $designator]} {
         fail c EXPECTED_NAME [list found $kind]
     }
     set extent [take c]
@@ -63,7 +71,7 @@ proc ::vhdl_index::parser::read_name {state {designator 0}} {
 
 # Advance to a stop at delimiter depth zero. Absolute character positions are
 # obtained only on a diagnostic or when materializing a completed record.
-proc ::vhdl_index::parser::scan {state stops} {
+proc ::vhdl_index::parser::scan {state stops {groupMode {}}} {
     upvar 1 $state c
     set stopIds {0 8}
     foreach stop $stops {lappend stopIds [dict get $c(symbols) $stop]}
@@ -77,9 +85,33 @@ proc ::vhdl_index::parser::scan {state stops} {
     set package [dict get $c(symbols) package]
     set body [dict get $c(symbols) body]
     set pos $c(i)
+    set grouped [expr {$groupMode ne {}}]
+    if {$grouped} {
+        set k [lindex $kinds [lindex $significant $pos]]
+        set stack [list [dict get $pairs $k]]
+        set fence $c(grammarFence)
+        set strict [expr {$groupMode eq "strict"}]
+        set hard [list 0 [dict get $c(symbols) end] [dict get $c(symbols) begin]]
+        set invalid [list 7 8 [dict get $c(symbols) {;}]]
+        incr pos
+        if {$strict && $pos < $fence && [lindex $c(labels) $k] eq "(" &&
+            [lindex $kinds [lindex $significant $pos]] == [lindex $stack 0]} {
+            set c(i) $pos
+            ::vhdl_index::grammar::reject c EMPTY_GROUP
+        }
+    }
     while {1} {
         set k [lindex $kinds [lindex $significant $pos]]
-        if {$k == 0 || $k == 8 || ($stack eq {} && $k in $stopIds)} {
+        if {$grouped} {
+            if {$pos >= $fence || $k in $hard} {
+                set c(i) $pos
+                ::vhdl_index::grammar::reject c UNCLOSED_GROUP
+            }
+            if {$strict && $k in $invalid} {
+                set c(i) $pos
+                ::vhdl_index::grammar::reject c INVALID_GROUP_TOKEN [list found [lindex $c(labels) $k]]
+            }
+        } elseif {$k == 0 || $k == 8 || ($stack eq {} && $k in $stopIds)} {
             set c(i) $pos
             if {$stack ne {}} {fail c UNCLOSED_DELIMITER}
             if {$k == 8} {fail c UNSUPPORTED_TOKEN}
@@ -88,15 +120,21 @@ proc ::vhdl_index::parser::scan {state stops} {
         if {[dict exists $pairs $k]} {
             if {[llength $stack] >= $depthLimit} {
                 set c(i) $pos
+                if {$grouped} {::vhdl_index::grammar::reject c DELIMITER_LIMIT}
                 fail c DELIMITER_LIMIT
             }
             lappend stack [dict get $pairs $k]
         } elseif {$k in $closers} {
             if {$stack eq {} || $k != [lindex $stack end]} {
                 set c(i) $pos
+                if {$grouped} {::vhdl_index::grammar::reject c MISMATCHED_DELIMITER}
                 fail c UNMATCHED_DELIMITER
             }
             set stack [lreplace $stack end end]
+            if {$grouped && $stack eq {}} {
+                set c(i) [expr {$pos + 1}]
+                return
+            }
         } elseif {$stack eq {} && [dict exists $triggers $k]} {
             set next [expr {$pos + 1}]
             set name [lindex $kinds [lindex $significant $next]]

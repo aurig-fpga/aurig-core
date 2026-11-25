@@ -1,159 +1,8 @@
 namespace eval ::vhdl_index::interface {
-    namespace path ::vhdl_index::parser
+    namespace path {::vhdl_index::grammar ::vhdl_index::parser}
     variable classes {constant signal variable file}
     variable modes {in out inout buffer linkage}
     variable genericKinds {type function procedure pure impure package}
-}
-
-proc ::vhdl_index::interface::kind {state {ahead 0}} {
-    upvar 1 $state c
-    if {$c(i) + $ahead >= $c(interfaceFence)} {return eof}
-    return [peek c $ahead]
-}
-
-proc ::vhdl_index::interface::problem {state code {detail {}}} {
-    upvar 1 $state c
-    return [dict merge [dict create code $code severity error span [span c]] $detail]
-}
-
-proc ::vhdl_index::interface::reject {state code {detail {}}} {
-    upvar 1 $state c
-    return -code error -errorcode {VHDL_INDEX INTERFACE} [problem c $code $detail]
-}
-
-proc ::vhdl_index::interface::require {state label code} {
-    upvar 1 $state c
-    if {[kind c] ne $label} {reject c $code [list expected $label found [kind c]]}
-    return [take c]
-}
-
-proc ::vhdl_index::interface::name_span {state {operator 0}} {
-    upvar 1 $state c
-    set next [kind c]
-    if {$next ni {identifier extended_identifier} && !($operator && $next eq "string")} {
-        reject c INTERFACE_EXPECTED_NAME
-    }
-    return [take c]
-}
-
-proc ::vhdl_index::interface::extent {state start} {
-    upvar 1 $state c
-    return [list $start [lindex [span c previous] 1]]
-}
-
-# The caller owns the surrounding interface list. Its semicolons never enter
-# opaque payloads. Local groups (constraints, defaults and maps) own their
-# internal delimiters and cannot consume beyond the proved site fence.
-proc ::vhdl_index::interface::group {state {recover 0}} {
-    upvar 1 $state c
-    set start [lindex [span c] 0]
-    set pairs {{(} {)} {[} {]} << >>}
-    set stack [list [dict get $pairs [kind c]]]
-    incr c(i)
-    if {!$recover && [lindex $stack end] eq ")" && [kind c] eq ")"} {
-        reject c INTERFACE_EMPTY_GROUP
-    }
-    while {[llength $stack]} {
-        set next [kind c]
-        if {$next in {eof end begin}} {reject c INTERFACE_UNCLOSED_GROUP}
-        if {[dict exists $pairs $next]} {
-            if {[llength $stack] >= $c(delimiters)} {reject c INTERFACE_DELIMITER_LIMIT}
-            lappend stack [dict get $pairs $next]
-        } elseif {$next in {) ] >>}} {
-            if {$next ne [lindex $stack end]} {reject c INTERFACE_MISMATCHED_DELIMITER}
-            set stack [lreplace $stack end end]
-        } elseif {!$recover && $next in {invalid unsupported {;}}} {
-            reject c INTERFACE_INVALID_GROUP_TOKEN [list found $next]
-        }
-        incr c(i)
-    }
-    return [extent c $start]
-}
-
-# A colon cannot belong to these depth-zero payloads. A grouped next
-# declarator is recognized at its first name, before consuming its comma.
-proc ::vhdl_index::interface::item_prefix {state} {
-    variable classes
-    variable genericKinds
-    upvar 1 $state c
-    set first [kind c]
-    return [expr {$first in $classes || $first in $genericKinds ||
-        ($first in {identifier extended_identifier} && [kind c 1] in {: ,})}]
-}
-
-proc ::vhdl_index::interface::payload {state stops} {
-    upvar 1 $state c
-    set start [lindex [span c] 0]
-    set first $c(i)
-    while {1} {
-        set next [kind c]
-        if {$next in $stops || [item_prefix c]} {break}
-        if {$next in {eof end begin}} {reject c INTERFACE_TRUNCATED_PAYLOAD}
-        if {$next in {invalid unsupported ] >> : :=}} {
-            reject c INTERFACE_INVALID_PAYLOAD_TOKEN [list found $next]
-        }
-        if {$next in {( [ <<}} {
-            group c
-        } else {
-            incr c(i)
-        }
-    }
-    if {$c(i) == $first} {reject c INTERFACE_EMPTY_PAYLOAD}
-    set last [peek c -1]
-    if {$last in {+ - * / ** & = /= => , to downto and or xor not} ||
-        ($last eq "range" && ($c(i) - $first < 3 || [peek c -2] ne "'"))} {
-        reject c INTERFACE_INCOMPLETE_PAYLOAD
-    }
-    return [extent c $start]
-}
-
-proc ::vhdl_index::interface::selected_name {state {operator 0} {attributes 0}} {
-    upvar 1 $state c
-    set start [lindex [name_span c $operator] 0]
-    while {1} {
-        set next [kind c]
-        if {$next eq "."} {
-            incr c(i)
-            name_span c $operator
-        } elseif {$attributes && $next eq "'"} {
-            incr c(i)
-            if {$c(edition) == 2008 && [kind c] eq "subtype"} {
-                incr c(i)
-            } else {
-                name_span c
-            }
-        } else {
-            break
-        }
-    }
-    return [extent c $start]
-}
-
-proc ::vhdl_index::interface::subtype_indication {state} {
-    upvar 1 $state c
-    set start [lindex [span c] 0]
-    if {[kind c] eq "("} {
-        if {$c(edition) < 2008} {reject c EDITION_COMPOSITE_RESOLUTION}
-        group c
-        selected_name c 0 1
-    } else {
-        selected_name c 0 1
-        # A resolution function may precede a second, selected type mark.
-        if {[kind c] in {identifier extended_identifier} && ![item_prefix c]} {
-            selected_name c 0 1
-        }
-    }
-    if {[kind c] eq "range"} {
-        incr c(i)
-        payload c {bus := {;} )}
-    } else {
-        set count 0
-        while {[kind c] eq "("} {
-            if {$c(edition) < 2008 && [incr count] > 1} {reject c EDITION_ELEMENT_CONSTRAINT}
-            group c
-        }
-    }
-    return [extent c $start]
 }
 
 proc ::vhdl_index::interface::object {state context} {
@@ -167,13 +16,7 @@ proc ::vhdl_index::interface::object {state context} {
         set explicitClass [kind c]
         set classSpan [take c]
     }
-    set names [list [name_span c]]
-    set commas {}
-    while {[kind c] eq ","} {
-        lappend commas [take c]
-        lappend names [name_span c]
-    }
-    set colon [require c : INTERFACE_EXPECTED_COLON]
+    lassign [identifier_list c] names commas colon
     set explicitMode {}
     set modeSpan {}
     if {[kind c] in $modes} {
@@ -193,7 +36,7 @@ proc ::vhdl_index::interface::object {state context} {
     }
     if {$explicitClass ne {}} {set class $explicitClass}
     if {$class eq "file"} {set mode {}}
-    set subtype [subtype_indication c]
+    lassign [subtype_indication c {bus := {;} )}] subtype
     set bus {}
     if {[kind c] eq "bus"} {set bus [take c]}
     set marker {}
@@ -244,17 +87,17 @@ proc ::vhdl_index::interface::generic_item {state context} {
         }
     } elseif {$kind eq "package"} {
         dict set item names [list [name_span c]]
-        require c is INTERFACE_PACKAGE_EXPECTED_IS
-        require c new INTERFACE_PACKAGE_EXPECTED_NEW
+        require c is PACKAGE_EXPECTED_IS
+        require c new PACKAGE_EXPECTED_NEW
         dict set item package_target_span [selected_name c]
-        set mapStart [lindex [require c generic INTERFACE_PACKAGE_EXPECTED_GENERIC] 0]
-        require c map INTERFACE_PACKAGE_EXPECTED_MAP
-        if {[kind c] ne "("} {reject c INTERFACE_EXPECTED_OPEN}
+        set mapStart [lindex [require c generic PACKAGE_EXPECTED_GENERIC] 0]
+        require c map PACKAGE_EXPECTED_MAP
+        if {[kind c] ne "("} {reject c EXPECTED_OPEN}
         set first [kind c 1]
-        if {$first eq ")"} {reject c INTERFACE_EMPTY_MAP}
+        if {$first eq ")"} {reject c EMPTY_MAP}
         set mapKind associations
         if {$first in {<> default}} {
-            if {[kind c 2] ne ")"} {reject c INTERFACE_INVALID_MAP_FORM}
+            if {[kind c 2] ne ")"} {reject c INVALID_MAP_FORM}
             set mapKind $first
         }
         dict set item map_group_span [group c]
@@ -267,7 +110,7 @@ proc ::vhdl_index::interface::generic_item {state context} {
             set purity $form
             set puritySpan $keyword
             set form [kind c]
-            require c function INTERFACE_EXPECTED_FUNCTION
+            require c function EXPECTED_FUNCTION
         }
         dict set item subprogram_kind $form
         dict set item explicit_purity $purity
@@ -286,7 +129,7 @@ proc ::vhdl_index::interface::generic_item {state context} {
             lappend diagnostics {*}[dict get $params diagnostics]
         }
         if {$form eq "function"} {
-            dict set item return_keyword_span [require c return INTERFACE_EXPECTED_RETURN]
+            dict set item return_keyword_span [require c return EXPECTED_RETURN]
             dict set item return_type_span [selected_name c 0 1]
         }
         if {[kind c] eq "is"} {
@@ -336,13 +179,13 @@ proc ::vhdl_index::interface::combine {status next} {
 proc ::vhdl_index::interface::list_body {state context} {
     variable genericKinds
     upvar 1 $state c
-    set open [require c ( INTERFACE_EXPECTED_OPEN]
+    set open [require c ( EXPECTED_OPEN]
     set separators {}
     set items {}
     set diagnostics {}
     set status parsed
     if {[kind c] eq ")"} {
-        lappend diagnostics [problem c INTERFACE_EMPTY_LIST]
+        lappend diagnostics [diagnostic c INTERFACE_EMPTY_LIST {}]
         set status malformed
     }
     while {[kind c] ne ")"} {
@@ -355,7 +198,7 @@ proc ::vhdl_index::interface::list_body {state context} {
                 set item [object c $context]
             }
             if {[kind c] ni {{;} )} && ![item_prefix c]} {
-                reject c INTERFACE_UNEXPECTED_ITEM_TAIL [list found [kind c]]
+                reject c UNEXPECTED_ITEM_TAIL [list found [kind c]]
             }
         } diagnostic options]
         if {$caught} {
@@ -368,19 +211,19 @@ proc ::vhdl_index::interface::list_body {state context} {
                 diagnostics [list $diagnostic]]
         }
         set next [kind c]
-        if {$next eq "eof"} {reject c INTERFACE_UNCLOSED_LIST}
+        if {$next eq "eof"} {reject c UNCLOSED_LIST}
         set status [combine $status [dict get $item status]]
         lappend diagnostics {*}[dict get $item diagnostics]
         lappend items $item
         if {$next eq ";"} {
             lappend separators [take c]
             if {[kind c] eq ")"} {
-                lappend diagnostics [problem c INTERFACE_TRAILING_SEPARATOR]
+                lappend diagnostics [diagnostic c INTERFACE_TRAILING_SEPARATOR {}]
                 set status malformed
             }
         } elseif {$next ne ")"} {
-            if {$c(i) <= $first} {reject c INTERFACE_NO_PROGRESS}
-            lappend diagnostics [problem c INTERFACE_MISSING_ITEM_SEPARATOR]
+            if {$c(i) <= $first} {reject c NO_PROGRESS}
+            lappend diagnostics [diagnostic c INTERFACE_MISSING_ITEM_SEPARATOR {}]
             set status malformed
         }
     }
@@ -397,7 +240,7 @@ proc ::vhdl_index::interface::clause {state form} {
     if {[kind c] eq ";"} {
         set semicolon [take c]
     } else {
-        dict lappend result diagnostics [problem c INTERFACE_MISSING_CLAUSE_SEMICOLON]
+        dict lappend result diagnostics [diagnostic c INTERFACE_MISSING_CLAUSE_SEMICOLON {}]
         dict set result status malformed
     }
     return [dict merge $result [dict create kind $form keyword_span $keyword semicolon_span $semicolon \
@@ -420,26 +263,31 @@ proc ::vhdl_index::interface::split_keyword {state} {
 
 proc ::vhdl_index::interface::index_entity {state owner sites} {
     upvar 1 $state c
+    variable classes
+    variable genericKinds
+    set c(grammarDomain) INTERFACE
+    set c(grammarPrefixes) [concat $classes $genericKinds]
+    set c(grammarNamePrefix) 1
     set resume $c(i)
     set clauses {}
     set diagnostics {}
     set status parsed
     set seen {}
     foreach site $sites {
-        lassign $site c(i) c(interfaceFence) placement split
-        while {$c(i) < $c(interfaceFence)} {
+        lassign $site c(i) c(grammarFence) placement split
+        while {$c(i) < $c(grammarFence)} {
             set first $c(i)
             set keyword [span c]
             set form [kind c]
             if {$split ne {}} {
                 set form $split
                 set split {}
-                set diagnostic [problem c SPLIT_INTERFACE_KEYWORD]
+                set diagnostic [diagnostic c SPLIT_INTERFACE_KEYWORD {}]
                 incr c(i)
                 dict set diagnostic span [list [lindex $keyword 0] [lindex [span c] 1]]
                 set failed 1
             } elseif {$form ni {generic port}} {
-                set diagnostic [problem c UNRECOGNIZED_INTERFACE_FRAGMENT]
+                set diagnostic [diagnostic c UNRECOGNIZED_INTERFACE_FRAGMENT {}]
                 set failed 1
             } else {
                 set failed [catch {clause c $form} record options]
@@ -451,7 +299,7 @@ proc ::vhdl_index::interface::index_entity {state owner sites} {
                 }
             }
             if {$failed} {
-                set c(i) $c(interfaceFence)
+                set c(i) $c(grammarFence)
                 set record [dict create kind $form keyword_span $keyword status malformed \
                     span [extent c [lindex $keyword 0]] items {} diagnostics [list $diagnostic]]
             }
