@@ -90,7 +90,7 @@ proc ::vhdl_index::object::index {state ownerKind owner first} {
         set region [extent c [lindex $firstSpan 0]]
         set issue [dict merge [at OBJECT_UNPROVEN_DECLARATION_BOUNDARY $region] \
             [dict create related_span $c(opaqueBoundary)]]
-        set diagnostics [linsert [lexical_diagnostics c $region] 0 $issue]
+        set diagnostics [linsert [lexical_diagnostics c $region objectLexicalAt] 0 $issue]
         lappend c(objectDiagnostics) {*}$diagnostics
         set item [dict replace [fields $owner] kind $form span $region keyword_span $firstSpan \
             status unrecognized diagnostics $diagnostics]
@@ -101,7 +101,7 @@ proc ::vhdl_index::object::index {state ownerKind owner first} {
     # ordinary production, which retains its provenance.
     set form [kind c]
     if {$c(grammarFence) - $first == 5 &&
-        $c(objectLexicalAt) == [llength $c(objectLexical)] &&
+        $c(objectLexicalAt) == [llength $c(declarationLexical)] &&
         $form ne "shared" && ($form ne "constant" || $ownerKind eq "package") &&
         [allowed $ownerKind $form] && [simple_declarator c]} {
         set c(i) $c(grammarFence)
@@ -122,7 +122,7 @@ proc ::vhdl_index::object::index {state ownerKind owner first} {
     }
     set region [extent c $start]
     dict set item span $region
-    dict lappend item diagnostics {*}[lexical_diagnostics c $region]
+    dict lappend item diagnostics {*}[lexical_diagnostics c $region objectLexicalAt]
     foreach issue [dict get $item diagnostics] {
         set next malformed
         if {[string match EDITION_* [dict get $issue code]]} {set next recognized-but-unsupported}
@@ -134,23 +134,6 @@ proc ::vhdl_index::object::index {state ownerKind owner first} {
     set entry [list $first 1]
     if {$status ne "parsed" || $c(i) - $first != 5} {lappend entry $item}
     return [list [list $entry] $status]
-}
-
-proc ::vhdl_index::object::lexical_diagnostics {state region} {
-    upvar 1 $state c
-    lassign $region start end
-    set found {}
-    while {$c(objectLexicalAt) < [llength $c(objectLexical)]} {
-        set issue [lindex $c(objectLexical) $c(objectLexicalAt)]
-        set where [lindex [dict get $issue span] 0]
-        if {$where >= $end} {break}
-        incr c(objectLexicalAt)
-        if {$where >= $start} {
-            dict set issue phase lexical
-            lappend found $issue
-        }
-    }
-    return $found
 }
 
 # Contiguous five-token records share an ordinal and a count. The capture

@@ -474,7 +474,7 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
         lassign $ownership owner parent
         set declarationStart [lindex [span c previous] 1]
         set declarationEnd {}
-        set firstScope [llength $c(objectScopes)]
+        set firstScope [llength $c(declarationScopes)]
         set firstIssue [llength $c(objectDiagnostics)]
         set entries {}
         set opaque {}
@@ -490,7 +490,7 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
             set before [llength $c(diagnostics)]
             set tail [terminator c $kind $name]
             if {[llength $c(diagnostics)] != $before} {
-                set c(objectScopes) [lrange $c(objectScopes) 0 [expr {$firstScope - 1}]]
+                set c(declarationScopes) [lrange $c(declarationScopes) 0 [expr {$firstScope - 1}]]
                 set c(objectDiagnostics) [lrange $c(objectDiagnostics) 0 [expr {$firstIssue - 1}]]
                 set cause [lindex $c(diagnostics) end]
                 lappend c(objectDiagnostics) [unproven_objects [list $owner [lindex $tail 1]] $cause]
@@ -500,8 +500,8 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                 set gaps {}
             }
             if {$parent ne {} || $objectStatus ne "parsed" || $entries ne {} || $opaque ne {} ||
-                $gaps ne {} || [llength $c(objectScopes)] != $firstScope} {
-                lappend c(objectScopes) [dict create id $owner parent_id $parent kind $kind \
+                $gaps ne {} || [llength $c(declarationScopes)] != $firstScope} {
+                lappend c(declarationScopes) [dict create id $owner parent_id $parent kind $kind \
                     name_span [lindex $name 1] span [list $owner [lindex $tail 1]] \
                     declarative_span [list $declarationStart $declarationEnd] entries $entries \
                     opaque $opaque gaps $gaps status $objectStatus]
@@ -535,7 +535,7 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                     continue
                 }
                 set first $c(i)
-                if {$next in {constant signal variable shared}} {
+                if {[::vhdl_index::grammar::declaration_family $next] eq "object"} {
                     opaque_item c object
                     set started [clock microseconds]
                     lassign [::vhdl_index::object::index c $kind $owner $first] records state
@@ -653,8 +653,8 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
     }
 
     array set c [list interfaces {} interfaceDiagnostics {} interfaceStatus parsed interfaceTime 0         interfacePending {} interfaceLexical [dict get $tape diagnostics] interfaceLexicalAt 0]
-    array set c [list objectScopes {} objectDiagnostics {} objectTime 0 \
-        objectLexical [dict get $tape diagnostics] objectLexicalAt 0]
+    array set c [list declarationScopes {} objectDiagnostics {} objectTime 0 \
+        declarationLexical [dict get $tape diagnostics] objectLexicalAt 0]
     set units {}
     set pending {}
     set recovery {}
@@ -664,7 +664,7 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
         if {$compound} {
             set status [catch {context_item c} item options]
         } else {
-            set firstScope [llength $c(objectScopes)]
+            set firstScope [llength $c(declarationScopes)]
             set firstIssue [llength $c(objectDiagnostics)]
             set status [catch {unit c $pending} item options]
         }
@@ -676,7 +676,7 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
             set recovery [list $begin [dict get $snapshot length]]
             set c(interfaceStatus) unrecognized
             if {!$compound} {
-                set c(objectScopes) [lrange $c(objectScopes) 0 [expr {$firstScope - 1}]]
+                set c(declarationScopes) [lrange $c(declarationScopes) 0 [expr {$firstScope - 1}]]
                 set c(objectDiagnostics) [lrange $c(objectDiagnostics) 0 [expr {$firstIssue - 1}]]
             }
             lappend c(objectDiagnostics) [unproven_objects $recovery $item]
@@ -701,10 +701,10 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
     if {$recovery ne {}} {
         set objectStatus unrecognized
     }
-    foreach scope $c(objectScopes) {
+    foreach scope $c(declarationScopes) {
         set objectStatus [::vhdl_index::grammar::combine $objectStatus [dict get $scope status]]
     }
-    return [dict create object_declarations [lsort -integer -index 1 $c(objectScopes)] \
+    return [dict create object_declarations [lsort -integer -index 1 $c(declarationScopes)] \
         object_diagnostics $c(objectDiagnostics) object_status $objectStatus object_time_us $c(objectTime) \
         units $units structural_diagnostics $c(diagnostics) recovery $recovery \
         unowned_context $pending entity_interfaces $c(interfaces) interface_diagnostics $c(interfaceDiagnostics)         interface_status $c(interfaceStatus) interface_time_us $c(interfaceTime)]

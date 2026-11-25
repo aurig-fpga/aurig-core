@@ -60,6 +60,14 @@ namespace eval ::vhdl_index::grammar {
     }
 }
 
+proc ::vhdl_index::grammar::declaration_family {keyword} {
+    variable declarationFamilies
+    if {[dict exists $declarationFamilies $keyword]} {
+        return [dict get $declarationFamilies $keyword]
+    }
+    return {}
+}
+
 # The caller proves delimiter depth and selects a declarative context. Only a
 # declaration-shaped prefix can end an object. Weak prefixes are evidence of
 # uncertainty there. In an opaque header they may be grammatical (file OF,
@@ -183,15 +191,20 @@ proc ::vhdl_index::grammar::selected_name {state {operator 0} {attributes 0}} {
 proc ::vhdl_index::grammar::subtype_indication {state rangeStops} {
     upvar 1 $state c
     set start [lindex [span c] 0]
+    set resolution {}
+    set resolutionKind {}
     if {[kind c] eq "("} {
         if {$c(edition) < 2008} {reject c EDITION_COMPOSITE_RESOLUTION}
-        group c
-        selected_name c 0 1
+        set resolution [group c]
+        set resolutionKind composite
+        set mark [selected_name c 0 1]
     } else {
-        selected_name c 0 1
+        set mark [selected_name c 0 1]
         # A resolution function may precede a second, selected type mark.
         if {[kind c] in {identifier extended_identifier} && ![item_prefix c]} {
-            selected_name c 0 1
+            set resolution $mark
+            set resolutionKind scalar
+            set mark [selected_name c 0 1]
         }
     }
     set constraint {}
@@ -207,7 +220,7 @@ proc ::vhdl_index::grammar::subtype_indication {state rangeStops} {
         }
     }
     if {[info exists constraintStart]} {set constraint [extent c $constraintStart]}
-    return [list [extent c $start] $constraint]
+    return [list [extent c $start] $constraint $mark $resolution $resolutionKind]
 }
 
 
@@ -228,6 +241,24 @@ proc ::vhdl_index::grammar::identifier_list {state} {
         lappend names [name_span c]
     }
     return [list $names $commas [require c : EXPECTED_COLON]]
+}
+
+# Each capability walks lexical provenance in source order with its own cursor.
+proc ::vhdl_index::grammar::lexical_diagnostics {state region cursor} {
+    upvar 1 $state c
+    lassign $region start end
+    set found {}
+    while {$c($cursor) < [llength $c(declarationLexical)]} {
+        set issue [lindex $c(declarationLexical) $c($cursor)]
+        set where [lindex [dict get $issue span] 0]
+        if {$where >= $end} {break}
+        incr c($cursor)
+        if {$where >= $start} {
+            dict set issue phase lexical
+            lappend found $issue
+        }
+    }
+    return $found
 }
 
 proc ::vhdl_index::grammar::combine {status next} {
