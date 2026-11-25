@@ -238,8 +238,73 @@ The PowerShell form has been verified with ActiveTcl 8.6.14 under Windows PowerS
 5.1.
 
 This is exactly how AURIG Lint and AURIG Doc resolve their parser/util/schema layer —
-they vendor no copy of it and declare `package require aurig::core` at the top of each
-file that uses it. On Windows, use forward slashes in `TCLLIBPATH`.
+they load the external Tcl package from that path. For a reproducible source
+installation, check out the exact Core commit listed by the consuming tool's
+installation instructions or CI. Put the directory containing `pkgIndex.tcl` on
+`TCLLIBPATH`. Use forward slashes on Windows and brace paths containing spaces
+as Tcl list elements.
+
+## Reading VHDL source
+
+Core 0.2.0 introduces the shared reader API. Use the verified source checkout
+for 0.2.0 during integration.
+
+```tcl
+package require aurig::core 0.2.0-0.3.0
+set source [::aurig::core::util::read_vhdl_source $path]
+set text [dict get $source text]
+```
+
+The utility reads a path as binary and decodes one snapshot of its bytes. It
+removes one initial UTF-8 BOM, preserves subsequent U+FEFF characters, and
+validates UTF-8 according to RFC 3629. A BOM requires valid UTF-8. For unsigned
+files with malformed UTF-8, it decodes the whole file as cp1252, including
+Tcl's same-numbered C1 mappings for bytes 81, 8D, 8F, 90 and 9D (hex).
+CRLF and lone CR become LF. Tabs, Ctrl-Z, blank lines and final-newline
+presence are preserved. Empty and BOM-only files are valid. Embedded NUL
+is rejected, including in comments. Successful decoding only establishes
+the encoding and newline contract. VHDL syntax validation is separate.
+
+| Returned dictionary key | Value |
+| --- | --- |
+| `text` | The decoded, LF-normalized Tcl string |
+| `encoding` | `utf-8` or `cp1252` |
+| `bom_removed` | `1` if an initial signature was removed, otherwise `0` |
+| `fallback` | `1` for whole-file legacy fallback, otherwise `0` |
+| `invalid_utf8_offset` | Zero-based original byte offset of the first malformed UTF-8 sequence, or `-1` |
+
+| Tcl `-errorcode` list | Meaning |
+| --- | --- |
+| `{AURIG CORE SOURCE INVALID_UTF8 offset}` | Signed input has malformed UTF-8. |
+| `{AURIG CORE SOURCE NUL offset}` | The source contains an embedded NUL. |
+| `{AURIG CORE SOURCE IO stage nativeCode}` | File access failed at `OPEN`, `READ` or `CLOSE`. The original Tcl error code is a nested list. |
+| `{AURIG CORE SOURCE DECODE nativeCode}` | Snapshot conversion failed. The original Tcl error code is a nested list. |
+
+The error message includes the path and, for `INVALID_UTF8` and `NUL`, the
+original byte offset. A malformed sequence is reported at its lead byte,
+or at the stray byte when there is no valid lead. Offsets include the
+initial three signature bytes. For signed input the earlier of the malformed
+sequence and a raw NUL takes precedence. Unsigned input with a raw NUL
+always raises the NUL error. The text uses native Tcl string indices.
+A supplementary scalar occupies two indices on Tcl 8.5 and 8.6. A byte
+offset can differ from a string index after a signature, a multibyte
+character or a normalized newline.
+
+The parser uses this reader for `vhdlscan -in`. Reader errors propagate
+with their `AURIG CORE SOURCE` codes. Compared with 0.1.0, a source that
+previously returned an AST or an empty result can now raise an error. Treat a
+source rejection as a failed analysis and preserve the Tcl error code when
+propagating it. Verbosity 1 and above report cp1252
+fallback and its first invalid UTF-8 byte offset. Call the reader directly
+for structured decoding metadata. The parser result keeps its existing
+dictionary shape.
+
+If an unmatched top-level line starts with a non-ASCII cp1252 prefix and
+the scanner recognizes a design unit immediately after that prefix,
+`vhdlscan` raises `{AURIG CORE SOURCE UNIT_PREFIX line invalidOffset}`.
+The line is 1-based. The offset is the first invalid UTF-8 byte in the
+file and can refer to an earlier line. General unmatched-source
+diagnostics are tracked in [Core #66](https://github.com/aurig-fpga/aurig-core/issues/66).
 
 ## The manifest schema
 

@@ -4,4 +4,4 @@
 # Standalone package index for aurig-core: a snapshot carve of tcl4fpga's lean
 # shared core. declares ONLY aurig::core (renamed from upstream tcl4fpga::core;
 # direct cutover, no compatibility alias).
-package ifneeded aurig::core 0.1.0 [list source [file join $dir core.tcl]]
+package ifneeded aurig::core 0.2.0 [list source [file join $dir core.tcl]]

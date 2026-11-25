@@ -33,6 +33,8 @@ jobs:
           tests=(
             test/test_core_isolation.tcl
             test/test_ini_round_trip.tcl
+            test/test_vhdl_source_reader.tcl
+            test/test_vhdlscan_source_encoding.tcl
             test/test_vhdlscan_large_declarations.tcl
             test/test_vhdlscan_error_boundary.tcl
             test/test_vhdlscan_lint_diagnostics.tcl
@@ -70,6 +72,99 @@ jobs:
             fi
           done
           exit $fail
+
+  # Focused source decoding and parser coverage in native Tcl on Windows.
+  test-windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: aurig core
+    steps:
+      - name: Checkout candidate in a path with spaces
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: aurig core
+          persist-credentials: false
+
+      # Magicsplat Tcl 1.16.0 (Tcl 8.6.16, tcllib 2.0), the build the
+      # aurig-core README lists as verified. The MSI is pinned by SHA-256;
+      # a different file fails the job.
+      - name: Install Tcl 8.6 + tcllib
+        run: |
+          $msi = "$env:RUNNER_TEMP\tcl-8.6.16-installer-1.16.0-x64.msi"
+          curl.exe -sSfL --proto '=https' --proto-redir '=https' --retry 3 --connect-timeout 30 --max-time 180 -o $msi https://sourceforge.net/projects/magicsplat/files/magicsplat-tcl/tcl-8.6.16-installer-1.16.0-x64.msi/download
+          if ($LASTEXITCODE -ne 0) { "ERROR: download failed (exit $LASTEXITCODE)"; exit 1 }
+          $sha256 = (Get-FileHash $msi -Algorithm SHA256).Hash
+          if ($sha256 -ne '754A5FC471FDAE655DD0CEC1FD5613B2302512ADADCDE28E17B516B0F5AED17A') {
+            "ERROR: checksum mismatch: $sha256"
+            exit 1
+          }
+          $log = "$env:RUNNER_TEMP\tcl-msi.log"
+          $p = Start-Process msiexec.exe -Wait -PassThru -ArgumentList "/i `"$msi`" ALLUSERS=1 APPLICATIONFOLDER=C:\Tcl /qn /norestart /l*v `"$log`""
+          if ($p.ExitCode -ne 0) {
+            Get-Content $log -Tail 50
+            "ERROR: msiexec exited $($p.ExitCode)"
+            exit 1
+          }
+          "TCLSH=C:\Tcl\bin\tclsh.exe" >> $env:GITHUB_ENV
+
+      - name: Verify Tcl and Core package resolution
+        id: tcl-probe
+        run: |
+          if (!$IsWindows) { throw 'Expected a native Windows runner' }
+          if (!(Test-Path -LiteralPath $env:TCLSH -PathType Leaf)) {
+            throw "Magicsplat Tcl executable missing: $env:TCLSH"
+          }
+          $root = (Get-Location).Path.Replace('\', '/')
+          "TCLLIBPATH={$root}" >> $env:GITHUB_ENV
+          $env:TCLLIBPATH = "{$root}"
+          git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $env:TCLSH .github/ci/check-core-tcl.tcl
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Run focused reader and parser harnesses
+        run: |
+          Write-Host 'The POSIX-only pipe-prefixed filename fixture is inapplicable on Windows.'
+          $tests = @(
+            'test/test_vhdl_source_reader.tcl'
+            'test/test_vhdlscan_source_encoding.tcl'
+            'test/test_vhdlscan_error_boundary.tcl'
+          )
+          $failed = 0
+          foreach ($test in $tests) {
+            Write-Host "==================== $test ===================="
+            & $env:TCLSH $test
+            $code = $LASTEXITCODE
+            if ($code -eq 0) {
+              Write-Host "RESULT: PASS  $test"
+            } else {
+              Write-Host "RESULT: FAIL  $test (exit $code)"
+              $failed = 1
+            }
+          }
+          exit $failed
+
+      - name: Verify all parser fixtures
+        if: ${{ !cancelled() && steps.tcl-probe.outcome == 'success' }}
+        run: |
+          $output = & $env:TCLSH test/parser/run_doc.tcl -verify -strict
+          $code = $LASTEXITCODE
+          $output | Write-Output
+          if ($code -ne 0) { exit $code }
+          $summary = $output -join "`n"
+          if ($summary -notmatch '(?m)^Total:[ \t]+(\d+)[ \t]*\r?$') {
+            throw 'Parser fixture summary is missing its total'
+          }
+          $total = [int]$Matches[1]
+          if ($total -lt 118 -or $summary -notmatch "(?m)^Passed:[ \t]+${total}[ \t]*\r?$") {
+            throw "Expected all parser fixtures to pass, with at least 118 results"
+          }
 
   # Hygiene + secrets scan. This is the authoritative gitleaks run: local
   # hook installs may fail to build it on restricted networks, CI always

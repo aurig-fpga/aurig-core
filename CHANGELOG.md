@@ -10,6 +10,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Core package 0.2.0 introduces `::aurig::core::util::read_vhdl_source`, a
+  shared binary-snapshot reader with decoding metadata and normalized newlines.
+
+### Changed
+
+- File-based VHDL parsing ignores a leading UTF-8 BOM and uses validated UTF-8
+  with a Windows-1252 fallback for unsigned legacy input. Signed malformed
+  UTF-8, embedded NULs and suspicious prefixes can now reject a source with a
+  structured Tcl error. File I/O errors also carry structured source context.
+  Callers should handle `AURIG CORE SOURCE` errors when analyzing files (#81).
+
 ## [0.1.0] - 2026-06-22
 
 Initial public release of aurig-core as part of the AURIG open-source FPGA

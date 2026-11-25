@@ -37,20 +37,22 @@ if {![info exists ::aurig_core_auto_load_patched]} {
 # reads this same variable for `package provide aurig` and for artifact
 # emitters' tool_version stamp.
 namespace eval ::aurig::core {
-    variable version 0.1.0
+    variable version 0.2.0
 }
 
 # Base directory where this file is located
 set dir [file dirname [info script]]
 
 # Util foundation: the analysis stack depends on ::aurig::core::util::* and
-# ::aurig::core::util::re::*. These five modules are that closure. create_ini_file
-# (the VHDL/Quartus/ISE -> ini conversion utility) is NOT here: it has no
-# lint/doc consumer, so it is a rump leaf loaded by init.tcl, not core.
+# ::aurig::core::util::re::*. The create_ini_file leaf is loaded by the
+# umbrella init.tcl and has no Lint or Doc consumer.
 source [file join $dir util common.tcl]
 source [file join $dir util vhdl_re.tcl]
 source [file join $dir util ini_yaml.tcl]
 source [file join $dir util project_files.tcl]
+
+# The VHDL source reader can be called independently of the parser.
+source [file join $dir util vhdl_source.tcl]
 
 # Parser stack: the shared analysis closure lint and doc both depend on.
 # The project-analysis leaf tools (scan_project + its dependencies / project /

@@ -312,13 +312,14 @@ namespace eval ::aurig::core::test::parser {
         return $differences
     }
 
-    # Load expected results from file
+    # Golden dictionaries are stored as UTF-8 on every host.
     proc load_expected {filename} {
         if {![file exists $filename]} {
             error "Expected file not found: $filename"
         }
 
         set fh [open $filename r]
+        fconfigure $fh -encoding utf-8
         set content [read $fh]
         close $fh
 
@@ -372,7 +373,7 @@ namespace eval ::aurig::core::test::parser {
     proc save_expected {filename normalized_dict} {
         # Simply save the dict as a Tcl list (most reliable format)
         set fh [open $filename w]
-        fconfigure $fh -translation lf
+        fconfigure $fh -encoding utf-8 -translation lf
         puts $fh $normalized_dict
         close $fh
     }
