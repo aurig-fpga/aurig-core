@@ -174,7 +174,8 @@ proc ::vhdl_index::grammar::selected_name {state {operator 0} {attributes 0}} {
         if {$next eq "."} {
             incr c(i)
             name_span c $operator
-        } elseif {$attributes && $next eq "'"} {
+        } elseif {$next eq "'" && ($attributes eq "1" ||
+            ($attributes eq "subtype" && [kind c 1] eq "subtype"))} {
             incr c(i)
             if {[kind c] eq "subtype" && $c(edition) == 2008} {
                 incr c(i)
@@ -241,6 +242,95 @@ proc ::vhdl_index::grammar::range_payload {state stops} {
     return [list {} {} {} {} [range_attribute c $stops]]
 }
 
+# An array index can be a type mark, an explicit range, or a range
+# attribute. Only ARRAY's own index list admits a boxed index subtype.
+proc ::vhdl_index::grammar::discrete_range {state allowBox} {
+    upvar 1 $state c
+    set first $c(i)
+    set start [lindex [span c] 0]
+    set stops {, )}
+    set row {}
+    if {[kind c] in {, ) of range eof open <>}} {reject c EXPECTED_INDEX}
+    if {[is_name [kind c] 0]} {
+        set mark [selected_name c 0 subtype]
+        set next [kind c]
+        if {$next eq "range" || $next in $stops} {
+            dict set row kind subtype
+            dict set row type_mark_span $mark
+            if {$next eq "range"} {
+                set keyword [take c]
+                dict set row range_keyword_span $keyword
+                if {[kind c] eq "<>"} {
+                    if {!$allowBox} {reject c UNEXPECTED_INDEX_BOX}
+                    dict set row kind index_subtype
+                    dict set row box_span [take c]
+                } else {
+                    lassign [range_payload c $stops] left direction directionSpan right attribute
+                    dict set row range_span [extent c [lindex $keyword 0]]
+                }
+            }
+        } else {
+            if {[is_name $next 0]} {reject c EXPECTED_DIMENSION_SEPARATOR}
+            set c(i) $first
+        }
+    }
+    if {$row eq {}} {
+        lassign [range_payload c $stops] left direction directionSpan right attribute
+        dict set row kind [expr {$attribute eq {} ? "range" : "range_attribute"}]
+        dict set row range_span [extent c $start]
+    }
+    if {[info exists direction]} {
+        dict set row direction $direction
+        dict set row direction_span $directionSpan
+        dict set row left_bound_span $left
+        dict set row right_bound_span $right
+        dict set row range_attribute_span $attribute
+    }
+    dict set row span [extent c $start]
+    return $row
+}
+
+# Parse an element constraint in a composite declaration. A simple field
+# name followed by groups can denote a record element constraint. A range
+# may instead start with a call or indexed name, so prove the group suffix
+# ends at this level before choosing that production.
+proc ::vhdl_index::grammar::record_constraint_prefix {state} {
+    upvar 1 $state c
+    if {![is_name [kind c] 0] || [kind c 1] ne "("} {return 0}
+    set first $c(i)
+    incr c(i)
+    while {[kind c] eq "("} {group c}
+    set found [expr {[kind c] in {, )}}]
+    set c(i) $first
+    return $found
+}
+
+proc ::vhdl_index::grammar::element_constraint {state} {
+    upvar 1 $state c
+    require c ( EXPECTED_CONSTRAINT_OPEN
+    if {[kind c] eq "open"} {
+        if {$c(edition) < 2008} {reject c EDITION_OPEN_CONSTRAINT}
+        take c
+    } else {
+        set form {}
+        while {1} {
+            set field [record_constraint_prefix c]
+            if {$form ne {} && $field != $form} {reject c MIXED_ELEMENT_CONSTRAINT}
+            set form $field
+            if {$field} {
+                if {$c(edition) < 2008} {reject c EDITION_RECORD_CONSTRAINT}
+                name_span c
+                while {[kind c] eq "("} {element_constraint c}
+            } else {
+                discrete_range c 0
+            }
+            if {[kind c] ne ","} {break}
+            take c
+        }
+    }
+    require c ) EXPECTED_CONSTRAINT_CLOSE
+}
+
 # VHDL-2008 element resolution is either one indication for array
 # elements or a list of named record elements with their own indications.
 # The structural fence already enforced the global delimiter depth limit.
@@ -272,7 +362,7 @@ proc ::vhdl_index::grammar::resolution_group {state} {
     return [extent c $start]
 }
 
-proc ::vhdl_index::grammar::subtype_indication {state rangeStops {structuredRange 0}} {
+proc ::vhdl_index::grammar::subtype_indication {state rangeStops {structuredRange 0} {composite 0}} {
     upvar 1 $state c
     set start [lindex [span c] 0]
     set resolution {}
@@ -308,7 +398,11 @@ proc ::vhdl_index::grammar::subtype_indication {state rangeStops {structuredRang
         set count 0
         while {[kind c] eq "("} {
             if {$c(edition) < 2008 && [incr count] > 1} {reject c EDITION_ELEMENT_CONSTRAINT}
-            group c
+            if {$composite} {
+                element_constraint c
+            } else {
+                group c
+            }
         }
     }
     if {[info exists constraintStart]} {set constraint [extent c $constraintStart]}

@@ -24,6 +24,43 @@ proc ::vhdl_index::type_declaration::enumeration {state recordVar} {
     dict set item close_span [require c ) EXPECTED_ENUMERATION_SEPARATOR]
 }
 
+proc ::vhdl_index::type_declaration::composite_subtype {state stops} {
+    upvar 1 $state c
+    lassign [subtype_indication c $stops 1 1] subtype constraint mark resolution form
+    return [dict create subtype_span $subtype type_mark_span $mark constraint_span $constraint \
+        resolution_span $resolution resolution_kind $form]
+}
+
+proc ::vhdl_index::type_declaration::array_definition {state recordVar} {
+    upvar 1 $state c $recordVar item
+    dict set item array_keyword_span [require c array EXPECTED_ARRAY]
+    set first [lindex [span c] 0]
+    dict set item open_span [require c ( EXPECTED_ARRAY_OPEN]
+    set dimensions {}
+    set separators {}
+    set shape {}
+    while {1} {
+        set ordinal $c(i)
+        set dimension [discrete_range c 1]
+        set form [expr {[dict get $dimension kind] eq "index_subtype" ? "unconstrained" : "constrained"}]
+        if {$shape ne {} && $shape ne $form} {
+            set c(i) $ordinal
+            reject c MIXED_INDEX_CONSTRAINT
+        }
+        set shape $form
+        lappend dimensions $dimension
+        if {[kind c] ne ","} {break}
+        lappend separators [take c]
+    }
+    dict set item array_kind $shape
+    dict set item dimensions $dimensions
+    dict set item separator_spans $separators
+    dict set item close_span [require c ) EXPECTED_DIMENSION_SEPARATOR]
+    dict set item index_span [extent c $first]
+    dict set item of_span [require c of EXPECTED_ARRAY_OF]
+    set item [dict merge $item [composite_subtype c {{;} eof}]]
+}
+
 # The typed boundary walk already proved the outer envelope. A complex
 # definition is skipped using its fence, including any nested terminators.
 proc ::vhdl_index::type_declaration::syntax {state ownerKind category recordVar} {
@@ -48,7 +85,7 @@ proc ::vhdl_index::type_declaration::syntax {state ownerKind category recordVar}
             dict set item type_mark_span $mark
             dict set item resolution_span $resolution
             dict set item resolution_kind $form
-        } elseif {$category in {units record protected protected_body} || [kind c] in {array access file}} {
+        } elseif {$category in {units record protected protected_body} || [kind c] in {access file}} {
             set form [kind c]
             if {$category in {record protected protected_body}} {set form $category}
             if {$category eq "units"} {
@@ -64,6 +101,10 @@ proc ::vhdl_index::type_declaration::syntax {state ownerKind category recordVar}
             set c(i) $c(typeDefinitionFence)
         } else {
             switch -- [kind c] {
+                array {
+                    dict set item kind array
+                    array_definition c item
+                }
                 ( {
                     dict set item kind enumeration
                     enumeration c item

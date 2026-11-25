@@ -1,0 +1,20 @@
+entity array_recovery is
+    constant clipped : integer := 1
+    type recovered is array (0 to 3) of bit;
+    type missing_name is array (range <>) of bit;
+    type missing_dimension is array (natural, ) of bit;
+    type empty_indexes is array () of bit;
+    type mixed is array (natural range <>, 0 to 7) of bit;
+    type missing_comma is array (natural integer) of bit;
+    type missing_bound is array (0 to, 2 to 3) of bit;
+    type missing_of is array (natural) bit;
+    type missing_element is array (natural) of ;
+    type bad_element is array (natural) of bit_vector(0 to);
+    type obscured is array (0 to 3) of bit
+    signal hidden : bit;
+    type obscures_next is array (0 to 3) of bit
+    type hidden_array is array (0 to 1) of bit;
+    type kept is array (0 to 3) of bit;
+    signal saved : bit;
+    type no_terminator is array (0 to 3) of bit
+end;

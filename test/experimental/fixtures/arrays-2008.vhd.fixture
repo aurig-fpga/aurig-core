@@ -1,0 +1,12 @@
+package indefinite_arrays is
+    type vector_array is array (natural range <>) of bit_vector;
+    type fixed_outer is array (0 to 7) of bit_vector;
+    type nested is array (0 to 2) of vector_array(0 to 3)(7 downto 0);
+    type outer_open is array (0 to 2) of vector_array(open)(7 downto 0);
+    type pair_t is record
+        a, b : bit_vector;
+    end record;
+    type constrained_pair_array is array (0 to 3) of pair_t(a(1 downto 0), b(2 downto 0));
+    constant exemplar : bit_vector(1 downto 0) := "10";
+    type attribute_element is array (0 to 2) of exemplar'subtype;
+end;
