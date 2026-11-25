@@ -24,10 +24,10 @@ proc ::vhdl_index::type_declaration::enumeration {state recordVar} {
     dict set item close_span [require c ) EXPECTED_ENUMERATION_SEPARATOR]
 }
 
-proc ::vhdl_index::type_declaration::composite_subtype {state stops} {
+proc ::vhdl_index::type_declaration::bounded_subtype {state stops {subtypeKey subtype_span}} {
     upvar 1 $state c
     lassign [subtype_indication c [linsert $stops end <>] 1 1] subtype constraint mark resolution form
-    return [dict create subtype_span $subtype type_mark_span $mark constraint_span $constraint \
+    return [dict create $subtypeKey $subtype type_mark_span $mark constraint_span $constraint \
         resolution_span $resolution resolution_kind $form]
 }
 
@@ -58,7 +58,7 @@ proc ::vhdl_index::type_declaration::array_definition {state recordVar} {
     dict set item close_span [require c ) EXPECTED_DIMENSION_SEPARATOR]
     dict set item index_span [extent c $first]
     dict set item of_span [require c of EXPECTED_ARRAY_OF]
-    set item [dict merge $item [composite_subtype c {{;} eof}]]
+    set item [dict merge $item [bounded_subtype c {{;} eof}]]
 }
 
 proc ::vhdl_index::type_declaration::record_field {state fieldVar} {
@@ -68,7 +68,7 @@ proc ::vhdl_index::type_declaration::record_field {state fieldVar} {
     dict set field separator_spans $separators
     dict set field colon_span $colon
     if {[record_field_prefix c]} {reject c EXPECTED_NAME}
-    set field [dict merge $field [composite_subtype c {{;} eof}]]
+    set field [dict merge $field [bounded_subtype c {{;} eof}]]
     dict set field terminator_span [require c {;} MISSING_FIELD_SEMICOLON]
 }
 
@@ -233,17 +233,26 @@ proc ::vhdl_index::type_declaration::syntax {state ownerKind category recordVar}
         } elseif {$category eq "units"} {
             dict set item kind physical
             physical_definition c item
-        } elseif {$category in {protected protected_body} || [kind c] in {access file}} {
-            set form [kind c]
-            if {$category in {protected protected_body}} {set form $category}
-            dict set item kind $form
+        } elseif {$category in {protected protected_body}} {
+            dict set item kind $category
             dict set item status recognized-but-unsupported
-            if {$form eq "protected_body" && $ownerKind eq "package"} {
+            if {$category eq "protected_body" && $ownerKind eq "package"} {
                 dict set item diagnostics [list [at TYPE_PROTECTED_BODY_OUT_OF_SCOPE [span c]]]
             }
             set c(i) $c(typeDefinitionFence)
         } else {
             switch -- [kind c] {
+                access {
+                    dict set item kind access
+                    dict set item access_keyword_span [take c]
+                    set item [dict merge $item [bounded_subtype c {{;} eof} designated_subtype_span]]
+                }
+                file {
+                    dict set item kind file
+                    dict set item file_keyword_span [take c]
+                    dict set item of_span [require c of EXPECTED_FILE_OF]
+                    dict set item type_mark_span [selected_name c 0 1]
+                }
                 array {
                     dict set item kind array
                     array_definition c item
@@ -293,7 +302,7 @@ proc ::vhdl_index::type_declaration::index {state ownerKind owner first region c
             dict set item name_span [take c]
             if {[kind c] eq "is"} {dict set item is_span [take c]}
             dict set item header_span [extent c [lindex $intro 0]]
-            if {[kind c] in {array record}} {dict set item kind [kind c]}
+            if {[kind c] in {array record access file}} {dict set item kind [kind c]}
         }
         set issue [at TYPE_UNPROVEN_DECLARATION_BOUNDARY $region]
         if {$category eq "uncertain_opaque_item"} {

@@ -1,0 +1,44 @@
+package indirect_types is
+    type node_t;
+    type handle is access node_t;
+    type node_t is record
+        value : integer;
+        next_node : handle;
+    end record;
+    type lanes is access
+        std.standard.bit_vector(7 downto 0);
+    function choose(values : bit_vector) return bit;
+    type resolved_reference is access choose bit;
+    subtype \File, element;\ is integer;
+    type data_file_t is file of \File, element;\; -- of end; range (
+    type integer_file_t is file of std.standard.integer;
+end;
+
+package body indirect_types is
+    function choose(values : bit_vector) return bit is
+    begin
+        return '0';
+    end;
+    type body_reference is access std.standard.integer;
+    procedure collect is
+        type procedure_file is file of integer;
+    begin
+        null;
+    end;
+end;
+
+entity indirection is
+    type entity_file is file of bit;
+end;
+architecture rtl of indirection is
+    type architecture_reference is access bit;
+    type stream_t is file of bit;
+    file stream : stream_t;
+begin
+    p : process is
+        type process_file is file of bit;
+        variable pointer : architecture_reference;
+    begin
+        wait;
+    end process;
+end;

@@ -1,0 +1,8 @@
+package modern_indirection is
+    type vectors is array (natural range <>) of bit_vector;
+    type nested_reference is access vectors(open)(7 downto 0);
+    constant exemplar : bit_vector(3 downto 0) := "1000";
+    type attribute_reference is access exemplar'subtype;
+    subtype file_element is exemplar'subtype;
+    type attribute_file is file of file_element;
+end;

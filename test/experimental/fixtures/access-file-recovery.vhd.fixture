@@ -1,0 +1,20 @@
+entity indirect_recovery is
+    constant clipped_access : integer := 1
+    type recovered_access is access bit_vector(7 downto 0);
+    constant clipped_file : integer := 2
+    type recovered_file is file of integer;
+    type no_subtype is access;
+    type bad_constraint is access bit_vector(1 to);
+    type no_of is file integer;
+    type no_mark is file of ;
+    type file_range is file of integer range 1 to 2;
+    type file_constraint is file of bit_vector(7 downto 0);
+    type file_resolution is file of resolver integer;
+    type obscures_object is access integer
+    signal withheld : bit;
+    type obscures_type is file of integer
+    type withheld_type is access bit;
+    type saved is file of integer;
+    signal visible_object : bit;
+    type missing_tail is access bit
+end;

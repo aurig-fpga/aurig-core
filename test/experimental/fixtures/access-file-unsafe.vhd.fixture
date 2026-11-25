@@ -1,0 +1,5 @@
+package retained is
+    type existing is file of integer;
+end;
+package lost is
+    type no_end is access bit_vector(
