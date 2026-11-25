@@ -38,6 +38,7 @@ proc inventory {r} {
 proc input {relative {edition 2008}} {
     if {[lindex [file split $relative] 0] eq "fixtures"} {
         set root $::tests
+        append relative .fixture
     } else {
         set root $::archivedTask
     }

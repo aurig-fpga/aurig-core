@@ -17,7 +17,7 @@ proc surface {result extent} {
     return [::vhdl_index::slice [dict get $result snapshot] $extent]
 }
 proc fixture {name edition} {
-    return [::vhdl_index::analyze_file [file join $::tests fixtures $name.vhd] $edition]
+    return [::vhdl_index::analyze_file [file join $::tests fixtures $name.vhd.fixture] $edition]
 }
 proc inline {name text edition} {
     set path [file join $::env(AURIG_EXPERIMENTAL_SCRATCH) $name.vhd]
@@ -181,7 +181,7 @@ set r [fixture objects-1993 1993]
 check 1993-legal parsed [dict get $r capabilities object_declarations]
 set expected {
     {package previous_edition shared_variable {old_a old_b} integer {} {} 1 {;} parsed 0}
-    {package previous_edition signal limited {std_logic range '0' to '1'} {range '0' to '1'} register {} {;} parsed 0}
+    {package previous_edition signal limited {ieee.std_logic_1164.resolved std_ulogic range '0' to '1'} {range '0' to '1'} register {} {;} parsed 0}
     {package previous_edition signal resolution {ieee.std_logic_1164.resolved std_ulogic} {} {} '0' {;} parsed 0}
 }
 set actual [signature $r]

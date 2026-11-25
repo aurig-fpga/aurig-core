@@ -193,7 +193,7 @@ foreach {file edition expected} {
     protected02 2008 {package:counters package_body:counters}
     operators08 2008 {entity:e architecture:rtl}
 } {
-    set result [result_for [file join $fixtureDir $file.vhd] $edition]
+    set result [result_for [file join $fixtureDir $file.vhd.fixture] $edition]
     if {$file eq "lexical93"} {
         set expected [list "package:\\Escaped\\\\;End\\"]
     }
@@ -227,15 +227,15 @@ proc selected_tokens {result wanted} {
     return $selected
 }
 
-set result [result_for [file join $fixtureDir lexical93.vhd] 1993]
+set result [result_for [file join $fixtureDir lexical93.vhd.fixture] 1993]
 equal "tick, qualified literals, selected Latin-1 names and alternate delimiters" \
     [token_expectations {{' '} {character 'x'} {' '} {character '"'} {character '"'} {character '''} \
         {number 16:Af:} {string {%end %% entity%}} {bit_string X%FE%} {number 3} {' '}}] \
     [selected_tokens $result {' character number string bit_string}]
-set result [result_for [file join $fixtureDir operators08.vhd] 2008]
+set result [result_for [file join $fixtureDir operators08.vhd.fixture] 2008]
 equal "external name and matching operator lexemes" [token_expectations {{<< <<} {>> >>} {number 16#FF#} {number 2#1.01#E-2} {?= ?=}}] \
     [selected_tokens $result {<< >> ?= number}]
-set result [result_for [file join $fixtureDir structure08.vhd] 2008]
+set result [result_for [file join $fixtureDir structure08.vhd.fixture] 2008]
 equal "sized bit literal" [token_expectations {{bit_string 4UX"F"}}] [selected_tokens $result {bit_string}]
 foreach {name text expected} {
     context {entity context is end;} {1993 2002}
@@ -297,14 +297,14 @@ foreach {name hex expect} {
 }
 catch {result_for [file join $scratch no-such-source.vhd] 2008} _ io
 equal "fatal IO" {AURIG CORE SOURCE IO OPEN} [lrange [dict get $io -errorcode] 0 4]
-catch {result_for [file join $fixtureDir lexical93.vhd] 2019} _ unsupported
+catch {result_for [file join $fixtureDir lexical93.vhd.fixture] 2019} _ unsupported
 equal "unverified edition" {VHDL_INDEX EDITION 2019} [dict get $unsupported -errorcode]
 
 foreach {name expected codes} {
     recover {entity:before_unit entity:damaged entity:after_unit} MISMATCHED_END_NAME
     uncertain entity:before_unit MISMATCHED_END_KIND
 } {
-    set result [result_for [file join $fixtureDir $name.vhd] 2008]
+    set result [result_for [file join $fixtureDir $name.vhd.fixture] 2008]
     equal "$name recovery inventory" $expected [inventory $result]
     equal "$name recovery diagnostics" $codes [diagnoses $result]
     assertions_for_source $result $name
