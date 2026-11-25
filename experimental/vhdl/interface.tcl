@@ -170,12 +170,6 @@ proc ::vhdl_index::interface::recover_item {state start} {
     }
 }
 
-proc ::vhdl_index::interface::combine {status next} {
-    set severity {parsed recognized-but-unsupported malformed unrecognized}
-    if {[lsearch -exact $severity $next] > [lsearch -exact $severity $status]} {return $next}
-    return $status
-}
-
 proc ::vhdl_index::interface::list_body {state context} {
     variable genericKinds
     upvar 1 $state c

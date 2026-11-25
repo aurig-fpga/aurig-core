@@ -1,0 +1,7 @@
+library ieee;
+use ieee.std_logic_1164.all;
+package previous_edition is
+    shared variable old_a, old_b : integer := 1;
+    signal limited : std_logic range '0' to '1' register;
+    signal resolution : ieee.std_logic_1164.resolved std_ulogic := '0';
+end package;

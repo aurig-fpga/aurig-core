@@ -139,6 +139,14 @@ proc ::vhdl_index::grammar::subtype_indication {state rangeStops} {
 }
 
 
+# Exact suffix of the single-identifier, simple-type-mark production.
+# Callers provide a fence and handle their own class, mode and separator rules.
+proc ::vhdl_index::grammar::simple_declarator {state} {
+    upvar 1 $state c
+    return [expr {[is_name [kind c 1] 0] && [kind c 2] eq ":" &&
+        [is_name [kind c 3] 0] && [kind c 4] eq ";"}]
+}
+
 proc ::vhdl_index::grammar::identifier_list {state} {
     upvar 1 $state c
     set names [list [name_span c]]
@@ -148,4 +156,10 @@ proc ::vhdl_index::grammar::identifier_list {state} {
         lappend names [name_span c]
     }
     return [list $names $commas [require c : EXPECTED_COLON]]
+}
+
+proc ::vhdl_index::grammar::combine {status next} {
+    set severity {parsed recognized-but-unsupported malformed unrecognized}
+    if {[lsearch -exact $severity $next] > [lsearch -exact $severity $status]} {return $next}
+    return $status
 }

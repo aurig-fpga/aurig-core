@@ -111,18 +111,18 @@ proc ::vhdl_index::parser::take_semicolon {state} {
     return [take c]
 }
 
-proc ::vhdl_index::parser::boundary {state stops} {
+proc ::vhdl_index::parser::boundary {state stops {watchObjects 0}} {
     upvar 1 $state c
-    set marker [scan c $stops]
+    set marker [scan c $stops {} $watchObjects]
     if {$marker eq "eof"} {fail c TRUNCATED_SCOPE}
     return $marker
 }
 
-proc ::vhdl_index::parser::opaque_item {state} {
+proc ::vhdl_index::parser::opaque_item {state {watchObjects 0}} {
     upvar 1 $state c
     set start [lindex [span c] 0]
     set first $c(i)
-    set marker [boundary c {{;} end begin}]
+    set marker [boundary c {{;} end begin} $watchObjects]
     if {$marker eq ";"} {
         incr c(i)
     } elseif {$c(i) == $first} {
@@ -139,11 +139,12 @@ proc ::vhdl_index::parser::descend {state depth} {
     return [expr {$depth + 1}]
 }
 
-proc ::vhdl_index::parser::declaration {state depth} {
+proc ::vhdl_index::parser::declaration {state depth {owner {}}} {
     upvar 1 $state c
     set first [peek c]
     switch -- $first {
         impure - pure - function - procedure {
+            if {$owner ne {}} {set opening [lindex [span c] 0]}
             if {$first in {impure pure}} {incr c(i)}
             set kind [peek c]
             if {$kind ni {function procedure}} {fail c EXPECTED_SUBPROGRAM}
@@ -153,8 +154,10 @@ proc ::vhdl_index::parser::declaration {state depth} {
             if {$marker eq "is"} {
                 incr c(i)
                 if {[peek c] ne "new"} {
-                    scope c $kind $name [descend c $depth] require
-                    return
+                    set child {}
+                    if {$owner ne {}} {set child [list $opening $owner]}
+                    scope c $kind $name [descend c $depth] require $child
+                    return {}
                 }
                 if {$c(edition) < 2008} {fail c EDITION_SUBPROGRAM_INSTANTIATION}
                 opaque_item c
@@ -188,7 +191,7 @@ proc ::vhdl_index::parser::declaration {state depth} {
                     incr c(i)
                     if {$type eq "protected" && [accept c body]} {set type protected_body}
                     scope c $type $name [descend c $depth] forbid
-                    return
+                    return $type
                 }
                 if {$type eq "units" || [boundary c {units {;} end begin}] eq "units"} {
                     expect c units
@@ -208,9 +211,14 @@ proc ::vhdl_index::parser::declaration {state depth} {
             fail c UNSAFE_UNIT_BOUNDARY [list found $first]
         }
         default {
-            opaque_item c
+            opaque_item c [expr {$owner ne {}}]
+            if {$owner ne {} && $c(opaqueObject) ne {}} {
+                lappend c(objectDiagnostics) [::vhdl_index::object::at OBJECT_OPAQUE_BOUNDARY $c(opaqueObject)]
+                return uncertain_opaque_item
+            }
         }
     }
+    return $first
 }
 
 proc ::vhdl_index::parser::configuration_block {state depth} {
@@ -335,8 +343,9 @@ proc ::vhdl_index::parser::branch_header {state marker} {
     incr c(i)
 }
 
-proc ::vhdl_index::parser::statement {state depth phase} {
+proc ::vhdl_index::parser::statement {state depth phase {owner {}}} {
     upvar 1 $state c
+    if {$owner ne {}} {set opening [lindex [span c] 0]}
     set label [optional_label c]
     set first [peek c]
     if {$first eq "postponed" && [peek c 1] eq "process"} {
@@ -351,7 +360,10 @@ proc ::vhdl_index::parser::statement {state depth phase} {
             # declaration scan handles the following item independently.
             if {[peek c] eq "("} {consume_group c}
             accept c is
-            scope c $first $label [descend c $depth] require
+            set child {}
+            if {$owner ne {} && $first eq "process"} {set child [list $opening $owner]}
+            scope c $first $label [descend c $depth] require $child
+            if {$first eq "block"} {return block}
         }
         if - case - for - while - loop {
             incr c(i)
@@ -371,6 +383,7 @@ proc ::vhdl_index::parser::statement {state depth phase} {
             }
             if {$marker eq "generate" && $phase eq "concurrent" && $first in {if case for}} {
                 generate c $depth $label $first $alternative
+                return generate
             } elseif {$phase eq "sequential" &&
                 [dict exists {if then case is for loop while loop loop loop} $first] &&
                 [dict get {if then case is for loop while loop loop loop} $first] eq $marker} {
@@ -389,6 +402,7 @@ proc ::vhdl_index::parser::statement {state depth phase} {
         else - elsif - when {fail c UNEXPECTED_ALTERNATIVE [list found $first]}
         default {opaque_item c}
     }
+    return {}
 }
 
 proc ::vhdl_index::parser::sequential_control {state depth kind name matching} {
@@ -425,19 +439,53 @@ proc ::vhdl_index::parser::consume_group {state} {
     expect c )
 }
 
-proc ::vhdl_index::parser::scope {state kind name depth beginPolicy} {
+proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {}}} {
     upvar 1 $state c
     set phase declare
     set entityScope [expr {$kind eq "entity"}]
     set entityHeader $entityScope
+    set owner {}
+    if {$ownership ne {}} {
+        lassign $ownership owner parent
+        set declarationStart [lindex [span c previous] 1]
+        set declarationEnd {}
+        set firstScope [llength $c(objectScopes)]
+        set firstIssue [llength $c(objectDiagnostics)]
+        set entries {}
+        set opaque {}
+        set gaps {}
+        set objectStatus parsed
+    }
     while {1} {
         set next [peek c]
         if {$next eq "end"} {
             if {$beginPolicy eq "require" && $phase eq "declare"} {fail c MISSING_BEGIN}
-            return [terminator c $kind $name]
+            if {$owner eq {}} {return [terminator c $kind $name]}
+            if {$declarationEnd eq {}} {set declarationEnd [lindex [span c] 0]}
+            set before [llength $c(diagnostics)]
+            set tail [terminator c $kind $name]
+            if {[llength $c(diagnostics)] != $before} {
+                set c(objectScopes) [lrange $c(objectScopes) 0 [expr {$firstScope - 1}]]
+                set c(objectDiagnostics) [lrange $c(objectDiagnostics) 0 [expr {$firstIssue - 1}]]
+                set cause [lindex $c(diagnostics) end]
+                lappend c(objectDiagnostics) [unproven_objects [list $owner [lindex $tail 1]] $cause]
+                set objectStatus unrecognized
+                set entries {}
+                set opaque {}
+                set gaps {}
+            }
+            if {$parent ne {} || $objectStatus ne "parsed" || $entries ne {} || $opaque ne {} ||
+                $gaps ne {} || [llength $c(objectScopes)] != $firstScope} {
+                lappend c(objectScopes) [dict create id $owner parent_id $parent kind $kind \
+                    name_span [lindex $name 1] span [list $owner [lindex $tail 1]] \
+                    declarative_span [list $declarationStart $declarationEnd] entries $entries \
+                    opaque $opaque gaps $gaps status $objectStatus]
+            }
+            return $tail
         }
         if {$next eq "begin"} {
             if {$beginPolicy eq "forbid" || $phase ne "declare"} {fail c UNEXPECTED_BEGIN}
+            if {$owner ne {}} {set declarationEnd [lindex [span c] 0]}
             incr c(i)
             if {$kind in {process procedure function}} {
                 set phase sequential
@@ -457,10 +505,48 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy} {
                 set c(interfacePending) {}
             } else {
                 set entityHeader 0
-                declaration c $depth
+                if {$owner eq {}} {
+                    declaration c $depth
+                    continue
+                }
+                set first $c(i)
+                if {$next in {constant signal variable shared}} {
+                    opaque_item c
+                    set started [clock microseconds]
+                    lassign [::vhdl_index::object::index c $kind $owner $first] records state
+                    ::vhdl_index::object::append_entries entries $records
+                    if {$state ne "parsed"} {
+                        set objectStatus [::vhdl_index::grammar::combine $objectStatus $state]
+                    }
+                    incr c(objectTime) [expr {[clock microseconds] - $started}]
+                } else {
+                    set start [lindex [span c] 0]
+                    set prior [llength $c(diagnostics)]
+                    set category [declaration c $depth $owner]
+                    set region [list $start [lindex [span c previous] 1]]
+                    if {$category ne {}} {
+                        lappend opaque [list $next $region]
+                    }
+                    if {[llength $c(diagnostics)] != $prior && $category ne {}} {
+                        lappend gaps [list $category $region]
+                        set objectStatus unrecognized
+                    } elseif {$category in {package protected_body}} {
+                        lappend gaps [list $category $region]
+                        set objectStatus [::vhdl_index::grammar::combine $objectStatus recognized-but-unsupported]
+                    } elseif {$category ni {{} alias attribute component disconnect file for generic group impure
+                        function procedure pure signal subtype type units record protected use}} {
+                        lappend gaps [list $category $region]
+                        set objectStatus unrecognized
+                    }
+                }
             }
         } else {
-            statement c $depth $phase
+            if {$owner ne {}} {set start [lindex [span c] 0]}
+            set category [statement c $depth $phase $owner]
+            if {$owner ne {} && $category ne {}} {
+                lappend gaps [list $category [list $start [lindex [span c previous] 1]]]
+                set objectStatus [::vhdl_index::grammar::combine $objectStatus recognized-but-unsupported]
+            }
         }
     }
 }
@@ -488,7 +574,7 @@ proc ::vhdl_index::parser::unit {state pending} {
             set tail [terminator c $kind $name]
         } else {
             set policy [dict get {architecture require entity allow package forbid package_body forbid} $kind]
-            set tail [scope c $kind $name 1 $policy]
+            set tail [scope c $kind $name 1 $policy [list [lindex $head 0] {}]]
         }
     }
     if {$kind ne "context" && [lindex $head 1] < [lindex $tail 0]} {
@@ -509,9 +595,14 @@ proc ::vhdl_index::parser::unit {state pending} {
         incr c(interfaceTime) [expr {[clock microseconds] - $started}]
         lappend c(interfaces) $owner
         lappend c(interfaceDiagnostics) {*}[dict get $owner diagnostics]
-        set c(interfaceStatus) [::vhdl_index::interface::combine $c(interfaceStatus) [dict get $owner status]]
+        set c(interfaceStatus) [::vhdl_index::grammar::combine $c(interfaceStatus) [dict get $owner status]]
     }
     return $result
+}
+
+proc ::vhdl_index::parser::unproven_objects {region cause} {
+    return [dict create code OBJECT_UNPROVEN_SCOPE severity error phase structural span $region \
+        related_span [dict get $cause span] cause [dict get $cause code]]
 }
 
 proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
@@ -524,6 +615,10 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
     foreach {opener connector} {entity is architecture of configuration of package is context is} {
         dict set c(unitTriggers) [dict get $symbols $opener] [dict get $symbols $connector]
     }
+    set c(objectKinds) {}
+    foreach keyword $::vhdl_index::object::keywords {
+        lappend c(objectKinds) [dict get $symbols $keyword]
+    }
     set c(pairs) {}
     set c(closers) {}
     foreach {left right} {( ) {[} {]} << >>} {
@@ -533,6 +628,8 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
     }
 
     array set c [list interfaces {} interfaceDiagnostics {} interfaceStatus parsed interfaceTime 0         interfacePending {} interfaceLexical [dict get $tape diagnostics] interfaceLexicalAt 0]
+    array set c [list objectScopes {} objectDiagnostics {} objectTime 0 \
+        objectLexical [dict get $tape diagnostics] objectLexicalAt 0]
     set units {}
     set pending {}
     set recovery {}
@@ -542,6 +639,8 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
         if {$compound} {
             set status [catch {context_item c} item options]
         } else {
+            set firstScope [llength $c(objectScopes)]
+            set firstIssue [llength $c(objectDiagnostics)]
             set status [catch {unit c $pending} item options]
         }
         if {$status} {
@@ -551,6 +650,11 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
             lappend c(diagnostics) $item
             set recovery [list $begin [dict get $snapshot length]]
             set c(interfaceStatus) unrecognized
+            if {!$compound} {
+                set c(objectScopes) [lrange $c(objectScopes) 0 [expr {$firstScope - 1}]]
+                set c(objectDiagnostics) [lrange $c(objectDiagnostics) 0 [expr {$firstIssue - 1}]]
+            }
+            lappend c(objectDiagnostics) [unproven_objects $recovery $item]
             if {$c(interfacePending) ne {}} {
                 lappend c(interfaceDiagnostics) [dict create code INTERFACE_UNPROVEN_SCOPE severity error                     span $c(interfacePending) related_span [dict get $item span] cause [dict get $item code]]
             }
@@ -568,6 +672,15 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
             span [list [lindex [dict get [lindex $pending 0] span] 0] \
                 [lindex [dict get [lindex $pending end] span] 1]]]
     }
-    return [dict create units $units structural_diagnostics $c(diagnostics) recovery $recovery \
+    set objectStatus parsed
+    if {$recovery ne {}} {
+        set objectStatus unrecognized
+    }
+    foreach scope $c(objectScopes) {
+        set objectStatus [::vhdl_index::grammar::combine $objectStatus [dict get $scope status]]
+    }
+    return [dict create object_declarations [lsort -integer -index 1 $c(objectScopes)] \
+        object_diagnostics $c(objectDiagnostics) object_status $objectStatus object_time_us $c(objectTime) \
+        units $units structural_diagnostics $c(diagnostics) recovery $recovery \
         unowned_context $pending entity_interfaces $c(interfaces) interface_diagnostics $c(interfaceDiagnostics)         interface_status $c(interfaceStatus) interface_time_us $c(interfaceTime)]
 }

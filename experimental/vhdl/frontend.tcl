@@ -4,7 +4,7 @@ namespace eval ::vhdl_index {
     variable defaultLimits {tokens 2000000 scopes 64 delimiters 256}
 }
 
-foreach vhdlIndexModule {source lexer cursor grammar interface parser coverage} {
+foreach vhdlIndexModule {source lexer cursor grammar interface object parser coverage} {
     source [file join [file dirname [info script]] $vhdlIndexModule.tcl]
 }
 unset vhdlIndexModule
@@ -60,6 +60,11 @@ proc ::vhdl_index::analyze_file {path edition {requestedLimits {}}} {
     dict incr timing structural -$interfaceTime
     dict unset structure interface_time_us
     dict unset structure interface_status
+    set objectTime [dict get $structure object_time_us]
+    dict set timing object_declarations $objectTime
+    dict incr timing structural -$objectTime
+    dict unset structure object_time_us
+    dict unset structure object_status
     return [dict merge $structure $coverage [dict create engine $engine edition $edition \
         source_id $sourceId snapshot $source tape $tape lexical_diagnostics [dict get $tape diagnostics] \
         limits $actualLimits timing_us $timing]]

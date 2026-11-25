@@ -65,6 +65,7 @@ proc ::vhdl_index::coverage {snapshot tape structure} {
     }
     return [dict create ledger $ledger opaque_regions $opaque \
         capabilities [dict create source parsed accounting parsed lexical $lexical \
-            unit_boundaries $structural context $context entity_interfaces [dict get $structure interface_status] declarations opaque concurrent opaque \
+            unit_boundaries $structural context $context entity_interfaces [dict get $structure interface_status] \
+            object_declarations [dict get $structure object_status] declarations opaque concurrent opaque \
             sequential opaque expressions opaque]]
 }

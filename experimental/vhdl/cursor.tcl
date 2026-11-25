@@ -71,7 +71,7 @@ proc ::vhdl_index::parser::read_name {state {designator 0}} {
 
 # Advance to a stop at delimiter depth zero. Absolute character positions are
 # obtained only on a diagnostic or when materializing a completed record.
-proc ::vhdl_index::parser::scan {state stops {groupMode {}}} {
+proc ::vhdl_index::parser::scan {state stops {groupMode {}} {watchObjects 0}} {
     upvar 1 $state c
     set stopIds {0 8}
     foreach stop $stops {lappend stopIds [dict get $c(symbols) $stop]}
@@ -85,6 +85,12 @@ proc ::vhdl_index::parser::scan {state stops {groupMode {}}} {
     set package [dict get $c(symbols) package]
     set body [dict get $c(symbols) body]
     set pos $c(i)
+    if {$watchObjects} {
+        set c(opaqueObject) {}
+        set objectKinds $c(objectKinds)
+        set shared [dict get $c(symbols) shared]
+        set variable [dict get $c(symbols) variable]
+    }
     set grouped [expr {$groupMode ne {}}]
     if {$grouped} {
         set k [lindex $kinds [lindex $significant $pos]]
@@ -134,6 +140,12 @@ proc ::vhdl_index::parser::scan {state stops {groupMode {}}} {
             if {$grouped && $stack eq {}} {
                 set c(i) [expr {$pos + 1}]
                 return
+            }
+        } elseif {$watchObjects && $stack eq {} && $k in $objectKinds && $c(opaqueObject) eq {}} {
+            set following [lindex $kinds [lindex $significant [expr {$pos + 1}]]]
+            if {$following in {1 2} || ($k == $shared && $following == $variable)} {
+                set c(i) $pos
+                set c(opaqueObject) [span c]
             }
         } elseif {$stack eq {} && [dict exists $triggers $k]} {
             set next [expr {$pos + 1}]
