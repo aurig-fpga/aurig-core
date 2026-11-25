@@ -1,0 +1,35 @@
+package physical_types is
+    type \Rate, units;\ is range -1 to (7 + 4) units
+        \Tick; name\; -- end units; this is trivia
+        scaled = 2 \Tick; name\;
+        based = 16#A# \Tick; name\;
+        decade = 1E1 \Tick; name\;
+        implicit = scaled;
+        selected = 1 physical_types.scaled;
+    end units \Rate, units;\;
+
+    constant sample : bit_vector(0 to 3) := "0101";
+    type measured is range 3 downto 0 units slot; end units MEASURED;
+end;
+
+package body physical_types is
+    type elapsed_t is range -3 to 3 units elapsed_tick; end units;
+    procedure establish is
+        type local_t is range 1 to 3 units local_tick; end units;
+    begin
+        null;
+    end;
+end;
+
+entity u is
+    type entity_t is range 0 to 3 units entity_tick; end units;
+end;
+architecture a of u is
+    type architecture_t is range 0 to 3 units arch_tick; end units;
+begin
+    p : process is
+        type process_t is range 0 to 3 units process_tick; end units;
+    begin
+        wait;
+    end process;
+end;

@@ -1,0 +1,4 @@
+package physical_attribute is
+    constant sample : bit_vector(0 to 3) := "0101";
+    type measured is range sample'reverse_range(1) units slot; end units MEASURED;
+end;

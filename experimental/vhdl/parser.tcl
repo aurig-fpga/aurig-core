@@ -34,7 +34,7 @@ proc ::vhdl_index::parser::is_context_item {state} {
     return [expr {$kind in {library use} || ($kind eq "context" && [peek c 2] ne "is")}]
 }
 
-proc ::vhdl_index::parser::terminator {state kind name {allowName 1} {matching 0} {recoverRecordSeparator 0}} {
+proc ::vhdl_index::parser::terminator {state kind name {allowName 1} {matching 0} {recoverTypedSeparator 0}} {
     upvar 1 $state c
     set start [lindex [span c] 0]
     expect c end
@@ -68,7 +68,7 @@ proc ::vhdl_index::parser::terminator {state kind name {allowName 1} {matching 0
                 related_span [lindex $name 1] expected [lindex $name 0] found $spelling]
         }
     }
-    if {$recoverRecordSeparator && [peek c] ne ";"} {
+    if {$recoverTypedSeparator && [peek c] ne ";"} {
         set next [peek c]
         if {$next in {end begin} ||
             ([::vhdl_index::grammar::declaration_family $next] ne {} &&
@@ -158,9 +158,9 @@ proc ::vhdl_index::parser::opaque_object_boundary {state observing} {
     return 1
 }
 
-# Collect the physical field fences with the common delimiter walk. A
-# declaration-shaped prefix inside the record is evidence of a lost boundary.
-proc ::vhdl_index::parser::record_boundary {state name} {
+# Collect member fences with the common delimiter walk. A declaration
+# opener inside a record or units clause is evidence of a lost boundary.
+proc ::vhdl_index::parser::type_member_boundary {state kind name} {
     upvar 1 $state c
     set sites {}
     set obscured {}
@@ -173,14 +173,14 @@ proc ::vhdl_index::parser::record_boundary {state name} {
         if {$separated} {incr c(i)}
         lappend sites [list $first $c(i) $separated]
     }
-    terminator c record $name 1 0 1
+    terminator c $kind $name 1 0 1
     if {$obscured ne {}} {
         set c(opaqueBoundary) $obscured
         opaque_object_boundary c 1
         return uncertain_opaque_item
     }
-    set c(recordSites) $sites
-    return record
+    set c(typeMemberSites) $sites
+    return $kind
 }
 
 proc ::vhdl_index::parser::declaration {state depth {owner {}}} {
@@ -243,7 +243,7 @@ proc ::vhdl_index::parser::declaration {state depth {owner {}}} {
                     incr c(i)
                     if {$type eq "protected" && [accept c body]} {set type protected_body}
                     set child [descend c $depth]
-                    if {$type eq "record" && $observe} {return [record_boundary c $name]}
+                    if {$type eq "record" && $observe} {return [type_member_boundary c record $name]}
                     scope c $type $name $child forbid
                     return $type
                 }
@@ -255,7 +255,9 @@ proc ::vhdl_index::parser::declaration {state depth {owner {}}} {
                 }
                 if {$marker eq "units"} {
                     expect c units
-                    scope c units $name [descend c $depth] forbid
+                    set child [descend c $depth]
+                    if {$observe && !$obscured} {return [type_member_boundary c units $name]}
+                    scope c units $name $child forbid
                     if {$obscured} {return uncertain_opaque_item}
                     return units
                 }

@@ -1,0 +1,31 @@
+entity physical_recovery is
+    constant clipped : integer := 0
+    type recovered is range 0 to 3 units tick; end units;
+    type missing_primary_separator is range 0 to 3 units
+        base
+        next_unit = 2 base;
+    end units;
+    type malformed_members is range 0 to 3 units
+        brick;
+        no_assignment 2 brick;
+        no_literal = ;
+        no_reference = 3;
+        real_multiplier = 1.5 brick;
+        expression_multiplier = (2 + 3) brick;
+        leading_sign = -2 brick;
+        first_unit = 2 brick
+        later_unit = first_unit;
+        final_unit = 3 brick
+    end units;
+    type empty_units is range 0 to 3 units end units;
+    type bad_name is range 0 to 3 units bad_tick; end units wrong_name;
+    type no_tail_separator is range 0 to 3 units no_tick; end units
+    signal saved : bit;
+    type before_type is range 0 to 3 units some_tick; end units
+    type next_type is (first, last);
+    type obscured is range 0 to 3 units
+        start_tick;
+        signal hidden : bit;
+    end units;
+    signal after_units : bit;
+end;
