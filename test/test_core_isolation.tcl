@@ -67,7 +67,11 @@ $child eval {
 set load_rc [catch {$child eval {package require aurig::core}} load_ver]
 
 ok "package require aurig::core succeeds" {$load_rc == 0}
-ok "reports a version" {[string length $load_ver] > 0}
+ok "reports Core version 0.2.0" {$load_ver eq "0.2.0"}
+ok "Core index registers 0.2.0" {[$child eval {package ifneeded aurig::core 0.2.0}] ne ""}
+ok "Core runtime and provided versions agree" {
+    [$child eval {set ::aurig::core::version}] eq [$child eval {package provide aurig::core}]
+}
 
 # ---------------------------------------------------------------------------
 # Headline assertion: every file sourced while loading the package is under

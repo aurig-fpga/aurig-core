@@ -238,13 +238,19 @@ The PowerShell form has been verified with ActiveTcl 8.6.14 under Windows PowerS
 5.1.
 
 This is exactly how AURIG Lint and AURIG Doc resolve their parser/util/schema layer —
-they vendor no copy of it and declare `package require aurig::core` at the top of each
-file that uses it. On Windows, use forward slashes in `TCLLIBPATH`.
+they load the external Tcl package from that path. For a reproducible source
+installation, check out the exact Core commit listed by the consuming tool's
+installation instructions or CI. Put the directory containing `pkgIndex.tcl` on
+`TCLLIBPATH`. Use forward slashes on Windows and brace paths containing spaces
+as Tcl list elements.
 
 ## Reading VHDL source
 
+Core 0.2.0 introduces the shared reader API. Use the verified source checkout
+for 0.2.0 during integration.
+
 ```tcl
-package require aurig::core
+package require aurig::core 0.2.0-0.3.0
 set source [::aurig::core::util::read_vhdl_source $path]
 set text [dict get $source text]
 ```
@@ -285,7 +291,10 @@ offset can differ from a string index after a signature, a multibyte
 character or a normalized newline.
 
 The parser uses this reader for `vhdlscan -in`. Reader errors propagate
-with their `AURIG CORE SOURCE` codes. Verbosity 1 and above report cp1252
+with their `AURIG CORE SOURCE` codes. Compared with 0.1.0, a source that
+previously returned an AST or an empty result can now raise an error. Treat a
+source rejection as a failed analysis and preserve the Tcl error code when
+propagating it. Verbosity 1 and above report cp1252
 fallback and its first invalid UTF-8 byte offset. Call the reader directly
 for structured decoding metadata. The parser result keeps its existing
 dictionary shape.

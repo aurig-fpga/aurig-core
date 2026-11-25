@@ -37,7 +37,7 @@ if {![info exists ::aurig_core_auto_load_patched]} {
 # reads this same variable for `package provide aurig` and for artifact
 # emitters' tool_version stamp.
 namespace eval ::aurig::core {
-    variable version 0.1.0
+    variable version 0.2.0
 }
 
 # Base directory where this file is located

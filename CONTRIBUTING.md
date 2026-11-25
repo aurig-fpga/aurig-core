@@ -24,7 +24,9 @@ runtime. `aurig-core` itself depends on no other AURIG repository.
 
 The Tcl and tcllib requirement, and the snippet to verify which interpreter you are
 running, live in the README under [Requirements](README.md#requirements). They are
-not repeated here.
+not repeated here. Use a verified Core source commit for cross-repository tests.
+When changing the package version, keep `core.tcl` and `pkgIndex.tcl` in sync and
+run `test/test_core_isolation.tcl` to check the value reported by Tcl.
 
 In addition, for development only:
 

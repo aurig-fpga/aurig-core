@@ -20,6 +20,9 @@ set loaded_sources {}
 trace add execution ::source enter record_source
 set version [package require aurig::core]
 trace remove execution ::source enter record_source
+if {$version ne "0.2.0" || $version ne $::aurig::core::version} {
+    error "Expected Core 0.2.0 with matching runtime version, got $version"
+}
 puts "aurig::core $version from $root"
 foreach relative {core.tcl util/vhdl_source.tcl analyze/vhdlscan.tcl} {
     set expected [file normalize [file join $root $relative]]
