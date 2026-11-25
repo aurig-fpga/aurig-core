@@ -71,7 +71,7 @@ proc ::vhdl_index::parser::read_name {state {designator 0}} {
 
 # Advance to a stop at delimiter depth zero. Absolute character positions are
 # obtained only on a diagnostic or when materializing a completed record.
-proc ::vhdl_index::parser::scan {state stops {groupMode {}} {watchObjects 0}} {
+proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext {}}} {
     upvar 1 $state c
     set stopIds {0 8}
     foreach stop $stops {lappend stopIds [dict get $c(symbols) $stop]}
@@ -85,11 +85,10 @@ proc ::vhdl_index::parser::scan {state stops {groupMode {}} {watchObjects 0}} {
     set package [dict get $c(symbols) package]
     set body [dict get $c(symbols) body]
     set pos $c(i)
-    if {$watchObjects} {
-        set c(opaqueObject) {}
-        set objectKinds $c(objectKinds)
-        set shared [dict get $c(symbols) shared]
-        set variable [dict get $c(symbols) variable]
+    if {$declarationContext ne {}} {
+        set c(opaqueBoundary) {}
+        set declarationKinds $c(declarationKinds)
+        set firstCandidate [expr {$pos + ($declarationContext ne "opaque_tail")}]
     }
     set grouped [expr {$groupMode ne {}}]
     if {$grouped} {
@@ -141,12 +140,6 @@ proc ::vhdl_index::parser::scan {state stops {groupMode {}} {watchObjects 0}} {
                 set c(i) [expr {$pos + 1}]
                 return
             }
-        } elseif {$watchObjects && $stack eq {} && $k in $objectKinds && $c(opaqueObject) eq {}} {
-            set following [lindex $kinds [lindex $significant [expr {$pos + 1}]]]
-            if {$following in {1 2} || ($k == $shared && $following == $variable)} {
-                set c(i) $pos
-                set c(opaqueObject) [span c]
-            }
         } elseif {$stack eq {} && [dict exists $triggers $k]} {
             set next [expr {$pos + 1}]
             set name [lindex $kinds [lindex $significant $next]]
@@ -158,6 +151,16 @@ proc ::vhdl_index::parser::scan {state stops {groupMode {}} {watchObjects 0}} {
                 [lindex $kinds [lindex $significant [expr {$next + 1}]]] eq [dict get $triggers $k]} {
                 set c(i) $pos
                 fail c UNSAFE_UNIT_BOUNDARY [list found [lindex $c(labels) $k]]
+            }
+        } elseif {$declarationContext ne {} && $stack eq {} && [dict exists $declarationKinds $k] &&
+            $pos >= $firstCandidate && $c(opaqueBoundary) eq {}} {
+            set c(i) $pos
+            set certainty [::vhdl_index::grammar::declaration_start c $declarationContext]
+            if {$certainty eq "safe" && $declarationContext eq "object"} {
+                return declaration
+            }
+            if {$certainty eq "safe" || ($certainty eq "uncertain" && $declarationContext eq "object")} {
+                set c(opaqueBoundary) [span c]
             }
         }
         incr pos

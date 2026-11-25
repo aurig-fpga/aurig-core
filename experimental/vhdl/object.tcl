@@ -3,7 +3,6 @@
 
 namespace eval ::vhdl_index::object {
     namespace path {::vhdl_index::grammar ::vhdl_index::parser}
-    variable keywords {constant signal variable shared}
 }
 
 proc ::vhdl_index::object::syntax {state ownerKind recordVar} {
@@ -26,7 +25,7 @@ proc ::vhdl_index::object::syntax {state ownerKind recordVar} {
     lassign [identifier_list c] names commas colon
     dict set item names $names
     dict set item colon_span $colon
-    lassign [subtype_indication c {bus register := {;}}] subtype constraint
+    lassign [subtype_indication c {bus register := {;} eof}] subtype constraint
     dict set item subtype_span $subtype
     dict set item constraint_span $constraint
     set qualifier [kind c]
@@ -39,7 +38,7 @@ proc ::vhdl_index::object::syntax {state ownerKind recordVar} {
         dict set item init_span [payload c {{;} when else eof}]
     }
     set tail [kind c]
-    if {$tail eq "eof" || [item_prefix c]} {reject c MISSING_SEMICOLON}
+    if {$tail eq "eof"} {reject c MISSING_SEMICOLON}
     if {$tail in {when else}} {reject c EDITION_CONDITIONAL_INITIALIZER}
     dict set item terminator_span [require c {;} UNEXPECTED_TAIL]
 
@@ -76,17 +75,27 @@ proc ::vhdl_index::object::fields {owner} {
     return [dict create owner_id $owner kind {} span {} names {} class_span {} keyword_span {}         shared_span {} colon_span {} subtype_span {} constraint_span {} qualifier {} qualifier_span {}         init_marker_span {} init_span {} terminator_span {} deferred 0 status parsed diagnostics {}]
 }
 
-# The typed walk supplies a complete opaque-item fence. A second object keyword
-# at payload depth zero can recover a missing separator within this fence.
-# Other errors discard the rest of the fenced item.
+# The typed walk supplies a fence and reports any ambiguous declaration prefix.
 proc ::vhdl_index::object::index {state ownerKind owner first} {
-    variable keywords
     upvar 1 $state c
     set c(grammarFence) $c(i)
     set c(grammarDomain) OBJECT
-    set c(grammarPrefixes) $keywords
+    set c(grammarPrefixes) {}
     set c(grammarNamePrefix) 0
     set c(i) $first
+    if {$c(opaqueBoundary) ne {}} {
+        set firstSpan [span c]
+        set form [kind c]
+        set c(i) $c(grammarFence)
+        set region [extent c [lindex $firstSpan 0]]
+        set issue [dict merge [at OBJECT_UNPROVEN_DECLARATION_BOUNDARY $region] \
+            [dict create related_span $c(opaqueBoundary)]]
+        set diagnostics [linsert [lexical_diagnostics c $region] 0 $issue]
+        lappend c(objectDiagnostics) {*}$diagnostics
+        set item [dict replace [fields $owner] kind $form span $region keyword_span $firstSpan \
+            status unrecognized diagnostics $diagnostics]
+        return [list [list [list $first 1 $item]] unrecognized]
+    }
     # The common single-name, single-type-mark production needs no rich
     # fields. Check the complete fence and leave any lexical issue to the
     # ordinary production, which retains its provenance.
@@ -98,45 +107,33 @@ proc ::vhdl_index::object::index {state ownerKind owner first} {
         set c(i) $c(grammarFence)
         return [list [list [list $first 1]] parsed]
     }
-    set records {}
-    set status parsed
-    while {$c(i) < $c(grammarFence)} {
-        set first $c(i)
-        set start [lindex [span c] 0]
-        set item [fields $owner]
-        if {[catch {syntax c $ownerKind item} issue options]} {
-            if {[dict get $options -errorcode] ne {VHDL_INDEX OBJECT}} {
-                return -options $options $issue
-            }
-            set code [dict get $issue code]
-            dict set issue phase object
-            dict lappend item diagnostics $issue
-            if {$code ne "OBJECT_MISSING_SEMICOLON" || ![item_prefix c]} {
-                if {$c(i) + 1 == $c(grammarFence) && [kind c] eq ";"} {
-                    dict set item terminator_span [take c]
-                }
-                set c(i) $c(grammarFence)
-            }
+    set start [lindex [span c] 0]
+    set item [fields $owner]
+    if {[catch {syntax c $ownerKind item} issue options]} {
+        if {[dict get $options -errorcode] ne {VHDL_INDEX OBJECT}} {
+            return -options $options $issue
         }
-        set region [extent c $start]
-        dict set item span $region
-        dict lappend item diagnostics {*}[lexical_diagnostics c $region]
-        foreach issue [dict get $item diagnostics] {
-            set next malformed
-            if {[string match EDITION_* [dict get $issue code]]} {set next recognized-but-unsupported}
-            dict set item status [combine [dict get $item status] $next]
-            lappend c(objectDiagnostics) $issue
+        dict set issue phase object
+        dict lappend item diagnostics $issue
+        if {$c(i) + 1 == $c(grammarFence) && [kind c] eq ";"} {
+            dict set item terminator_span [take c]
         }
-        set status [combine $status [dict get $item status]]
-        # The five-token form can reconstruct every field from its ordinal.
-        # This avoids retaining five span pairs and a dictionary per simple item.
-        if {[dict get $item status] eq "parsed" && $c(i) - $first == 5} {
-            lappend records [list $first 1]
-        } else {
-            lappend records [list $first 1 $item]
-        }
+        set c(i) $c(grammarFence)
     }
-    return [list $records $status]
+    set region [extent c $start]
+    dict set item span $region
+    dict lappend item diagnostics {*}[lexical_diagnostics c $region]
+    foreach issue [dict get $item diagnostics] {
+        set next malformed
+        if {[string match EDITION_* [dict get $issue code]]} {set next recognized-but-unsupported}
+        dict set item status [combine [dict get $item status] $next]
+        lappend c(objectDiagnostics) $issue
+    }
+    set status [dict get $item status]
+    # The five-token form can reconstruct every field from its ordinal.
+    set entry [list $first 1]
+    if {$status ne "parsed" || $c(i) - $first != 5} {lappend entry $item}
+    return [list [list $entry] $status]
 }
 
 proc ::vhdl_index::object::lexical_diagnostics {state region} {

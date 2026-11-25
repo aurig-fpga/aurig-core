@@ -51,6 +51,78 @@ proc ::vhdl_index::grammar::group {state {recover 0}} {
     return [extent c $start]
 }
 
+namespace eval ::vhdl_index::grammar {
+    variable declarationFamilies {
+        constant object signal object variable object shared object
+        type type subtype type file opaque alias opaque attribute opaque
+        function opaque procedure opaque pure opaque impure opaque
+        component opaque package opaque group opaque disconnect opaque use opaque for opaque
+    }
+}
+
+# The caller proves delimiter depth and selects a declarative context. Only a
+# declaration-shaped prefix can end an object. Weak prefixes are evidence of
+# uncertainty there. In an opaque header they may be grammatical (file OF,
+# an attribute specification's entity class, or a binding indication).
+proc ::vhdl_index::grammar::declaration_start {state context} {
+    upvar 1 $state c
+    set first [peek c]
+    set previous [peek c -1]
+    if {$previous eq "'" || ($first eq "variable" && $previous eq "shared") ||
+        ($first in {function procedure} && $previous in {pure impure})} {
+        return {}
+    }
+
+    set name [peek c 1]
+    set connector [peek c 2]
+    set named [is_name $name 0]
+    switch -- $first {
+        constant - signal - variable - shared - file - disconnect - for {
+            set at 1
+            if {$first eq "shared"} {
+                if {$name ne "variable"} {return uncertain}
+                incr at
+                set name $connector
+            }
+            set named [expr {[is_name $name 0] || ($first in {for disconnect} && $name in {all others})}]
+            if {$context ne "object" && $first in {constant signal variable shared} && $named} {
+                # Preserve the conservative D observation inside opaque sites.
+                return safe
+            }
+            while {$named && [peek c [incr at]] eq ","} {
+                set named [is_name [peek c [incr at]] 0]
+            }
+            set safe [expr {$named && [peek c $at] eq ":"}]
+        }
+        type {set safe [expr {$named && $connector in {is {;}}}]}
+        subtype {set safe [expr {$named && $connector eq "is"}]}
+        alias {
+            set safe [expr {([is_name $name 1] || $name eq "character") && $connector in {is :}}]
+        }
+        attribute {set safe [expr {$named && $connector in {: of}}]}
+        group {set safe [expr {$named && $connector in {is :}}]}
+        component {set safe [expr {$named && $connector in {is generic port end}}]}
+        package {
+            # A local package and a new design unit have the same prefix.
+            # Leave that ambiguity to the structural unit-boundary guard.
+            return {}
+        }
+        use {set safe [expr {$named && $connector eq "."}]}
+        pure - impure - function - procedure {
+            if {$first in {pure impure}} {
+                set first $name
+                set name $connector
+                set connector [peek c 3]
+            }
+            set safe [expr {[is_name $name 1] &&
+                (($first eq "function" && $connector in {( return generic is}) ||
+                 ($first eq "procedure" && $connector in {( is generic {;}}))}]
+        }
+    }
+    if {$safe} {return safe}
+    return uncertain
+}
+
 # A colon cannot belong to these depth-zero payloads. A grouped next
 # declarator is recognized at its first name, before consuming its comma.
 proc ::vhdl_index::grammar::item_prefix {state} {

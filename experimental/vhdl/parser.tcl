@@ -111,20 +111,22 @@ proc ::vhdl_index::parser::take_semicolon {state} {
     return [take c]
 }
 
-proc ::vhdl_index::parser::boundary {state stops {watchObjects 0}} {
+proc ::vhdl_index::parser::boundary {state stops {declarationContext {}}} {
     upvar 1 $state c
-    set marker [scan c $stops {} $watchObjects]
+    set marker [scan c $stops {} $declarationContext]
     if {$marker eq "eof"} {fail c TRUNCATED_SCOPE}
     return $marker
 }
 
-proc ::vhdl_index::parser::opaque_item {state {watchObjects 0}} {
+proc ::vhdl_index::parser::opaque_item {state {declarationContext {}}} {
     upvar 1 $state c
     set start [lindex [span c] 0]
     set first $c(i)
-    set marker [boundary c {{;} end begin} $watchObjects]
+    set marker [boundary c {{;} end begin} $declarationContext]
     if {$marker eq ";"} {
         incr c(i)
+    } elseif {$marker eq "declaration"} {
+        return
     } elseif {$c(i) == $first} {
         fail c UNEXPECTED_BOUNDARY [list found $marker]
     } else {
@@ -143,8 +145,8 @@ proc ::vhdl_index::parser::descend {state depth} {
 # It is never promoted to a sibling without a proved boundary.
 proc ::vhdl_index::parser::opaque_object_boundary {state observing} {
     upvar 1 $state c
-    if {!$observing || $c(opaqueObject) eq {}} {return 0}
-    lappend c(objectDiagnostics) [::vhdl_index::object::at OBJECT_OPAQUE_BOUNDARY $c(opaqueObject)]
+    if {!$observing || $c(opaqueBoundary) eq {}} {return 0}
+    lappend c(objectDiagnostics) [::vhdl_index::object::at OBJECT_OPAQUE_BOUNDARY $c(opaqueBoundary)]
     return 1
 }
 
@@ -152,6 +154,8 @@ proc ::vhdl_index::parser::declaration {state depth {owner {}}} {
     upvar 1 $state c
     set first [peek c]
     set observe [expr {$owner ne {}}]
+    set headerContext [expr {$observe ? "opaque_tail" : ""}]
+    set itemContext [expr {$observe ? "opaque_item" : ""}]
     switch -- $first {
         impure - pure - function - procedure {
             if {$owner ne {}} {set opening [lindex [span c] 0]}
@@ -160,7 +164,7 @@ proc ::vhdl_index::parser::declaration {state depth {owner {}}} {
             if {$kind ni {function procedure}} {fail c EXPECTED_SUBPROGRAM}
             incr c(i)
             set name [read_name c 1]
-            set marker [boundary c {is {;} end begin} $observe]
+            set marker [boundary c {is {;} end begin} $headerContext]
             set obscured [opaque_object_boundary c $observe]
             if {$marker eq "is"} {
                 incr c(i)
@@ -209,7 +213,7 @@ proc ::vhdl_index::parser::declaration {state depth {owner {}}} {
                 set marker $type
                 set obscured 0
                 if {$marker ne "units"} {
-                    set marker [boundary c {units {;} end begin} $observe]
+                    set marker [boundary c {units {;} end begin} $headerContext]
                     set obscured [opaque_object_boundary c $observe]
                 }
                 if {$marker eq "units"} {
@@ -235,7 +239,7 @@ proc ::vhdl_index::parser::declaration {state depth {owner {}}} {
             fail c UNSAFE_UNIT_BOUNDARY [list found $first]
         }
         default {
-            opaque_item c $observe
+            opaque_item c $itemContext
             if {[opaque_object_boundary c $observe]} {return uncertain_opaque_item}
         }
     }
@@ -532,7 +536,7 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                 }
                 set first $c(i)
                 if {$next in {constant signal variable shared}} {
-                    opaque_item c
+                    opaque_item c object
                     set started [clock microseconds]
                     lassign [::vhdl_index::object::index c $kind $owner $first] records state
                     ::vhdl_index::object::append_entries entries $records
@@ -636,9 +640,9 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
     foreach {opener connector} {entity is architecture of configuration of package is context is} {
         dict set c(unitTriggers) [dict get $symbols $opener] [dict get $symbols $connector]
     }
-    set c(objectKinds) {}
-    foreach keyword $::vhdl_index::object::keywords {
-        lappend c(objectKinds) [dict get $symbols $keyword]
+    set c(declarationKinds) {}
+    dict for {keyword family} $::vhdl_index::grammar::declarationFamilies {
+        dict set c(declarationKinds) [dict get $symbols $keyword] $family
     }
     set c(pairs) {}
     set c(closers) {}
