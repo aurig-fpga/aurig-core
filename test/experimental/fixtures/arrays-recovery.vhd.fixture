@@ -7,6 +7,7 @@ entity array_recovery is
     type mixed is array (natural range <>, 0 to 7) of bit;
     type missing_comma is array (natural integer) of bit;
     type missing_bound is array (0 to, 2 to 3) of bit;
+    type boxed_bound is array (0 to <>) of bit;
     type missing_of is array (natural) bit;
     type missing_element is array (natural) of ;
     type bad_element is array (natural) of bit_vector(0 to);

@@ -124,6 +124,7 @@ foreach {name code} {
     mixed TYPE_MIXED_INDEX_CONSTRAINT
     missing_comma TYPE_EXPECTED_DIMENSION_SEPARATOR
     missing_bound TYPE_EMPTY_PAYLOAD
+    boxed_bound TYPE_EMPTY_PAYLOAD
     missing_of TYPE_EXPECTED_ARRAY_OF
     missing_element TYPE_EXPECTED_NAME
     bad_element TYPE_EMPTY_PAYLOAD

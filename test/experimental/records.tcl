@@ -117,8 +117,10 @@ set types [collect_types $r]
 foreach {name code} {
     missing_separator TYPE_MISSING_FIELD_SEMICOLON
     missing_colon TYPE_EXPECTED_COLON
+    unnamed_field TYPE_EXPECTED_NAME
     missing_subtype TYPE_EXPECTED_NAME
     missing_bound TYPE_EMPTY_PAYLOAD
+    boxed_bound TYPE_EMPTY_PAYLOAD
     empty_record TYPE_EXPECTED_RECORD_FIELD
     clips_before_object TYPE_MISSING_SEMICOLON
     clips_before_type TYPE_MISSING_SEMICOLON

@@ -250,6 +250,7 @@ proc ::vhdl_index::grammar::discrete_range {state allowBox} {
     set first $c(i)
     set start [lindex [span c] 0]
     set stops {, )}
+    set boundStops {, ) <> of}
     set row {}
     if {[kind c] in {, ) of range eof open <>}} {reject c EXPECTED_INDEX}
     if {[is_name [kind c] 0]} {
@@ -266,7 +267,7 @@ proc ::vhdl_index::grammar::discrete_range {state allowBox} {
                     dict set row kind index_subtype
                     dict set row box_span [take c]
                 } else {
-                    lassign [range_payload c $stops] left direction directionSpan right attribute
+                    lassign [range_payload c $boundStops] left direction directionSpan right attribute
                     dict set row range_span [extent c [lindex $keyword 0]]
                 }
             }
@@ -276,7 +277,7 @@ proc ::vhdl_index::grammar::discrete_range {state allowBox} {
         }
     }
     if {$row eq {}} {
-        lassign [range_payload c $stops] left direction directionSpan right attribute
+        lassign [range_payload c $boundStops] left direction directionSpan right attribute
         dict set row kind [expr {$attribute eq {} ? "range" : "range_attribute"}]
         dict set row range_span [extent c $start]
     }

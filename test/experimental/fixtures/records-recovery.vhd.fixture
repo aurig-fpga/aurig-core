@@ -7,8 +7,10 @@ entity record_recovery is
         d : bit
     end record;
     type missing_colon is record a bit; saved_in_record : boolean; end record;
+    type unnamed_field is record : bit; saved_in_record : boolean; end record;
     type missing_subtype is record a : ; saved_in_record : boolean; end record;
     type missing_bound is record a : bit_vector(0 to); good : bit; end record;
+    type boxed_bound is record a : integer range 0 to <>; good : bit; end record;
     type empty_record is record end record;
     type closing_mismatch is record x : bit; end record wrong;
     type clips_before_object is record a : bit; end record

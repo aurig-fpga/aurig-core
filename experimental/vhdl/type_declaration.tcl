@@ -26,7 +26,7 @@ proc ::vhdl_index::type_declaration::enumeration {state recordVar} {
 
 proc ::vhdl_index::type_declaration::composite_subtype {state stops} {
     upvar 1 $state c
-    lassign [subtype_indication c $stops 1 1] subtype constraint mark resolution form
+    lassign [subtype_indication c [linsert $stops end <>] 1 1] subtype constraint mark resolution form
     return [dict create subtype_span $subtype type_mark_span $mark constraint_span $constraint \
         resolution_span $resolution resolution_kind $form]
 }
