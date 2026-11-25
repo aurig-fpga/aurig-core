@@ -139,9 +139,19 @@ proc ::vhdl_index::parser::descend {state depth} {
     return [expr {$depth + 1}]
 }
 
+# A candidate buried in an opaque item is evidence of an uncertain fence.
+# It is never promoted to a sibling without a proved boundary.
+proc ::vhdl_index::parser::opaque_object_boundary {state observing} {
+    upvar 1 $state c
+    if {!$observing || $c(opaqueObject) eq {}} {return 0}
+    lappend c(objectDiagnostics) [::vhdl_index::object::at OBJECT_OPAQUE_BOUNDARY $c(opaqueObject)]
+    return 1
+}
+
 proc ::vhdl_index::parser::declaration {state depth {owner {}}} {
     upvar 1 $state c
     set first [peek c]
+    set observe [expr {$owner ne {}}]
     switch -- $first {
         impure - pure - function - procedure {
             if {$owner ne {}} {set opening [lindex [span c] 0]}
@@ -150,13 +160,15 @@ proc ::vhdl_index::parser::declaration {state depth {owner {}}} {
             if {$kind ni {function procedure}} {fail c EXPECTED_SUBPROGRAM}
             incr c(i)
             set name [read_name c 1]
-            set marker [boundary c {is {;} end begin}]
+            set marker [boundary c {is {;} end begin} $observe]
+            set obscured [opaque_object_boundary c $observe]
             if {$marker eq "is"} {
                 incr c(i)
                 if {[peek c] ne "new"} {
                     set child {}
-                    if {$owner ne {}} {set child [list $opening $owner]}
+                    if {$observe && !$obscured} {set child [list $opening $owner]}
                     scope c $kind $name [descend c $depth] require $child
+                    if {$obscured} {return uncertain_opaque_item}
                     return {}
                 }
                 if {$c(edition) < 2008} {fail c EDITION_SUBPROGRAM_INSTANTIATION}
@@ -166,6 +178,7 @@ proc ::vhdl_index::parser::declaration {state depth {owner {}}} {
             } else {
                 fail c INCOMPLETE_SUBPROGRAM_SPEC
             }
+            if {$obscured} {return uncertain_opaque_item}
         }
         package {
             if {$c(edition) < 2008} {fail c EDITION_NESTED_PACKAGE}
@@ -193,10 +206,21 @@ proc ::vhdl_index::parser::declaration {state depth {owner {}}} {
                     scope c $type $name [descend c $depth] forbid
                     return $type
                 }
-                if {$type eq "units" || [boundary c {units {;} end begin}] eq "units"} {
+                set marker $type
+                set obscured 0
+                if {$marker ne "units"} {
+                    set marker [boundary c {units {;} end begin} $observe]
+                    set obscured [opaque_object_boundary c $observe]
+                }
+                if {$marker eq "units"} {
                     expect c units
                     scope c units $name [descend c $depth] forbid
-                    return
+                    if {$obscured} {return uncertain_opaque_item}
+                    return units
+                }
+                if {$obscured} {
+                    opaque_item c
+                    return uncertain_opaque_item
                 }
             }
             opaque_item c
@@ -211,11 +235,8 @@ proc ::vhdl_index::parser::declaration {state depth {owner {}}} {
             fail c UNSAFE_UNIT_BOUNDARY [list found $first]
         }
         default {
-            opaque_item c [expr {$owner ne {}}]
-            if {$owner ne {} && $c(opaqueObject) ne {}} {
-                lappend c(objectDiagnostics) [::vhdl_index::object::at OBJECT_OPAQUE_BOUNDARY $c(opaqueObject)]
-                return uncertain_opaque_item
-            }
+            opaque_item c $observe
+            if {[opaque_object_boundary c $observe]} {return uncertain_opaque_item}
         }
     }
     return $first

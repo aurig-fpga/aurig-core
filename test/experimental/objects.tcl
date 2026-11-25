@@ -219,5 +219,17 @@ foreach row [find_records $r] {lappend names [lindex $row 2]}
 check mismatched-label-withholds-only-child {first safe} $names
 check mismatched-label-structural-source MISMATCHED_END_NAME [dict get [lindex [dict get $r object_diagnostics] 0] cause]
 
+foreach {name prefix} {
+    type {type item is (one, two)}
+    prototype {procedure entry}
+    subtype {subtype item is integer}
+} {
+    set text "package p is $prefix constant obscured : integer := 1; end;"
+    set r [inline "missing-$name-separator" $text 2008]
+    check "$name recovery unavailable" unrecognized [dict get $r capabilities object_declarations]
+    check "$name obscured object" OBJECT_OPAQUE_BOUNDARY [lindex [diagnostic_codes $r] 0]
+    check "$name recovery no speculation" 0 [llength [find_records $r]]
+}
+
 puts [list Tcl [info patchlevel] assertions $count failures $failures]
 exit [expr {$failures > 0}]
