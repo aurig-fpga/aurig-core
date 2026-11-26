@@ -1,0 +1,16 @@
+entity recovery_host is
+    procedure wrong_ending is
+        variable discarded : bit;
+        subtype discarded_type is bit;
+        procedure discarded_child is begin null; end;
+    begin null;
+    end procedure different;
+
+    procedure retained is begin null; end;
+end entity;
+
+entity missing_begin_host is
+    function incomplete return bit is
+        variable lost : bit;
+    end function incomplete;
+end entity;

@@ -75,6 +75,7 @@ proc ::vhdl_index::analyze_file {path edition {requestedLimits {}}} {
     dict incr timing structural -$subprogramTime
     dict unset structure subprogram_time_us
     dict unset structure subprogram_status
+    dict unset structure body_status
     return [dict merge $structure $coverage [dict create engine $engine edition $edition \
         source_id $sourceId snapshot $source tape $tape lexical_diagnostics [dict get $tape diagnostics] \
         limits $actualLimits timing_us $timing]]

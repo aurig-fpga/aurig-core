@@ -68,6 +68,7 @@ proc ::vhdl_index::coverage {snapshot tape structure} {
             unit_boundaries $structural context $context entity_interfaces [dict get $structure interface_status] \
             object_declarations [dict get $structure object_status] \
             subprogram_specifications [dict get $structure subprogram_status] \
+            subprogram_bodies [dict get $structure body_status] \
             type_declarations [dict get $structure type_status] declarations opaque concurrent opaque \
             sequential opaque expressions opaque]]
 }

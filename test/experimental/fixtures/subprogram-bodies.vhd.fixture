@@ -1,0 +1,40 @@
+package body_inventory is
+    function value(v : integer) return integer;
+    function value(v : bit) return bit;
+    function "+"(a, b : bit) return bit;
+end package;
+
+package body body_inventory is
+    function value(v : integer) return integer is
+        subtype index_t is natural range 0 to 3;
+        variable saved : index_t := 0;
+        procedure store(variable n : inout index_t) is
+            function helper return index_t is begin return 1; end function;
+        begin
+            n := helper;
+        end store;
+    begin
+        store(saved);
+        return v + saved;
+    end function value;
+    function value(v : bit) return bit is begin return v; end;
+    function "+"(a, b : bit) return bit is begin return a xor b; end "+";
+end package body;
+
+entity body_host is
+    function constant_value return bit is begin return '0'; end function;
+end entity;
+
+architecture sample of body_host is
+    procedure outer is begin null; end procedure;
+begin
+    p : process
+        procedure in_process (v : bit) is
+        begin
+            report "end procedure; begin;";
+        end procedure in_process;
+    begin
+        in_process('0');
+        wait;
+    end process p;
+end architecture;
