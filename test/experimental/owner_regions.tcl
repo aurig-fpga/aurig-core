@@ -101,4 +101,11 @@ set err [id $v recovery [lindex [dict get $loss span] 0]]
 check root_uncertain [dict get [::vhdl_index::regions::region $v $err] availability] uncertain
 check root_unavailable [status $v $err object_declarations] unavailable
 check prior_unit [status $v [design_region $v p] object_declarations] complete
+set r [input {package p is type is protected procedure f; end protected; end; package q is end;}]
+set v [::vhdl_index::regions::view $r]
+check hidden_operation_not_complete [dict get $r capabilities subprogram_specifications] unrecognized
+check malformed_type [dict get $r capabilities type_declarations] malformed
+check protected_unrelated [dict get $r capabilities object_declarations] parsed
+check hidden_direct [status $v [design_region $v p] subprogram_specifications] partial
+check protected_safe_sibling [status $v [design_region $v q] subprogram_specifications] complete
 puts "Owner regions passed on Tcl [info patchlevel]"

@@ -919,6 +919,8 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                         scope_gap c gaps $owner $kind $category $region unrecognized
                         set objectStatus unrecognized
                         set typeStatus unrecognized
+                    } elseif {$category eq "protected" && $typeShape eq {}} {
+                        scope_gap c gaps $owner $kind $category $region unrecognized
                     } elseif {$category eq "package" || ($category eq "protected_body" && $typeShape eq {})} {
                         scope_gap c gaps $owner $kind $category $region recognized-but-unsupported
                         set objectStatus [::vhdl_index::grammar::combine $objectStatus recognized-but-unsupported]
@@ -990,7 +992,7 @@ proc ::vhdl_index::parser::scope_gap {state gapsVar owner ownerKind kind region 
     upvar 1 $state c $gapsVar gaps
     lappend gaps [list $kind $region]
     set profile $ownerKind
-    if {$kind in {package block generate protected_body}} {set profile $kind}
+    if {$kind in {package block generate protected protected_body}} {set profile $kind}
     set capabilities [::vhdl_index::ownership::profile $profile]
     if {$c(edition) >= 2008 &&
         ($kind eq "protected_body" || ($kind eq "uncertain_opaque_item" &&
