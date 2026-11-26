@@ -12,7 +12,7 @@ proc ::vhdl_index::parser::concurrent_candidate {state owner start status issue 
 
 # Only a selected target followed by a map, or an explicit category keyword,
 # selects the instantiation production. A bare labeled name has two readings.
-proc ::vhdl_index::parser::concurrent_leaf {state owner ownerKind opening label} {
+proc ::vhdl_index::parser::instance_leaf {state owner ownerKind opening label} {
     upvar 1 $state c
     set first $c(i)
     set starter [peek c]

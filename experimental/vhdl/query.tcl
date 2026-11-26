@@ -25,6 +25,9 @@ proc ::vhdl_index::query::owners {view} {
 
 proc ::vhdl_index::query::items {view address capability payload} {
     set result [dict get $view result]
+    if {$capability in [::vhdl_index::ownership::concurrent_profile root]} {
+        return [::vhdl_index::concurrent_at $result $address $capability]
+    }
     if {$capability eq "instantiations"} {
         set at [lindex $address 1]
         if {[dict exists $result instantiations $at]} {return [dict get $result instantiations $at]}
@@ -126,6 +129,7 @@ proc ::vhdl_index::query::direct {view id capability} {
             }
         }
         if {$capability eq "instantiations"} {set occurrenceRole instantiation}
+        if {$capability eq "concurrent_assertions"} {set occurrenceRole concurrent_assertion}
         if {$capability eq "map_associations"} {set occurrenceRole association}
         set owner $id
         if {$role eq "specification" && $occurrenceRole eq "specification"} {

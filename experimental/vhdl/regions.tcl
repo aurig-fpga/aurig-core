@@ -232,6 +232,8 @@ proc ::vhdl_index::regions::coverage {view id capability} {
                         diagnostics [dict get $map association_diagnostics]]
                 }
             }
+        } elseif {$capability in [::vhdl_index::ownership::concurrent_profile root]} {
+            set checked [::vhdl_index::concurrent_at [dict get $view result] $key $capability]
         } elseif {$capability ne "instantiations"} {
             set checked [coverage_rows $view $role $capability $payload]
         }

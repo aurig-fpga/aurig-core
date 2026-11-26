@@ -8,16 +8,21 @@ proc ::vhdl_index::ownership::unproven_scope {domain region cause} {
         related_span [dict get $cause span] cause [dict get $cause code]]
 }
 
+proc ::vhdl_index::ownership::concurrent_profile {kind} {
+    if {$kind in {root architecture entity block generate}} {return {concurrent_assertions}}
+    return {}
+}
+
 # The direct profile sets the minimum affected coverage. Descendant claims
 # and region gaps contribute their own capabilities independently.
 proc ::vhdl_index::ownership::profile {kind} {
     switch -- $kind {
         root {
-            return {object_declarations type_declarations subprogram_specifications subprogram_bodies
+            return [concat [concurrent_profile root] {object_declarations type_declarations subprogram_specifications subprogram_bodies
                 alias_declarations attribute_declarations file_objects component_declarations entity_interfaces
                 group_templates group_declarations disconnect_specifications local_use_clauses
                 configuration_specifications configuration_blocks package_declarations package_instantiations package_interfaces block_interfaces generate_parameters
-                instantiations map_associations}
+                instantiations map_associations}]
         }
         if_generate - case_generate {return {}}
         for_generate {return [linsert [profile generate] end generate_parameters]}
@@ -39,7 +44,7 @@ proc ::vhdl_index::ownership::profile {kind} {
     if {$kind eq "package"} {lappend result package_interfaces}
     if {$kind eq "block"} {lappend result block_interfaces}
     if {$kind eq "entity"} {lappend result entity_interfaces}
-    return $result
+    return [concat $result [concurrent_profile $kind]]
 }
 
 proc ::vhdl_index::ownership::gap {state kind region status capabilities owner {diagnostics {}} {forms {}}} {
@@ -67,7 +72,7 @@ proc ::vhdl_index::ownership::checkpoint {state} {
     upvar 1 $state c
     return [list [llength $c(declarationScopes)] [llength $c(coverageGaps)] \
         [llength $c(withdrawnScopes)] [llength $c(objectDiagnostics)] \
-        [llength $c(typeDiagnostics)] [llength $c(emptyRegions)] [llength $c(instantiations)]]
+        [llength $c(typeDiagnostics)] [llength $c(emptyRegions)] [llength $c(instantiations)] [llength $c(concurrentStatements)]]
 }
 
 proc ::vhdl_index::ownership::publish {state record} {
@@ -139,7 +144,7 @@ proc ::vhdl_index::ownership::rollback {state checkpoint kind region cause paren
     if {$contributors ne {}} {
         dict set lost contributors [lsort -integer -index {3 0} $contributors]
     }
-    foreach key {declarationScopes coverageGaps withdrawnScopes objectDiagnostics typeDiagnostics emptyRegions instantiations} length $checkpoint {
+    foreach key {declarationScopes coverageGaps withdrawnScopes objectDiagnostics typeDiagnostics emptyRegions instantiations concurrentStatements} length $checkpoint {
         trim_suffix c $key $length
     }
     lappend c(withdrawnScopes) $lost

@@ -94,9 +94,15 @@ proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext 
         set colon [dict get $c(symbols) :]
         set externalClose [dict get $c(symbols) >>]
         set concurrentStops {}
-        foreach word {entity component configuration generic port for if case assert postponed} {
+        set starters {entity component configuration generic port for if case assert postponed}
+        if {$concurrent == 2} {lappend starters with block process}
+        foreach word $starters {
             lappend concurrentStops [dict get $c(symbols) $word]
         }
+    }
+    if {$concurrent == 2} {
+        set atoms {1 2 4 5 6}
+        foreach word {) null} {lappend atoms [dict get $c(symbols) $word]}
     }
     if {$declarationContext ne {}} {
         set c(opaqueBoundary) {}
@@ -135,7 +141,7 @@ proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext 
             if {$k == 8} {fail c UNSUPPORTED_TOKEN}
             return [lindex $c(labels) $k]
         }
-        if {$concurrent && $pos > $scanStart &&
+        if {$concurrent && ($pos > $scanStart || $concurrent == 2) &&
             (($stack eq {} && $k in $concurrentStops) ||
              ($k in {1 2} && [lindex $kinds [lindex $significant [expr {$pos + 1}]]] == $colon &&
               $externalClose ni $stack))} {
@@ -143,6 +149,12 @@ proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext 
             if {$grouped} {::vhdl_index::grammar::reject c EXPECTED_ASSOCIATION_CLOSE}
             if {$stack ne {}} {fail c UNCLOSED_DELIMITER}
             return concurrent_candidate
+        }
+        if {$concurrent == 2 && !$grouped && $stack eq {} && $pos > $scanStart &&
+            ($k in $atoms && [lindex $kinds [lindex $significant [expr {$pos - 1}]]] in $atoms) &&
+            $k != [dict get $c(symbols) )]} {
+            set c(i) $pos
+            return adjacent_payload
         }
         if {[dict exists $pairs $k]} {
             if {[llength $stack] >= $depthLimit} {

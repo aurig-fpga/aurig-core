@@ -1021,7 +1021,9 @@ proc ::vhdl_index::parser::scope_gap {state gapsVar owner ownerKind kind region 
     # A hidden declarative item cannot take ownership of the separate entity header.
     set capabilities [lsearch -all -inline -not -exact $capabilities entity_interfaces]
     if {$kind ni {block generate}} {
-        set capabilities [lsearch -all -inline -not -exact $capabilities instantiations]
+        foreach capability [linsert [::vhdl_index::ownership::concurrent_profile $profile] end instantiations] {
+            set capabilities [lsearch -all -inline -not -exact $capabilities $capability]
+        }
     }
     ::vhdl_index::ownership::gap c $kind $region $status $capabilities $owner $diagnostics
 }
@@ -1051,7 +1053,7 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
     set c(activeNames) {}
     set c(generateBodies) 0
     array set c [list interfaces {} interfaceDiagnostics {} interfaceStatus parsed interfaceTime 0         interfacePending {} interfaceLexical [dict get $tape diagnostics] interfaceLexicalAt 0 componentLexicalAt 0 scopeLexicalAt 0]
-    array set c [list declarationScopes {} emptyRegions {} withdrawnScopes {} coverageGaps {} instantiations {} withdrawalTime 0 objectDiagnostics {} objectTime 0 \
+    array set c [list declarationScopes {} emptyRegions {} withdrawnScopes {} coverageGaps {} instantiations {} concurrentStatements {} withdrawalTime 0 objectDiagnostics {} objectTime 0 \
         declarationLexical [dict get $tape diagnostics] objectLexicalAt 0 \
         typeDiagnostics {} typeTime 0 typeLexicalAt 0 subprogramLexicalAt 0 subprogramTime 0 bodyBoundaryTime 0 protectedTime 0 declarativeTime 0 declarativeLexicalAt 0]
     set units {}
@@ -1123,7 +1125,11 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
     set instances {}
     foreach row $c(instantiations) {dict lappend instances [dict get $row owner_id] $row}
     set maps [::vhdl_index::collect_maps $units $scopes $c(interfaces) $instances]
-    return [dict create instantiations $instances maps $maps object_declarations $scopes empty_regions $c(emptyRegions) withdrawn_scopes $c(withdrawnScopes) \
+    set concurrent {}
+    foreach row $c(concurrentStatements) {
+        dict lappend concurrent [list [dict get $row owner_id] [dict get $row capability]] $row
+    }
+    return [dict create concurrent_statements $concurrent instantiations $instances maps $maps object_declarations $scopes empty_regions $c(emptyRegions) withdrawn_scopes $c(withdrawnScopes) \
         coverage_gaps [lsort -integer -index {3 0} $c(coverageGaps)] withdrawal_time_us $c(withdrawalTime) \
         object_diagnostics $c(objectDiagnostics) object_status $objectStatus object_time_us $c(objectTime) \
         type_diagnostics $c(typeDiagnostics) type_status $typeStatus type_time_us $c(typeTime) \

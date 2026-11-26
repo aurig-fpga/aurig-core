@@ -37,6 +37,14 @@ proc ::vhdl_index::declaration_capabilities {row} {
 
 # Maps retain their caller-specific fields. This sparse index groups the
 # shared map records by syntactic owner and source order.
+proc ::vhdl_index::concurrent_at {result address capability} {
+    set key [list [lindex $address 1] $capability]
+    if {[dict exists $result concurrent_statements $key]} {
+        return [dict get $result concurrent_statements $key]
+    }
+    return {}
+}
+
 proc ::vhdl_index::maps_at {result address} {
     if {[dict exists $result maps $address]} {return [dict get $result maps $address]}
     return {}
@@ -214,7 +222,9 @@ proc ::vhdl_index::coverage {snapshot tape structure} {
         group_templates group_declarations disconnect_specifications local_use_clauses
         configuration_specifications configuration_blocks package_declarations package_instantiations package_interfaces block_interfaces generate_parameters
         instantiations map_associations}
-    foreach capability $additional {dict set result capabilities $capability parsed}
+    foreach capability [concat $additional [::vhdl_index::ownership::concurrent_profile root]] {
+        dict set result capabilities $capability parsed
+    }
     # Publish known gaps even when no declaration row was eligible for the scope.
     foreach gap [dict get $structure coverage_gaps] {
         foreach capability [dict get $gap capabilities] {
