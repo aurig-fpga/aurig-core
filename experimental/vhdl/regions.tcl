@@ -78,15 +78,43 @@ proc ::vhdl_index::regions::view {result} {
         set anchor [lindex $extent 0]
         dict set rows [list interface $anchor] [list entity $extent $extent [list unit $anchor] proved $row]
     }
+    foreach loss [dict get $result withdrawn_scopes] {
+        if {![dict exists $loss contributors]} {continue}
+        set topRole [expr {[dict get $loss scope_kind] eq "root" ? "recovery" : "region"}]
+        set top [list $topRole [lindex [dict get $loss span] 0]]
+        foreach child [dict get $loss contributors] {
+            if {![dict exists $child scope_kind]} {continue}
+            set span [dict get $child span]
+            set kind [dict get $child scope_kind]
+            set role [expr {$kind eq "component" ? "component" : "region"}]
+            set key [list $role [lindex $span 0]]
+            if {[dict exists $rows $key]} {continue}
+            set parent [dict get $child parent_id]
+            set parent [expr {$parent eq {} ? $top : [list region $parent]}]
+            dict set rows $key [list $kind $span {} $parent withdrawn $child]
+        }
+        foreach child [dict get $loss contributors] {
+            if {![dict exists $child scope_kind]} {continue}
+            set role [expr {[dict get $child scope_kind] eq "component" ? "component" : "region"}]
+            set key [list $role [lindex [dict get $child span] 0]]
+            set row [dict get $rows $key]
+            if {![dict exists $rows [lindex $row 3]]} {
+                lset row 3 $top
+                dict set rows $key $row
+            }
+        }
+    }
+    set ordinals {}
     foreach gap [dict get $result coverage_gaps] {
         set kind [dict get $gap kind]
         set span [dict get $gap span]
         set owner [dict get $gap owner_id]
         if {$owner eq {}} {set parent {}} else {set parent [list region $owner]}
         set address [list gap [lindex $span 0]]
-        # Several gap records can describe the same start with distinct roles.
         if {[dict exists $rows $address]} {
-            set address [list gap [lindex $span 0] $kind]
+            set anchor [lindex $span 0]
+            dict incr ordinals $anchor
+            lappend address [dict get $ordinals $anchor]
         }
         set availability [expr {[dict get $gap status] eq "unrecognized" ? "uncertain" : "unsupported"}]
         dict set rows $address [list $kind $span {} $parent $availability $gap]
@@ -128,7 +156,7 @@ proc ::vhdl_index::regions::applicable {role kind capability} {
         }
         region {
             return [expr {$capability ni {entity_interfaces} &&
-                $capability in [::vhdl_index::parser::region_capabilities $kind]}]
+                $capability in [::vhdl_index::ownership::profile $kind]}]
         }
     }
     return 0
@@ -150,7 +178,8 @@ proc ::vhdl_index::regions::coverage {view id capability} {
     set validation parsed
     set proofs {}
     if {$availability ne "proved"} {
-        if {[dict exists $payload capabilities] && $capability in [dict get $payload capabilities]} {
+        if {([dict exists $payload capabilities] && $capability in [dict get $payload capabilities]) ||
+            ($role eq "component" && $capability eq "component_interfaces")} {
             set completeness unavailable
             lappend proofs [dict merge $payload [dict create loss_id $id evidence_role $role]]
             set validation [expr {$availability eq "unsupported" ? "recognized-but-unsupported" : "unrecognized"}]

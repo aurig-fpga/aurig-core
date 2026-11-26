@@ -66,6 +66,12 @@ set f [lindex [dict get $loss span] 0]
 check body_unavailable [status $v [id $v region $f] object_declarations] unavailable
 check spec_usable [status $v [id $v specification $f] subprogram_specifications] complete
 check withdrawn_parent [dict get [::vhdl_index::regions::region $v [id $v region $f]] parent_id] $p
+set nested [lindex [dict get $loss contributors] 0]
+check nested_kind [dict get $nested kind] withdrawn_region
+set g [id $v region [lindex [dict get $nested span] 0]]
+check nested_withdrawn [dict get [::vhdl_index::regions::region $v $g] availability] withdrawn
+check nested_parent [dict get [::vhdl_index::regions::region $v $g] parent_id] [id $v region $f]
+check nested_unavailable [status $v $g type_declarations] unavailable
 
 set original $v
 set r [input {package p is package nested is component c end component; end package; end;}]

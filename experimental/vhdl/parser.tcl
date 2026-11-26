@@ -487,7 +487,7 @@ proc ::vhdl_index::parser::configuration_part {state depth owner} {
                 set kind group_declarations
             }
             if {$kind ne {}} {
-                note_gap c configuration_block_item [list $start [lindex [span c previous] 1]] \
+                ::vhdl_index::ownership::gap c configuration_block_item [list $start [lindex [span c previous] 1]] \
                     recognized-but-unsupported [list $kind] $owner
             }
         } else {
@@ -704,11 +704,8 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
         lassign $ownership owner parent
         set declarationStart [lindex [span c previous] 1]
         set declarationEnd {}
-        set firstScope [llength $c(declarationScopes)]
-        set firstIssue [llength $c(objectDiagnostics)]
-        set firstTypeIssue [llength $c(typeDiagnostics)]
-        set firstWithdrawal [llength $c(withdrawnScopes)]
-        set firstGap [llength $c(coverageGaps)]
+        set checkpoint [::vhdl_index::ownership::checkpoint c]
+        set firstScope [lindex $checkpoint 0]
         set entries {}
         set types {}
         set subprograms {}
@@ -760,22 +757,18 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                         body_diagnostics {} declarative_span [list $declarationStart $declarationEnd] \
                         begin_span $begin sequential_span [list [lindex $begin 1] [lindex $tail 0]]]
                 } else {
-                    set issue [unproven_scope SUBPROGRAM [list $owner [lindex $tail 1]] [lindex $c(diagnostics) end]]
+                    set issue [::vhdl_index::ownership::unproven_scope SUBPROGRAM [list $owner [lindex $tail 1]] [lindex $c(diagnostics) end]]
                     set shape [dict create body_status unrecognized body_diagnostics [list $issue]]
                 }
             }
             if {[llength $c(diagnostics)] != $before} {
                 set cause [lindex $c(diagnostics) end]
                 set affected [list $owner [lindex $tail 1]]
-                set loss [compose_withdrawal c $kind $affected $cause $parent $firstScope $firstGap $firstWithdrawal $declarations]
-                trim_suffix c declarationScopes $firstScope
-                trim_suffix c objectDiagnostics $firstIssue
-                trim_suffix c typeDiagnostics $firstTypeIssue
-                lappend c(withdrawnScopes) $loss
+                ::vhdl_index::ownership::rollback c $checkpoint $kind $affected $cause $parent $declarations
                 if {$entityScope} {set c(interfaceSites) {}}
                 if {$kind ne "configuration"} {
-                    lappend c(objectDiagnostics) [unproven_scope OBJECT $affected $cause]
-                    lappend c(typeDiagnostics) [unproven_scope TYPE $affected $cause]
+                    lappend c(objectDiagnostics) [::vhdl_index::ownership::unproven_scope OBJECT $affected $cause]
+                    lappend c(typeDiagnostics) [::vhdl_index::ownership::unproven_scope TYPE $affected $cause]
                     set objectStatus unrecognized
                     set typeStatus unrecognized
                 }
@@ -800,9 +793,9 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                 if {$subprograms ne {}} {dict set record subprograms $subprograms}
                 if {$declarations ne {}} {dict set record declarations $declarations}
                 if {$formals ne {}} {dict set record formal_parameters $formals}
-                lappend c(declarationScopes) $record
+                ::vhdl_index::ownership::publish c $record
             } else {
-                dict set c(emptyRegions) $owner [list $declarationStart $declarationEnd]
+                ::vhdl_index::ownership::empty c $owner [list $declarationStart $declarationEnd]
             }
             return $tail
         }
@@ -810,7 +803,7 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
         if {$kind eq "configuration" && $next eq "for"} {
             set declarationEnd [lindex [span c] 0]
             configuration_block c $depth $owner
-            note_gap c configuration_block [list $declarationEnd [lindex [span c previous] 1]] \
+            ::vhdl_index::ownership::gap c configuration_block [list $declarationEnd [lindex [span c previous] 1]] \
                 recognized-but-unsupported {configuration_blocks} $owner
             set phase configuration_end
         } elseif {$next eq "begin"} {
@@ -850,7 +843,7 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                     opaque_item c indexed_item
                     set region [list $start [lindex [span c previous] 1]]
                     lappend opaque [list $next $region]
-                    note_gap c verification_unit_binding $region recognized-but-unsupported {configuration_blocks} $owner
+                    ::vhdl_index::ownership::gap c verification_unit_binding $region recognized-but-unsupported {configuration_blocks} $owner
                 } elseif {$protectedScope && $family ne {} && ![protected_member_allowed c $kind]} {
                     set start [lindex [span c] 0]
                     if {$family eq "object"} {
@@ -993,45 +986,12 @@ proc ::vhdl_index::parser::unit {state pending} {
     return $result
 }
 
-proc ::vhdl_index::parser::unproven_scope {domain region cause} {
-    return [dict create code ${domain}_UNPROVEN_SCOPE severity error phase structural span $region \
-        related_span [dict get $cause span] cause [dict get $cause code]]
-}
-
-# The direct profile sets the minimum affected coverage. Descendant claims
-# and region gaps contribute their own capabilities independently.
-proc ::vhdl_index::parser::region_capabilities {kind} {
-    switch -- $kind {
-        root {
-            return {object_declarations type_declarations subprogram_specifications subprogram_bodies
-                alias_declarations attribute_declarations file_objects component_declarations entity_interfaces
-                group_templates group_declarations disconnect_specifications local_use_clauses
-                configuration_specifications configuration_blocks}
-        }
-        component {return {component_declarations}}
-        protected {return {subprogram_specifications attribute_declarations local_use_clauses}}
-        configuration {return {attribute_declarations group_declarations local_use_clauses configuration_blocks}}
-    }
-    set result {object_declarations type_declarations subprogram_specifications subprogram_bodies
-        alias_declarations attribute_declarations file_objects group_templates group_declarations local_use_clauses}
-    if {$kind in {architecture package block generate}} {lappend result component_declarations}
-    if {$kind in {architecture entity package block generate}} {lappend result disconnect_specifications}
-    if {$kind in {architecture block generate}} {lappend result configuration_specifications}
-    if {$kind eq "entity"} {lappend result entity_interfaces}
-    return $result
-}
-
-proc ::vhdl_index::parser::note_gap {state kind region status capabilities owner} {
-    upvar 1 $state c
-    lappend c(coverageGaps) [dict create kind $kind span $region status $status capabilities $capabilities owner_id $owner]
-}
-
 proc ::vhdl_index::parser::scope_gap {state gapsVar owner ownerKind kind region status} {
     upvar 1 $state c $gapsVar gaps
     lappend gaps [list $kind $region]
     set profile $ownerKind
     if {$kind in {package block generate protected_body}} {set profile $kind}
-    set capabilities [region_capabilities $profile]
+    set capabilities [::vhdl_index::ownership::profile $profile]
     if {$c(edition) >= 2008 &&
         ($kind eq "protected_body" || ($kind eq "uncertain_opaque_item" &&
          $ownerKind in {entity architecture package package_body process function procedure protected_body})) &&
@@ -1041,62 +1001,7 @@ proc ::vhdl_index::parser::scope_gap {state gapsVar owner ownerKind kind region 
     }
     # A hidden declarative item cannot take ownership of the separate entity header.
     set capabilities [lsearch -all -inline -not -exact $capabilities entity_interfaces]
-    note_gap c $kind $region $status $capabilities $owner
-}
-
-proc ::vhdl_index::parser::trim_suffix {state key length} {
-    upvar 1 $state c
-    if {[llength $c($key)] > $length} {
-        set c($key) [lrange $c($key) 0 [expr {$length - 1}]]
-    }
-}
-
-proc ::vhdl_index::parser::withdrawal {kind region cause parent} {
-    return [dict create scope_kind $kind span $region capabilities [region_capabilities $kind] diagnostic $cause parent_id $parent]
-}
-
-proc ::vhdl_index::parser::compose_withdrawal {state kind region cause parent firstScope firstGap firstWithdrawal declarations} {
-    upvar 1 $state c
-    set started [clock microseconds]
-    set lost [withdrawal $kind $region $cause $parent]
-    set mask {}
-    foreach capability [dict get $lost capabilities] {dict set mask $capability 1}
-    set contributors [lrange $c(coverageGaps) $firstGap end]
-    foreach child [lrange $c(withdrawnScopes) $firstWithdrawal end] {
-        if {[dict exists $child contributors]} {
-            lappend contributors {*}[dict get $child contributors]
-            dict unset child contributors
-        }
-        dict set child kind [dict get $child scope_kind]
-        dict set child status unrecognized
-        lappend contributors $child
-    }
-    foreach child [lrange $c(declarationScopes) $firstScope end] {
-        foreach capability [region_capabilities [dict get $child kind]] {dict set mask $capability 1}
-        if {[dict exists $child declarations]} {lappend declarations {*}[dict get $child declarations]}
-    }
-    foreach declaration $declarations {
-        foreach capability [::vhdl_index::declaration_capabilities $declaration] {
-            dict set mask $capability 1
-        }
-        if {[dict exists $declaration candidate_forms]} {
-            lappend contributors [dict create kind declaration_candidates span [dict get $declaration span] \
-                status [dict get $declaration status] capabilities [dict get $declaration candidate_capabilities] \
-                forms [dict get $declaration candidate_forms] owner_id [dict get $declaration owner_id] \
-                diagnostics [dict get $declaration diagnostics]]
-        }
-    }
-    foreach contributor $contributors {
-        foreach capability [dict get $contributor capabilities] {dict set mask $capability 1}
-    }
-    dict set lost capabilities [dict keys $mask]
-    if {$contributors ne {}} {
-        dict set lost contributors [lsort -integer -index {3 0} $contributors]
-    }
-    trim_suffix c coverageGaps $firstGap
-    trim_suffix c withdrawnScopes $firstWithdrawal
-    incr c(withdrawalTime) [expr {[clock microseconds] - $started}]
-    return $lost
+    ::vhdl_index::ownership::gap c $kind $region $status $capabilities $owner
 }
 
 proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
@@ -1131,14 +1036,10 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
     while {[peek c] ne "eof"} {
         set begin [lindex [span c] 0]
         set compound [is_context_item c]
-        set firstGap [llength $c(coverageGaps)]
-        set firstWithdrawal [llength $c(withdrawnScopes)]
-        set firstScope [llength $c(declarationScopes)]
+        set checkpoint [::vhdl_index::ownership::checkpoint c]
         if {$compound} {
             set status [catch {context_item c} item options]
         } else {
-            set firstIssue [llength $c(objectDiagnostics)]
-            set firstTypeIssue [llength $c(typeDiagnostics)]
             set status [catch {unit c $pending} item options]
         }
         if {$status} {
@@ -1148,15 +1049,9 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
             lappend c(diagnostics) $item
             set recovery [list $begin [dict get $snapshot length]]
             set c(interfaceStatus) unrecognized
-            set loss [compose_withdrawal c root $recovery $item {} $firstScope $firstGap $firstWithdrawal {}]
-            if {!$compound} {
-                trim_suffix c declarationScopes $firstScope
-                trim_suffix c objectDiagnostics $firstIssue
-                trim_suffix c typeDiagnostics $firstTypeIssue
-            }
-            lappend c(withdrawnScopes) $loss
-            lappend c(objectDiagnostics) [unproven_scope OBJECT $recovery $item]
-            lappend c(typeDiagnostics) [unproven_scope TYPE $recovery $item]
+            ::vhdl_index::ownership::rollback c $checkpoint root $recovery $item {}
+            lappend c(objectDiagnostics) [::vhdl_index::ownership::unproven_scope OBJECT $recovery $item]
+            lappend c(typeDiagnostics) [::vhdl_index::ownership::unproven_scope TYPE $recovery $item]
             if {$c(interfacePending) ne {}} {
                 lappend c(interfaceDiagnostics) [dict create code INTERFACE_UNPROVEN_SCOPE severity error                     span $c(interfacePending) related_span [dict get $item span] cause [dict get $item code]]
             }
