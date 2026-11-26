@@ -1,8 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2024-2026 LogiMentor S.r.l.
 
-# Interface sites are fenced before running the shared formal grammar. Maps
-# use a separate, opaque association envelope.
+# Interface sites are fenced before running the shared formal grammar.
 proc ::vhdl_index::parser::formal_site {state} {
     upvar 1 $state c
     set first $c(i)
@@ -32,13 +31,16 @@ proc ::vhdl_index::parser::map_aspect {state form} {
     set keyword [take c]
     set connector [span c]
     expect c map
-    set open [span c]
-    if {[peek c 1] eq ")"} {fail c EMPTY_ASSOCIATION_GROUP}
-    scope_group c MAP
-    set close [span c previous]
-    return [dict create kind $form span [list [lindex $keyword 0] [lindex $close 1]] \
-        keyword_span $keyword map_span $connector open_span $open close_span $close \
-        association_span [list [lindex $open 1] [lindex $close 0]] association_status opaque]
+    set c(grammarFence) [llength $c(significant)]
+    set c(grammarDomain) ASSOCIATION
+    if {[catch {::vhdl_index::grammar::association_list c $form} details options]} {
+        if {[dict get $options -errorcode] ne {VHDL_INDEX ASSOCIATION}} {
+            return -options $options $details
+        }
+        return -code error -errorcode {VHDL_INDEX STRUCTURE} $details
+    }
+    return [dict merge [dict create kind $form span [::vhdl_index::grammar::extent c [lindex $keyword 0]] \
+        keyword_span $keyword map_span $connector] $details]
 }
 
 proc ::vhdl_index::parser::package_header {state name head} {

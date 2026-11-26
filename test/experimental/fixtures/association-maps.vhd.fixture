@@ -1,0 +1,15 @@
+package p is
+    generic (n : natural; type t);
+    generic map (1, t => integer range 0 to 7);
+end package;
+package p1 is new work.p generic map (3, t => work.types.word(0 to 7));
+entity e is end;
+architecture rtl of e is begin
+    b: block
+        generic (n : natural; type t);
+        generic map (f((0 => 1, others => 2), "=>,", ','), t => integer);
+        port (d : in bit);
+        port map (d => inertial f(\input,=>\, <<signal .e.s : bit>>));
+    begin
+    end block;
+end architecture;
