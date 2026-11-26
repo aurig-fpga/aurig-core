@@ -134,6 +134,7 @@ proc ::vhdl_index::query::subtree {view id capability} {
     }
     set pending [list $root]
     set proofs {}
+    set seenProofs {}
     set rows {}
     set validation parsed
     set proved 0
@@ -148,7 +149,19 @@ proc ::vhdl_index::query::subtree {view id capability} {
         if {$status in {complete partial}} {set proved 1}
         if {$status ne "complete"} {set incomplete 1}
         set validation [::vhdl_index::grammar::combine $validation [dict get $outcome validation]]
-        lappend proofs {*}[dict get $outcome evidence]
+        foreach proof [dict get $outcome evidence] {
+            set key {}
+            if {[dict exists $proof evidence_id]} {
+                set key [dict get $proof evidence_id]
+            } elseif {[dict exists $proof loss_id]} {
+                set key [dict get $proof loss_id]
+            }
+            if {$key ne {}} {
+                if {[dict exists $seenProofs $key]} {continue}
+                dict set seenProofs $key 1
+            }
+            lappend proofs $proof
+        }
         foreach row [dict get $outcome rows] {lappend rows [list [lindex [dict get $row span] 0] $row]}
     }
     if {$proved} {

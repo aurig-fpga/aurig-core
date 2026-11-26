@@ -2,7 +2,6 @@
 # Copyright 2024-2026 LogiMentor S.r.l.
 
 source [file join [file dirname [info script]] owner_regions.tcl]
-namespace import ::vhdl_index::query::*
 proc by_name {view id capability key} {
     set r [::vhdl_index::query::direct $view $id $capability]
     set names {}
@@ -47,6 +46,10 @@ check subtree_visible_count [llength [dict get $r rows]] 1
 check subtree_proof_count [llength [dict get $r evidence]] 1
 check direct_groups [dict get [::vhdl_index::query::direct $v $p group_templates] completeness] partial
 check group_records [llength [dict get [::vhdl_index::query::direct $v $p group_templates] rows]] 2
+set proof [lindex [dict get [::vhdl_index::query::direct $v $p group_templates] evidence] 0]
+check possible_families [dict get $proof capabilities] {group_templates group_declarations}
+check possible_forms [dict get $proof forms] {group_template group}
+check one_candidate_diagnostic [llength [dict get $proof diagnostics]] 1
 check absent_rows [dict get [::vhdl_index::query::direct $v [id $v region 1] type_declarations] rows] {}
 check complete_empty [dict get [::vhdl_index::query::direct $v [design_region $v e] type_declarations] completeness] complete
 check overloads [by_name $v $p subprogram_specifications designator_span] {f f}

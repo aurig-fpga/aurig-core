@@ -163,7 +163,15 @@ proc ::vhdl_index::regions::applicable {role kind capability} {
 }
 
 proc ::vhdl_index::regions::evidence {view address capability row} {
-    return [dict create owner_id [identity $view $address] kind declaration span [dict get $row span]         status [dict get $row status] capabilities [list $capability] diagnostics [dict get $row diagnostics]]
+    set proof [dict create owner_id [identity $view $address] kind declaration \
+        span [dict get $row span] status [dict get $row status] \
+        capabilities [list $capability] diagnostics [dict get $row diagnostics]]
+    if {[dict exists $row candidate_forms]} {
+        dict set proof kind declaration_candidates
+        dict set proof forms [dict get $row candidate_forms]
+        dict set proof capabilities [dict get $row candidate_capabilities]
+    }
+    return $proof
 }
 
 # Inspect only the requested family's retained records. Compact object runs
@@ -185,6 +193,7 @@ proc ::vhdl_index::regions::coverage {view id capability} {
             set validation [expr {$availability eq "unsupported" ? "recognized-but-unsupported" : "unrecognized"}]
         } else {
             set completeness not_applicable
+            set validation opaque
         }
     } elseif {![applicable $role $kind $capability]} {
         set completeness not_applicable
