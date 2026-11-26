@@ -141,6 +141,7 @@ proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext 
               $externalClose ni $stack))} {
             set c(i) $pos
             if {$grouped} {::vhdl_index::grammar::reject c EXPECTED_ASSOCIATION_CLOSE}
+            if {$stack ne {}} {fail c UNCLOSED_DELIMITER}
             return concurrent_candidate
         }
         if {[dict exists $pairs $k]} {
