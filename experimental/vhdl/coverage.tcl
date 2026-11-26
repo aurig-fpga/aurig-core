@@ -109,7 +109,7 @@ proc ::vhdl_index::coverage {snapshot tape structure} {
             sequential opaque expressions opaque]]
     set additional {alias_declarations attribute_declarations component_declarations file_objects
         group_templates group_declarations disconnect_specifications local_use_clauses
-        configuration_specifications configuration_blocks package_declarations package_instantiations package_interfaces block_interfaces}
+        configuration_specifications configuration_blocks package_declarations package_instantiations package_interfaces block_interfaces generate_parameters}
     foreach capability $additional {dict set result capabilities $capability parsed}
     # Publish known gaps even when no declaration row was eligible for the scope.
     foreach gap [dict get $structure coverage_gaps] {

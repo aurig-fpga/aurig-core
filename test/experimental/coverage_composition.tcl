@@ -112,7 +112,7 @@ set r [inline blocks {entity e is end; architecture rtl of e is begin
   b: block is component cb end component; begin end block;
   g: if true generate component cg end component; begin end generate;
 end architecture wrong;}]
-check block-and-generate {block generate} [gap_kinds [lindex [dict get $r withdrawn_scopes] 0]]
+check block-and-generate {block generate_alternative if_generate} [gap_kinds [lindex [dict get $r withdrawn_scopes] 0]]
 check blocked-components unrecognized [cap $r component_declarations]
 check scope-limit [list configuration_blocks unrecognized] \
     [list configuration_blocks [cap [inline limits {entity e is end; configuration c of e is for rtl end for; end;} {scopes 1}] configuration_blocks]]

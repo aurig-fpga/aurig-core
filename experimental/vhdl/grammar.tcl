@@ -373,12 +373,11 @@ proc ::vhdl_index::grammar::range_payload {state stops} {
 
 # An array index can be a type mark, an explicit range, or a range
 # attribute. Only ARRAY's own index list admits a boxed index subtype.
-proc ::vhdl_index::grammar::discrete_range {state allowBox} {
+proc ::vhdl_index::grammar::discrete_range {state allowBox {stops {, )}}} {
     upvar 1 $state c
     set first $c(i)
     set start [lindex [span c] 0]
-    set stops {, )}
-    set boundStops {, ) <> of}
+    set boundStops [concat $stops {<> of}]
     set row {}
     if {[kind c] in {, ) of range eof open <>}} {reject c EXPECTED_INDEX}
     if {[is_name [kind c] 0]} {

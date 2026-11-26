@@ -62,3 +62,8 @@ proc scope_integrity {r v} {
         }
     }
 }
+proc choice_surfaces {r choices} {
+    set surfaces {}
+    foreach choice $choices {lappend surfaces [surface $r [dict get $choice span]]}
+    return $surfaces
+}

@@ -1,0 +1,26 @@
+entity e is end;
+architecture rtl of e is begin
+    g: for i in natural range 0 to 3 generate
+        constant local : integer := i;
+    begin
+        choose: if head: i = 0 generate
+            constant repeated : integer := 0;
+            type t is protected procedure tick; end protected;
+        begin
+            b: block begin
+                p: process variable observed : bit; begin wait; end process;
+            end block;
+        end head;
+        elsif middle: i = 1 generate
+            constant repeated : integer := 1;
+        begin end middle;
+        else tail: generate
+        end tail;
+        end generate choose;
+    end;
+    end generate g;
+    c: case 0 generate
+        when digits: 0 | 1 to 2 => begin end digits;
+        when others => end;
+    end generate c;
+end architecture;

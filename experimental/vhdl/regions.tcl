@@ -270,6 +270,9 @@ proc ::vhdl_index::regions::coverage_rows {view role capability payload} {
                         if {[llength $entry] > 2} {lappend rows [lindex $entry 2]}
                     }
                 }
+                generate_parameters {
+                    if {[dict exists $payload syntax parameter]} {return [list [dict get $payload syntax parameter]]}
+                }
                 package_interfaces - block_interfaces {
                     if {[dict exists $payload syntax interfaces]} {return [dict get $payload syntax interfaces]}
                 }

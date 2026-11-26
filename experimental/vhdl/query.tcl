@@ -98,6 +98,7 @@ proc ::vhdl_index::query::direct {view id capability} {
                 switch -- $capability {
                     subprogram_specifications {set occurrenceRole specification}
                     subprogram_bodies - package_declarations {set occurrenceRole region}
+                    generate_parameters {set occurrenceRole generate_parameter}
                     package_interfaces - block_interfaces {set occurrenceRole interface_clause}
                 }
             }

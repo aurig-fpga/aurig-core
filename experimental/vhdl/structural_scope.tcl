@@ -26,6 +26,7 @@ proc ::vhdl_index::parser::map_aspect {state form} {
     set connector [span c]
     expect c map
     set open [span c]
+    if {[peek c 1] eq ")"} {fail c EMPTY_ASSOCIATION_GROUP}
     consume_group c
     set close [span c previous]
     return [dict create kind $form span [list [lindex $keyword 0] [lindex $close 1]] \
@@ -148,4 +149,219 @@ proc ::vhdl_index::parser::opaque_concurrent {state ownerKind} {
     } else {
         fail c UNPROVEN_CONCURRENT_BOUNDARY [list found $marker]
     }
+}
+
+# The typed stack prevents a mistaken inner ending from consuming an
+# explicitly named ancestor's closing fence.
+proc ::vhdl_index::parser::open_named_scope {state kind name} {
+    upvar 1 $state c
+    set key [list $kind [lindex $name 2]]
+    dict incr c(activeNames) $key
+    return $key
+}
+
+proc ::vhdl_index::parser::close_named_scope {state key} {
+    upvar 1 $state c
+    dict incr c(activeNames) $key -1
+    if {[dict get $c(activeNames) $key] == 0} {
+        dict unset c(activeNames) $key
+    }
+}
+
+proc ::vhdl_index::parser::generate_extent {state stops} {
+    upvar 1 $state c
+    set first $c(i)
+    set start [lindex [span c] 0]
+    set marker [boundary c [concat $stops {{;} end begin block process elsif else when generate}]]
+    if {$marker ni $stops} {
+        fail c INCOMPLETE_GENERATE_HEADER [list expected $stops found $marker]
+    }
+    if {$first == $c(i)} {return {}}
+    return [list $start [lindex [span c previous] 1]]
+}
+
+proc ::vhdl_index::parser::generate_parameter {state} {
+    upvar 1 $state c
+    set name [read_name c]
+    set in [span c]
+    expect c in
+    set begin $c(i)
+    set extent [generate_extent c {generate}]
+    set fence $c(i)
+    set c(grammarFence) $fence
+    set c(grammarDomain) GENERATE
+    set c(grammarNamePrefix) 0
+    set c(grammarPrefixes) {}
+    set c(i) $begin
+    set status parsed
+    set issue {}
+    if {[catch {::vhdl_index::grammar::discrete_range c 0 {eof}} range options]} {
+        if {[dict get $options -errorcode] ne {VHDL_INDEX GENERATE}} {
+            return -options $options $range
+        }
+        set status malformed
+        set issue $range
+        set range [dict create kind opaque span $extent]
+    } elseif {$c(i) != $fence} {
+        set status malformed
+        set issue [diagnostic c GENERATE_INVALID_DISCRETE_RANGE {}]
+    }
+    set c(i) $fence
+    set nameSpan [lindex $name 1]
+    set parameter [dict create kind generate_parameter name [lindex $name 0] name_span $nameSpan in_span $in \
+        span [list [lindex $nameSpan 0] [lindex [span c previous] 1]] range $range status $status diagnostics {}]
+    return [list $parameter $issue]
+}
+
+proc ::vhdl_index::parser::generate_choices {state} {
+    upvar 1 $state c
+    set choices {}
+    set separators {}
+    set issue {}
+    while {1} {
+        set form expression
+        set first $c(i)
+        set extent [generate_extent c {| =>}]
+        if {$extent eq {}} {
+            set issue [diagnostic c GENERATE_EXPECTED_CHOICE {}]
+        } else {
+            if {$c(i) == $first + 1 && [peek c -1] eq "others"} {set form others}
+            lappend choices [dict create kind $form span $extent \
+                status [expr {$form eq "others" ? "parsed" : "opaque"}]]
+        }
+        if {[peek c] eq "=>"} {break}
+        lappend separators [take c]
+    }
+    return [list $choices $separators $issue]
+}
+
+proc ::vhdl_index::parser::generate_alternative {state depth owner form seenVar} {
+    upvar 1 $state c $seenVar seen
+    set keyword [take c]
+    set opening [lindex $keyword 0]
+    set label {}
+    set colon {}
+    set issue {}
+    if {[peek c 1] eq ":"} {
+        if {$c(edition) < 2008} {fail c EDITION_GENERATE_ALTERNATIVE_LABEL}
+        if {[is_name [peek c] 0]} {
+            set label [read_name c]
+            set key [lindex $label 2]
+            if {[dict exists $seen $key]} {
+                set issue [diagnostic c DUPLICATE_ALTERNATIVE_LABEL [list span [lindex $label 1] related_span [dict get $seen $key]]]
+            }
+            if {$issue eq {}} {dict set seen $key [lindex $label 1]}
+        } else {
+            set issue [diagnostic c INVALID_ALTERNATIVE_LABEL {}]
+            incr c(i)
+        }
+        set colon [take c]
+    }
+    set syntax [dict create form $form keyword_span $keyword label [lindex $label 0] \
+        label_span [lindex $label 1] colon_span $colon]
+    if {$form eq "when"} {
+        lassign [generate_choices c] choices separators choiceIssue
+        if {$issue eq {}} {set issue $choiceIssue}
+        dict set syntax choices $choices
+        dict set syntax separator_spans $separators
+        dict set syntax arrow_span [take c]
+    } else {
+        if {$form ne "else"} {
+            set condition [generate_extent c {generate}]
+            if {$condition eq {} && $issue eq {}} {set issue [diagnostic c GENERATE_EXPECTED_CONDITION {}]}
+            dict set syntax condition_span $condition
+            dict set syntax condition_status opaque
+        }
+        set marker [span c]
+        expect c generate
+        dict set syntax generate_span $marker
+    }
+    dict set syntax header_span [list $opening [lindex [span c previous] 1]]
+    scope c generate_alternative $label $depth generate [list $opening $owner] {} {} $syntax $issue
+    return $syntax
+}
+
+proc ::vhdl_index::parser::generate_statement {state depth owner ownerKind label} {
+    upvar 1 $state c
+    if {$label eq {}} {fail c MISSING_GENERATE_LABEL}
+    if {$ownerKind eq "entity"} {fail c GENERATE_OUT_OF_CONTEXT}
+    set form [peek c]
+    if {$form eq "case" && $c(edition) < 2008} {fail c EDITION_CASE_GENERATE}
+    set depth [descend c $depth]
+    set opening [lindex $label 1 0]
+    set syntax [dict create form $form label [lindex $label 0] label_span [lindex $label 1] colon_span [span c previous]]
+    if {$form eq "for"} {
+        dict set syntax keyword_span [take c]
+        lassign [generate_parameter c] parameter issue
+        dict set syntax parameter $parameter
+        dict set syntax generate_span [take c]
+        dict set syntax header_span [list $opening [lindex [span c previous] 1]]
+        scope c for_generate $label $depth generate [list $opening $owner] {} {} $syntax $issue
+        return
+    }
+    set checkpoint [::vhdl_index::ownership::checkpoint c]
+    set active [open_named_scope c generate $label]
+    set seen {}
+    set alternativeDepth [descend c $depth]
+    if {$form eq "case"} {
+        dict set syntax keyword_span [take c]
+        set selector [generate_extent c {generate}]
+        if {$selector eq {}} {fail c GENERATE_EXPECTED_SELECTOR}
+        dict set syntax selector_span $selector
+        dict set syntax selector_status opaque
+        dict set syntax generate_span [take c]
+        dict set syntax header_span [list $opening [lindex [span c previous] 1]]
+        if {[peek c] ne "when"} {fail c GENERATE_EXPECTED_WHEN}
+        while {[peek c] eq "when"} {
+            generate_alternative c $alternativeDepth $opening when seen
+        }
+    } else {
+        set first [generate_alternative c $alternativeDepth $opening if seen]
+        dict set syntax keyword_span [dict get $first keyword_span]
+        dict set syntax generate_span [dict get $first generate_span]
+        dict set syntax header_span [list $opening [lindex [dict get $first header_span] 1]]
+        while {[peek c] in {elsif else}} {
+            if {$c(edition) < 2008} {fail c EDITION_GENERATE_ALTERNATIVE}
+            set next [peek c]
+            generate_alternative c $alternativeDepth $opening $next seen
+            if {$next eq "else"} {break}
+        }
+    }
+    set before [llength $c(diagnostics)]
+    set tail [terminator c generate $label]
+    close_named_scope c $active
+    set region [list $opening [lindex $tail 1]]
+    set kind ${form}_generate
+    if {[llength $c(diagnostics)] != $before} {
+        ::vhdl_index::ownership::rollback c $checkpoint $kind $region [lindex $c(diagnostics) end] $owner
+        return
+    }
+    set syntax [dict merge $syntax [scope_closing c $tail {}]]
+    ::vhdl_index::ownership::publish c [dict create id $opening parent_id $owner kind $kind \
+        name_span [lindex $label 1] span $region declarative_span {} entries {} \
+        opaque {} gaps {} status parsed types {} type_status parsed syntax $syntax]
+}
+
+# The scope walker alone consumes declarations and nested typed statements.
+# This function deals only with the boundary already reached by that walk.
+proc ::vhdl_index::parser::generate_body_end {state kind name} {
+    upvar 1 $state c
+    set inner {}
+    set innerName {}
+    if {[peek c] eq "end" && [peek c 1] ne "generate"} {
+        if {$c(edition) < 2008} {fail c EDITION_GENERATE_BODY_END}
+        set label $name
+        if {$kind eq "for_generate"} {set label {}}
+        set inner [terminator c alternative $label 1 0 0 1]
+        set innerName [dict get [scope_closing c $inner {}] end_name_span]
+    }
+    if {$kind eq "for_generate"} {
+        set tail [terminator c generate $name]
+    } else {
+        if {[peek c] ni {elsif else when} && !([peek c] eq "end" && [peek c 1] eq "generate")} {
+            fail c UNPROVEN_GENERATE_ALTERNATIVE_END
+        }
+        set tail $inner
+    }
+    return [list $tail $inner $innerName]
 }

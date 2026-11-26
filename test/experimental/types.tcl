@@ -115,14 +115,18 @@ set expected {
     {procedure p proc_t}
     {entity typed ent}
     {architecture structure arch_t}
+    {package hidden_package nested_package_t}
     {process p proc_local}
     {process p proc_state}
+    {block b nested_block_t}
+    {generate_alternative {} nested_generate_t}
+    {generate_alternative {} nested_alternative_t}
 }
 set actual {}
 foreach row $rows {lappend actual [lrange $row 0 2]}
 check type-inventory [linsert $expected 0 [list package type_catalog $stateName]] $actual
 check no-type-issues {} [codes $r type]
-check type-capability recognized-but-unsupported [dict get $r capabilities type_declarations]
+check type-capability parsed [dict get $r capabilities type_declarations]
 check declarations-opaque opaque [dict get $r capabilities declarations]
 check expressions-opaque opaque [dict get $r capabilities expressions]
 set byName [index_by_name $rows]
@@ -249,7 +253,7 @@ check verified-absence parsed [dict get $r capabilities type_declarations]
 check verified-absence-rows {} [inventory $r]
 
 set fixtureNames [lsort [glob -tails -directory [file join $tests fixtures] *.vhd.fixture]]
-check isolated-fixture-count 75 [llength $fixtureNames]
+check isolated-fixture-count 77 [llength $fixtureNames]
 check no-production-vhdl-fixtures {} [glob -nocomplain -directory [file join $tests fixtures] *.vhd *.vhdl]
 puts [list Tcl [info patchlevel] assertions $assertions failures $failures]
 exit [expr {$failures > 0}]

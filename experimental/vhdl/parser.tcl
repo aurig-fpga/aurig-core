@@ -35,7 +35,7 @@ proc ::vhdl_index::parser::is_context_item {state} {
     return [expr {$kind in {library use} || ($kind eq "context" && [peek c 2] ne "is")}]
 }
 
-proc ::vhdl_index::parser::terminator {state kind name {allowName 1} {matching 0} {recoverTypedSeparator 0}} {
+proc ::vhdl_index::parser::terminator {state kind name {allowName 1} {matching 0} {recoverTypedSeparator 0} {boundedAlternative 0}} {
     upvar 1 $state c
     set start [lindex [span c] 0]
     expect c end
@@ -62,8 +62,11 @@ proc ::vhdl_index::parser::terminator {state kind name {allowName 1} {matching 0
         }
         lassign [read_name c 1] spelling extent key
         if {[lindex $name 2] ne $key || $name eq {}} {
-            if {!$explicit} {
+            if {!$explicit && !$boundedAlternative} {
                 fail c UNCERTAIN_END_NAME [list actual_span $extent expected [lindex $name 0] found $spelling]
+            }
+            if {[dict exists $c(activeNames) [list $kind $key]]} {
+                fail c ANCESTOR_END_NAME [list expected [lindex $name 0] found $spelling span $extent]
             }
             lappend c(diagnostics) [dict create code MISMATCHED_END_NAME severity error span $extent \
                 related_span [lindex $name 1] expected [lindex $name 0] found $spelling]
@@ -140,7 +143,13 @@ proc ::vhdl_index::parser::take_semicolon {state} {
 
 proc ::vhdl_index::parser::boundary {state stops {declarationContext {}}} {
     upvar 1 $state c
+    set alternativeStops {}
+    if {$declarationContext ne {} && $c(generateBodies)} {
+        set alternativeStops {elsif else when generate =>}
+        set stops [concat $stops $alternativeStops]
+    }
     set marker [scan c $stops {} $declarationContext]
+    if {$marker in $alternativeStops} {fail c UNPROVEN_GENERATE_DECLARATION_BOUNDARY [list found $marker]}
     if {$marker eq "eof"} {fail c TRUNCATED_SCOPE}
     return $marker
 }
@@ -508,82 +517,6 @@ proc ::vhdl_index::parser::configuration_part {state depth owner} {
     }
 }
 
-proc ::vhdl_index::parser::generate_body {state label depth} {
-    upvar 1 $state c
-    set phase flexible
-    set sawBegin 0
-    while {1} {
-        switch -- [peek c] {
-            end {
-                if {$phase eq "declare"} {fail c MISSING_BEGIN}
-                if {[peek c 1] eq "generate"} {return}
-                if {$c(edition) < 2008} {fail c EDITION_GENERATE_BODY_END}
-                terminator c alternative $label
-                return
-            }
-            elsif - else - when {
-                if {$phase eq "declare"} {fail c MISSING_BEGIN}
-                return
-            }
-            begin {
-                if {$c(edition) < 2008} {fail c EDITION_GENERATE_BEGIN}
-                if {$sawBegin} {fail c DUPLICATE_BEGIN}
-                incr c(i)
-                set sawBegin 1
-                set phase concurrent
-            }
-            eof {fail c TRUNCATED_GENERATE}
-            default {
-                set first [peek c]
-                if {$phase eq "flexible" && $first in {alias attribute component constant disconnect file
-                    function group impure package procedure pure shared signal subtype type use variable}} {
-                    if {$c(edition) < 2008} {fail c EDITION_GENERATE_DECLARATION}
-                    declaration c $depth
-                    set phase declare
-                } elseif {$phase eq "declare"} {
-                    declaration c $depth
-                } else {
-                    statement c $depth concurrent
-                    set phase concurrent
-                }
-            }
-        }
-    }
-}
-
-proc ::vhdl_index::parser::generate {state depth name form alternative} {
-    upvar 1 $state c
-    if {$name eq {}} {fail c MISSING_GENERATE_LABEL}
-    set child [descend c $depth]
-    if {$form eq "case"} {
-        if {$c(edition) < 2008} {fail c EDITION_CASE_GENERATE}
-        expect c when
-        while {1} {
-            set alternative [optional_label c]
-            branch_header c =>
-            generate_body c $alternative $child
-            if {![accept c when]} {break}
-        }
-    } else {
-        set sawElse 0
-        while {1} {
-            generate_body c $alternative $child
-            set marker [peek c]
-            if {$marker ni {elsif else}} {break}
-            if {$form ne "if" || $c(edition) < 2008 || $sawElse} {fail c UNEXPECTED_GENERATE_ALTERNATIVE}
-            incr c(i)
-            set alternative [optional_label c]
-            if {$marker eq "else"} {
-                expect c generate
-                set sawElse 1
-            } else {
-                branch_header c generate
-            }
-        }
-    }
-    terminator c generate $name
-}
-
 proc ::vhdl_index::parser::optional_label {state} {
     upvar 1 $state c
     if {[peek c] in {identifier extended_identifier} && [peek c 1] eq ":"} {
@@ -629,11 +562,11 @@ proc ::vhdl_index::parser::statement {state depth phase {owner {}} {ownerKind {}
             scope c process $label [descend c $depth] require $child
         }
         if - case - for - while - loop {
-            incr c(i)
-            set alternative {}
-            if {$phase eq "concurrent" && $first eq "if" && $c(edition) >= 2008} {
-                set alternative [optional_label c]
+            if {$phase eq "concurrent" && $first in {if case for}} {
+                generate_statement c $depth $owner $ownerKind $label
+                return {}
             }
+            incr c(i)
             set matching 0
             if {$first eq "case" && $phase eq "sequential"} {set matching [accept c ?]}
             if {$first eq "loop"} {
@@ -644,10 +577,7 @@ proc ::vhdl_index::parser::statement {state depth phase {owner {}} {ownerKind {}
                 if {$headerStart == $c(i)} {fail c INCOMPLETE_STATEMENT_HEADER}
                 incr c(i)
             }
-            if {$marker eq "generate" && $phase eq "concurrent" && $first in {if case for}} {
-                generate c $depth $label $first $alternative
-                return generate
-            } elseif {$phase eq "sequential" &&
+            if {$phase eq "sequential" &&
                 [dict exists {if then case is for loop while loop loop loop} $first] &&
                 [dict get {if then case is for loop while loop loop loop} $first] eq $marker} {
                 set kind $first
@@ -665,6 +595,10 @@ proc ::vhdl_index::parser::statement {state depth phase {owner {}} {ownerKind {}
         else - elsif - when {fail c UNEXPECTED_ALTERNATIVE [list found $first]}
         default {
             if {$phase eq "concurrent"} {
+                if {$ownerKind in {block generate} &&
+                    ($first in {generic port} || [::vhdl_index::grammar::declaration_family $first] ne {})} {
+                    fail c DECLARATION_IN_CONCURRENT_BODY [list found $first]
+                }
                 opaque_concurrent c $ownerKind
             } else {
                 opaque_item c
@@ -708,12 +642,22 @@ proc ::vhdl_index::parser::consume_group {state} {
     expect c )
 }
 
-proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {}} {shapeVar {}} {formals {}} {syntax {}}} {
+proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {}} {shapeVar {}} {formals {}} {syntax {}} {scopeIssue {}}} {
     upvar 1 $state c
     if {$shapeVar ne {}} {
         upvar 1 $shapeVar shape
         set shape {}
         set begin {}
+    }
+    set regionKind $kind
+    set generateBody [expr {$beginPolicy eq "generate"}]
+    set active {}
+    if {$generateBody} {
+        set kind generate
+        incr c(generateBodies)
+    }
+    if {$kind in {package package_body block} || $regionKind eq "for_generate"} {
+        set active [open_named_scope c $kind $name]
     }
     if {$syntax ne {}} {set structuralBegin {}}
     set protectedScope [expr {$kind in {protected protected_body}}]
@@ -737,19 +681,50 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
         set gaps {}
         set objectStatus parsed
     }
+    if {$generateBody && [peek c] ne "begin" &&
+        [::vhdl_index::grammar::declaration_family [peek c]] eq {}} {
+        set phase concurrent
+        set declarationEnd $declarationStart
+    }
     while {1} {
         set next [peek c]
-        if {$next eq "end"} {
+        if {$next eq "end" || ($generateBody && $next in {elsif else when})} {
             if {$kind eq "configuration" && $phase ne "configuration_end"} {fail c MISSING_BLOCK_CONFIGURATION}
             if {$beginPolicy eq "require" && $phase eq "declare"} {fail c MISSING_BEGIN}
-            if {$owner eq {}} {return [terminator c $kind $name]}
+            if {$owner eq {}} {
+                set tail [terminator c $kind $name]
+                if {$active ne {}} {close_named_scope c $active}
+                return $tail
+            }
             if {$declarationEnd eq {}} {set declarationEnd [lindex [span c] 0]}
             set before [llength $c(diagnostics)]
             set endOrdinal $c(i)
-            set tail [terminator c $kind $name]
-            if {$syntax ne {}} {
-                set syntax [dict merge $syntax [scope_closing c $tail $structuralBegin]]
+            if {$generateBody} {
+                set ending [lindex [span c] 0]
+                if {$phase eq "declare" && $scopeIssue eq {}} {set scopeIssue [diagnostic c MISSING_BEGIN {}]}
+                lassign [generate_body_end c $regionKind $name] tail inner innerName
+                incr c(generateBodies) -1
+                if {$scopeIssue ne {}} {lappend c(diagnostics) $scopeIssue}
+                set concurrentStart $declarationStart
+                if {$structuralBegin ne {}} {set concurrentStart [lindex $structuralBegin 1]}
+                set endOffset $ending
+                set closing [dict create terminator_span {} begin_span $structuralBegin end_name_span {}]
+                if {$tail ne {}} {
+                    set endOffset [lindex $tail 1]
+                    set closing [scope_closing c $tail $structuralBegin]
+                }
+                dict set closing concurrent_span [list $concurrentStart $ending]
+                dict set closing local_terminator_span $inner
+                dict set closing local_end_name_span $innerName
+                set syntax [dict merge $syntax $closing]
+            } else {
+                set tail [terminator c $kind $name]
+                set endOffset [lindex $tail 1]
+                if {$syntax ne {}} {
+                    set syntax [dict merge $syntax [scope_closing c $tail $structuralBegin]]
+                }
             }
+            if {$active ne {}} {close_named_scope c $active}
             if {$shapeVar ne {} && $protectedScope} {
                 set closeName {}
                 set endKeywords [expr {$kind eq "protected_body" ? 3 : 2}]
@@ -788,8 +763,8 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
             }
             if {[llength $c(diagnostics)] != $before} {
                 set cause [lindex $c(diagnostics) end]
-                set affected [list $owner [lindex $tail 1]]
-                ::vhdl_index::ownership::rollback c $checkpoint $kind $affected $cause $parent $declarations
+                set affected [list $owner $endOffset]
+                ::vhdl_index::ownership::rollback c $checkpoint $regionKind $affected $cause $parent $declarations
                 if {$entityScope} {set c(interfaceSites) {}}
                 if {$kind ne "configuration"} {
                     lappend c(objectDiagnostics) [::vhdl_index::ownership::unproven_scope OBJECT $affected $cause]
@@ -811,8 +786,8 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
             if {$kind eq "configuration" || $parent ne {} || $syntax ne {} || $objectStatus ne "parsed" || $entries ne {} || $opaque ne {} ||
                 $types ne {} || $subprograms ne {} || $declarations ne {} || $typeStatus ne "parsed" || $gaps ne {} ||
                 [llength $c(declarationScopes)] != $firstScope} {
-                set record [dict create id $owner parent_id $parent kind $kind \
-                    name_span [lindex $name 1] span [list $owner [lindex $tail 1]] \
+                set record [dict create id $owner parent_id $parent kind $regionKind \
+                    name_span [lindex $name 1] span [list $owner $endOffset] \
                     declarative_span [list $declarationStart $declarationEnd] entries $entries \
                     opaque $opaque gaps $gaps status $objectStatus types $types type_status $typeStatus]
                 if {$syntax ne {}} {dict set record syntax $syntax}
@@ -1070,6 +1045,8 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
         lappend c(closers) $closer
     }
 
+    set c(activeNames) {}
+    set c(generateBodies) 0
     array set c [list interfaces {} interfaceDiagnostics {} interfaceStatus parsed interfaceTime 0         interfacePending {} interfaceLexical [dict get $tape diagnostics] interfaceLexicalAt 0 componentLexicalAt 0 scopeLexicalAt 0]
     array set c [list declarationScopes {} emptyRegions {} withdrawnScopes {} coverageGaps {} withdrawalTime 0 objectDiagnostics {} objectTime 0 \
         declarationLexical [dict get $tape diagnostics] objectLexicalAt 0 \

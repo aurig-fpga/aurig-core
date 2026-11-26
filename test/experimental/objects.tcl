@@ -119,13 +119,14 @@ set expected {
     {architecture rtl signal room {integer range 0 to 63} {range 0 to 63} {} 10 {;} parsed 0}
     {process p variable {process_a process_b} integer {} {} {} {;} parsed 0}
     {process p constant process_only natural {} {} 2 {;} parsed 0}
+    {block block_i signal block_only bit {} {} {} {;} parsed 0}
 }
 set actual [signature $r]
 check {scope and declaration count} [llength $expected] [llength $actual]
 foreach want $expected got $actual {
     check "declaration [lindex $want 3]" [list {*}$want] $got
 }
-check {opaque nested ownership} recognized-but-unsupported [dict get $r capabilities object_declarations]
+check {nested ownership} parsed [dict get $r capabilities object_declarations]
 check {general declarations} opaque [dict get $r capabilities declarations]
 check {expressions} opaque [dict get $r capabilities expressions]
 check {interface capability} parsed [dict get $r capabilities entity_interfaces]

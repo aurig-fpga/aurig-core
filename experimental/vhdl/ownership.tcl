@@ -16,8 +16,11 @@ proc ::vhdl_index::ownership::profile {kind} {
             return {object_declarations type_declarations subprogram_specifications subprogram_bodies
                 alias_declarations attribute_declarations file_objects component_declarations entity_interfaces
                 group_templates group_declarations disconnect_specifications local_use_clauses
-                configuration_specifications configuration_blocks package_declarations package_instantiations package_interfaces block_interfaces}
+                configuration_specifications configuration_blocks package_declarations package_instantiations package_interfaces block_interfaces generate_parameters}
         }
+        if_generate - case_generate {return {}}
+        for_generate {return [linsert [profile generate] end generate_parameters]}
+        generate_alternative {return [profile generate]}
         component {return {component_declarations}}
         protected {return {subprogram_specifications attribute_declarations local_use_clauses}}
         configuration {return {attribute_declarations group_declarations local_use_clauses configuration_blocks}}
