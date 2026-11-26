@@ -538,7 +538,7 @@ proc ::vhdl_index::parser::branch_header {state marker} {
 
 proc ::vhdl_index::parser::statement {state depth phase {owner {}} {ownerKind {}}} {
     upvar 1 $state c
-    if {$owner ne {}} {set opening [lindex [span c] 0]}
+    set opening [lindex [span c] 0]
     set label [optional_label c]
     set first [peek c]
     if {$first eq "postponed" && [peek c 1] eq "process"} {
@@ -588,8 +588,8 @@ proc ::vhdl_index::parser::statement {state depth phase {owner {}} {ownerKind {}
             }
         }
         entity - component - configuration {
-            if {$phase ne "concurrent" || $label eq {}} {fail c UNSAFE_UNIT_BOUNDARY [list found $first]}
-            opaque_concurrent c $ownerKind
+            if {$phase ne "concurrent"} {fail c UNSAFE_UNIT_BOUNDARY [list found $first]}
+            concurrent_leaf c $owner $ownerKind $opening $label
         }
         architecture - package - context {fail c UNSAFE_UNIT_BOUNDARY [list found $first]}
         else - elsif - when {fail c UNEXPECTED_ALTERNATIVE [list found $first]}
@@ -599,7 +599,7 @@ proc ::vhdl_index::parser::statement {state depth phase {owner {}} {ownerKind {}
                     ($first in {generic port} || [::vhdl_index::grammar::declaration_family $first] ne {})} {
                     fail c DECLARATION_IN_CONCURRENT_BODY [list found $first]
                 }
-                opaque_concurrent c $ownerKind
+                concurrent_leaf c $owner $ownerKind $opening $label
             } else {
                 opaque_item c
             }
@@ -1020,6 +1020,9 @@ proc ::vhdl_index::parser::scope_gap {state gapsVar owner ownerKind kind region 
     }
     # A hidden declarative item cannot take ownership of the separate entity header.
     set capabilities [lsearch -all -inline -not -exact $capabilities entity_interfaces]
+    if {$kind ni {block generate}} {
+        set capabilities [lsearch -all -inline -not -exact $capabilities instantiations]
+    }
     ::vhdl_index::ownership::gap c $kind $region $status $capabilities $owner $diagnostics
 }
 
@@ -1048,7 +1051,7 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
     set c(activeNames) {}
     set c(generateBodies) 0
     array set c [list interfaces {} interfaceDiagnostics {} interfaceStatus parsed interfaceTime 0         interfacePending {} interfaceLexical [dict get $tape diagnostics] interfaceLexicalAt 0 componentLexicalAt 0 scopeLexicalAt 0]
-    array set c [list declarationScopes {} emptyRegions {} withdrawnScopes {} coverageGaps {} withdrawalTime 0 objectDiagnostics {} objectTime 0 \
+    array set c [list declarationScopes {} emptyRegions {} withdrawnScopes {} coverageGaps {} instantiations {} withdrawalTime 0 objectDiagnostics {} objectTime 0 \
         declarationLexical [dict get $tape diagnostics] objectLexicalAt 0 \
         typeDiagnostics {} typeTime 0 typeLexicalAt 0 subprogramLexicalAt 0 subprogramTime 0 bodyBoundaryTime 0 protectedTime 0 declarativeTime 0 declarativeLexicalAt 0]
     set units {}
@@ -1117,7 +1120,9 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
         }
     }
     set scopes [lsort -integer -index 1 $c(declarationScopes)]
-    return [dict create object_declarations $scopes empty_regions $c(emptyRegions) withdrawn_scopes $c(withdrawnScopes) \
+    set instances {}
+    foreach row $c(instantiations) {dict lappend instances [dict get $row owner_id] $row}
+    return [dict create instantiations $instances object_declarations $scopes empty_regions $c(emptyRegions) withdrawn_scopes $c(withdrawnScopes) \
         coverage_gaps [lsort -integer -index {3 0} $c(coverageGaps)] withdrawal_time_us $c(withdrawalTime) \
         object_diagnostics $c(objectDiagnostics) object_status $objectStatus object_time_us $c(objectTime) \
         type_diagnostics $c(typeDiagnostics) type_status $typeStatus type_time_us $c(typeTime) \

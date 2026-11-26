@@ -158,7 +158,7 @@ proc ::vhdl_index::parser::block_statement {state depth owner ownerKind label} {
 proc ::vhdl_index::parser::opaque_concurrent {state ownerKind} {
     upvar 1 $state c
     set stops {begin end block process generate elsif}
-    set marker [scan c [concat {{;} =>} $stops] {} {} $stops]
+    set marker [scan c [concat {{;} =>} $stops] {} {} $stops 1]
     if {$marker eq "eof"} {fail c TRUNCATED_SCOPE}
     if {$marker eq ";"} {
         incr c(i)

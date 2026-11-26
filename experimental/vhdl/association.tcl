@@ -41,9 +41,11 @@ proc ::vhdl_index::grammar::association_elements {state context rowsVar separato
         set actualFirst $first
         set actualStart $start
         set parts {}
+        set allocator 0
         set issue {}
         while {[set next [kind c]] ni {, )}} {
-            if {$next in {eof {;} begin end block process generate elsif when else generic port map entity component configuration}} {
+            if {$next in {eof {;} begin end block process generate elsif when else generic port map entity component configuration} ||
+                ([is_name $next 0] && [kind c 1] eq ":")} {
                 reject c EXPECTED_ASSOCIATION_CLOSE [list found $next]
             }
             if {$next eq "=>"} {
@@ -62,12 +64,14 @@ proc ::vhdl_index::grammar::association_elements {state context rowsVar separato
                 set actualFirst $c(i)
                 set actualStart [lindex [span c] 0]
                 set parts {}
+                set allocator 0
                 set named 1
                 continue
             }
             if {$issue eq {}} {
-                set issue [association_token c $next [lindex $parts end] $context $parts]
+                set issue [association_token c $next [lindex $parts end] $context $allocator]
             }
+            if {$next eq "new"} {set allocator 1}
             lappend parts $next
             if {$next in {( [ <<}} {
                 if {$c(delimiters) == 0} {reject c DELIMITER_LIMIT}
@@ -147,7 +151,7 @@ proc ::vhdl_index::grammar::association_formal {state first} {
     return $issue
 }
 
-proc ::vhdl_index::grammar::association_token {state next previous context parts} {
+proc ::vhdl_index::grammar::association_token {state next previous context allocator} {
     upvar 1 $state c
     if {$next in {invalid unsupported ] >> : := | @ default <>}} {
         return [problem c INVALID_TOKEN [list found $next]]
@@ -157,10 +161,10 @@ proc ::vhdl_index::grammar::association_token {state next previous context parts
         return [problem c MISSING_SEPARATOR]
     }
     if {$previous in {identifier extended_identifier} && $next in {identifier extended_identifier} &&
-        ($context eq "port" || $c(edition) < 2008) && "new" ni $parts} {
+        ($context eq "port" || $c(edition) < 2008) && !$allocator} {
         return [problem c MISSING_SEPARATOR]
     }
-    if {$next eq "range" && $previous ne "'" && ($context eq "port" || $c(edition) < 2008) && "new" ni $parts} {
+    if {$next eq "range" && $previous ne "'" && ($context eq "port" || $c(edition) < 2008) && !$allocator} {
         return [problem c SUBTYPE_ACTUAL_CONTEXT]
     }
     return {}

@@ -35,6 +35,17 @@ proc ::vhdl_index::declaration_capabilities {row} {
     return [list $capability]
 }
 
+# Association rows stay on their enclosing syntax. Assemble a private view of
+# maps without duplicating their contents in the retained index.
+proc ::vhdl_index::maps_at {result address payload} {
+    lassign $address role at
+    set maps {}
+    if {$role eq "region" && [dict exists $result instantiations $at]} {
+        foreach row [dict get $result instantiations $at] {lappend maps {*}[dict values [dict get $row maps]]}
+    }
+    return $maps
+}
+
 proc ::vhdl_index::coverage {snapshot tape structure} {
     set length [dict get $snapshot length]
     set ledger {}
@@ -109,13 +120,20 @@ proc ::vhdl_index::coverage {snapshot tape structure} {
             sequential opaque expressions opaque]]
     set additional {alias_declarations attribute_declarations component_declarations file_objects
         group_templates group_declarations disconnect_specifications local_use_clauses
-        configuration_specifications configuration_blocks package_declarations package_instantiations package_interfaces block_interfaces generate_parameters}
+        configuration_specifications configuration_blocks package_declarations package_instantiations package_interfaces block_interfaces generate_parameters
+        instantiations map_associations}
     foreach capability $additional {dict set result capabilities $capability parsed}
     # Publish known gaps even when no declaration row was eligible for the scope.
     foreach gap [dict get $structure coverage_gaps] {
         foreach capability [dict get $gap capabilities] {
             dict set result capabilities $capability [::vhdl_index::grammar::combine \
                 [dict get $result capabilities $capability] [dict get $gap status]]
+        }
+    }
+    dict for {owner rows} [dict get $structure instantiations] {
+        foreach map [maps_at $structure [list region $owner] {}] {
+            dict set result capabilities map_associations [::vhdl_index::grammar::combine \
+                [dict get $result capabilities map_associations] [dict get $map association_validation]]
         }
     }
     foreach scope [dict get $structure object_declarations] {

@@ -73,7 +73,7 @@ proc ::vhdl_index::parser::read_name {state {designator 0}} {
 
 # Advance to a stop at delimiter depth zero. Absolute character positions are
 # obtained only on a diagnostic or when materializing a completed record.
-proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext {}} {hardStops {}}} {
+proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext {}} {hardStops {}} {concurrent 0}} {
     upvar 1 $state c
     set stopIds {0 8}
     foreach stop $stops {lappend stopIds [dict get $c(symbols) $stop]}
@@ -89,6 +89,14 @@ proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext 
     set package [dict get $c(symbols) package]
     set body [dict get $c(symbols) body]
     set pos $c(i)
+    set scanStart $pos
+    if {$concurrent} {
+        set colon [dict get $c(symbols) :]
+        set concurrentStops {}
+        foreach word {entity component configuration generic port for if case assert postponed} {
+            lappend concurrentStops [dict get $c(symbols) $word]
+        }
+    }
     if {$declarationContext ne {}} {
         set c(opaqueBoundary) {}
         set declarationKinds $c(declarationKinds)
@@ -125,6 +133,12 @@ proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext 
             if {$stack ne {}} {fail c UNCLOSED_DELIMITER}
             if {$k == 8} {fail c UNSUPPORTED_TOKEN}
             return [lindex $c(labels) $k]
+        }
+        if {$concurrent && $pos > $scanStart && $stack eq {} &&
+            ($k in $concurrentStops ||
+             ($k in {1 2} && [lindex $kinds [lindex $significant [expr {$pos + 1}]]] == $colon))} {
+            set c(i) $pos
+            return concurrent_candidate
         }
         if {[dict exists $pairs $k]} {
             if {[llength $stack] >= $depthLimit} {

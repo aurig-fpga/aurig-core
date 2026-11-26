@@ -217,7 +217,19 @@ proc ::vhdl_index::regions::coverage {view id capability} {
                 lappend proofs [dict merge $gap [dict create owner_id $id evidence_id [identity $view $address]]]
             }
         }
-        foreach row [coverage_rows $view $role $capability $payload] {
+        set checked {}
+        if {$capability eq "map_associations"} {
+            foreach map [::vhdl_index::maps_at [dict get $view result] $key $payload] {
+                set status [dict get $map association_validation]
+                if {$status ne "parsed"} {
+                    lappend checked [dict create span [dict get $map span] status $status \
+                        diagnostics [dict get $map association_diagnostics]]
+                }
+            }
+        } elseif {$capability ne "instantiations"} {
+            set checked [coverage_rows $view $role $capability $payload]
+        }
+        foreach row $checked {
             if {[dict get $row status] eq "parsed"} {continue}
             set validation [::vhdl_index::grammar::combine $validation [dict get $row status]]
             lappend proofs [evidence $view $key $capability $row]

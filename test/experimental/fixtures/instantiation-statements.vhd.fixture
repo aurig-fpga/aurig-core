@@ -1,0 +1,31 @@
+entity shell is
+begin
+    call_site: tick;
+end shell;
+architecture rtl of shell is begin
+    explicit: component repo.device; implicit: device port map (open);
+    \named instance\ : entity lib.\device.core\ (\RTL arch\)
+        generic map (5, limit => calc((0 => 1, others => 2), 7)) -- association text
+        port map (q => open);
+    configured: configuration lib.startup;
+    unknown: repo.step;
+    called: repo.step(2);
+    assigned: s <= '1';
+    b: block begin
+        f: for i in 0 to 3 generate
+            nested: component child;
+        end generate f;
+    end block b;
+    g: if first: true generate
+        first_instance: entity lib.e;
+    elsif second: false generate
+        second_instance: configuration lib.c;
+    else third: generate
+        third_instance: widget generic map (1);
+    end generate g;
+    h: case 1 generate
+        when zero: 0 => zero_copy: component widget;
+        when remaining: others => remaining_copy: component widget;
+    end generate h;
+    p: process begin called: repo.step; wait; end process;
+end rtl;

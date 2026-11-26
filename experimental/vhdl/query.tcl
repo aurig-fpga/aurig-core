@@ -24,6 +24,21 @@ proc ::vhdl_index::query::owners {view} {
 }
 
 proc ::vhdl_index::query::items {view address capability payload} {
+    set result [dict get $view result]
+    if {$capability eq "instantiations"} {
+        set at [lindex $address 1]
+        if {[dict exists $result instantiations $at]} {return [dict get $result instantiations $at]}
+        return {}
+    }
+    if {$capability eq "map_associations"} {
+        set rows {}
+        foreach map [::vhdl_index::maps_at $result $address $payload] {
+            foreach row [dict get $map associations] {
+                lappend rows [dict merge $row [dict create map_kind [dict get $map kind] map_span [dict get $map span]]]
+            }
+        }
+        return $rows
+    }
     if {$payload eq {}} {return {}}
     set role [lindex $address 0]
     switch -- $role {
@@ -103,6 +118,8 @@ proc ::vhdl_index::query::direct {view id capability} {
                 }
             }
         }
+        if {$capability eq "instantiations"} {set occurrenceRole instantiation}
+        if {$capability eq "map_associations"} {set occurrenceRole association}
         set owner $id
         if {$role eq "specification" && $occurrenceRole eq "specification"} {
             set owner [::vhdl_index::regions::identity $view [lindex [dict get $view rows $address] 3]]
@@ -120,13 +137,13 @@ proc ::vhdl_index::query::direct {view id capability} {
     return $result
 }
 
-# Subtree inventory accepts syntax declaration capabilities. Member records
-# use direct queries on their dedicated owners, and are never counted twice.
+# Subtree inventory accepts syntax declaration and concurrent capabilities.
+# Member and interface records use their dedicated direct owners.
 proc ::vhdl_index::query::subtree {view id capability} {
     set root [::vhdl_index::regions::address $view $id]
     if {[lindex $root 0] ni {region unit gap recovery} || $capability ni [::vhdl_index::ownership::profile root] ||
         $capability in {entity_interfaces package_interfaces block_interfaces}} {
-        return -code error -errorcode {VHDL_INDEX SUBTREE} "Expected a declarative owner and declaration capability"
+        return -code error -errorcode {VHDL_INDEX SUBTREE} "Expected an owner and subtree inventory capability"
     }
     if {![dict exists $view rows $root]} {return [direct $view $id $capability]}
     set children {}

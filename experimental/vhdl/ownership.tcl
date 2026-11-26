@@ -16,7 +16,8 @@ proc ::vhdl_index::ownership::profile {kind} {
             return {object_declarations type_declarations subprogram_specifications subprogram_bodies
                 alias_declarations attribute_declarations file_objects component_declarations entity_interfaces
                 group_templates group_declarations disconnect_specifications local_use_clauses
-                configuration_specifications configuration_blocks package_declarations package_instantiations package_interfaces block_interfaces generate_parameters}
+                configuration_specifications configuration_blocks package_declarations package_instantiations package_interfaces block_interfaces generate_parameters
+                instantiations map_associations}
         }
         if_generate - case_generate {return {}}
         for_generate {return [linsert [profile generate] end generate_parameters]}
@@ -29,7 +30,9 @@ proc ::vhdl_index::ownership::profile {kind} {
         alias_declarations attribute_declarations file_objects group_templates group_declarations local_use_clauses}
     if {$kind in {architecture package block generate}} {lappend result component_declarations}
     if {$kind in {architecture entity package block generate}} {lappend result disconnect_specifications}
-    if {$kind in {architecture block generate}} {lappend result configuration_specifications}
+    if {$kind in {architecture block generate}} {
+        lappend result configuration_specifications instantiations map_associations
+    }
     if {$kind in {architecture entity package package_body process function procedure protected_body block generate}} {
         lappend result package_declarations package_instantiations
     }
@@ -39,10 +42,11 @@ proc ::vhdl_index::ownership::profile {kind} {
     return $result
 }
 
-proc ::vhdl_index::ownership::gap {state kind region status capabilities owner {diagnostics {}}} {
+proc ::vhdl_index::ownership::gap {state kind region status capabilities owner {diagnostics {}} {forms {}}} {
     upvar 1 $state c
     set row [dict create kind $kind span $region status $status capabilities $capabilities owner_id $owner]
     if {$diagnostics ne {}} {dict set row diagnostics $diagnostics}
+    if {$forms ne {}} {dict set row forms $forms}
     lappend c(coverageGaps) $row
 }
 
@@ -63,7 +67,7 @@ proc ::vhdl_index::ownership::checkpoint {state} {
     upvar 1 $state c
     return [list [llength $c(declarationScopes)] [llength $c(coverageGaps)] \
         [llength $c(withdrawnScopes)] [llength $c(objectDiagnostics)] \
-        [llength $c(typeDiagnostics)] [llength $c(emptyRegions)]]
+        [llength $c(typeDiagnostics)] [llength $c(emptyRegions)] [llength $c(instantiations)]]
 }
 
 proc ::vhdl_index::ownership::publish {state record} {
@@ -131,7 +135,7 @@ proc ::vhdl_index::ownership::rollback {state checkpoint kind region cause paren
     if {$contributors ne {}} {
         dict set lost contributors [lsort -integer -index {3 0} $contributors]
     }
-    foreach key {declarationScopes coverageGaps withdrawnScopes objectDiagnostics typeDiagnostics emptyRegions} length $checkpoint {
+    foreach key {declarationScopes coverageGaps withdrawnScopes objectDiagnostics typeDiagnostics emptyRegions instantiations} length $checkpoint {
         trim_suffix c $key $length
     }
     lappend c(withdrawnScopes) $lost
