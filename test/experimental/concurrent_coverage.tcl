@@ -148,6 +148,19 @@ check case_sibling 1 [llength [scope_rows $v $second concurrent_assertions]]
 check safe_instance 1 [llength [scope_rows $v $a instantiations]]
 concurrent_invariants $r $v
 
+# A malformed map connector can leave a complete name-shaped suffix before
+# its semicolon. The suffix might be a second statement with a missing fence.
+foreach body {{u: component c generic p(1);} {with s select x p(1);}} {
+    set r [scope_input "entity e is end; architecture a of e is begin $body kept: component c; end;"]
+    set v [::vhdl_index::regions::view $r]
+    set a [scope_find $v architecture {architecture a}]
+    check possible_call_loss partial [scope_complete $v $a concurrent_procedure_calls]
+    check possible_actual_loss partial [scope_complete $v $a actual_parameter_associations]
+    check retained_instance 1 [llength [scope_rows $v $a instantiations]]
+    check no_unproved_call 0 [llength [scope_rows $v $a concurrent_procedure_calls]]
+    concurrent_invariants $r $v
+}
+
 foreach {body limits} {
     {assert f(g(h(x)));} {delimiters 2}
     {q: process begin wait; end process;} {scopes 1}

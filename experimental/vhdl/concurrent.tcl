@@ -117,7 +117,7 @@ proc ::vhdl_index::parser::parse_concurrent {state owner ownerKind opening head 
         if {[string match *LIMIT [dict get $issue code]]} {
             return -code error -errorcode {VHDL_INDEX STRUCTURE} $issue
         }
-        recover_concurrent c $ownerKind $issue
+        recover_concurrent c $owner $ownerKind $issue
         concurrent_candidate c $owner $opening malformed $issue $forms $capabilities
         return
     }
@@ -143,7 +143,7 @@ proc ::vhdl_index::parser::parse_concurrent {state owner ownerKind opening head 
         status parsed diagnostics {} expression_status opaque]]
 }
 
-proc ::vhdl_index::parser::recover_concurrent {state ownerKind {issue {}}} {
+proc ::vhdl_index::parser::recover_concurrent {state owner ownerKind {issue {}}} {
     upvar 1 $state c
     if {$issue ne {} && [string match *EXPECTED*SEMICOLON [dict get $issue code]] &&
         [is_name [peek c] 0] && ![statement_label c]} {
@@ -151,21 +151,44 @@ proc ::vhdl_index::parser::recover_concurrent {state ownerKind {issue {}}} {
         # unknown. The root transaction must account for that suffix.
         fail c UNPROVEN_CONCURRENT_BOUNDARY [list found [peek c]]
     }
+    # A semicolon may fence the malformed text without proving the meaning
+    # of a remaining name-shaped suffix. Account for the possible sibling.
+    set tailStart $c(i)
+    set tailForms {}
+    set tailCapabilities {}
+    if {$issue ne {} && [is_name [peek c] 0] && ![statement_label c]} {
+        set next [peek c 1]
+        if {$next in {( . ' {;}}} {
+            lappend tailForms concurrent_procedure_call
+            lappend tailCapabilities concurrent_procedure_calls
+            if {$next ne ";"} {lappend tailCapabilities actual_parameter_associations}
+        }
+        if {$ownerKind ne "entity" && $next in {<= ( . '}} {
+            lappend tailForms concurrent_signal_assignment
+            lappend tailCapabilities concurrent_signal_assignments
+        }
+    }
+    set tailSpan [span c]
     # Mode 2 stops at a sibling even when recovery starts at its first token.
     set ends {end elsif}
     if {$ownerKind eq "generate"} {lappend ends else when}
     while {1} {
         set marker [scan c [concat {{;} begin =>} $ends] {} {} {begin end} 2]
-        if {$marker eq ";"} {incr c(i); return}
+        if {$marker eq ";"} {incr c(i); break}
         if {$marker eq "eof"} {fail c TRUNCATED_SCOPE}
         if {$marker in {else when} && $marker in $ends} {
-            if {[::vhdl_index::grammar::generate_alternative_start c]} {return}
+            if {[::vhdl_index::grammar::generate_alternative_start c]} {break}
             incr c(i)
         } elseif {$marker in $ends || ($marker eq "concurrent_candidate" && [peek c] ne "generate")} {
-            return
+            break
         } else {
             fail c UNPROVEN_CONCURRENT_BOUNDARY [list found [peek c]]
         }
+    }
+    if {$tailForms ne {} && $c(i) > $tailStart} {
+        set evidence [diagnostic c UNPROVEN_CONCURRENT_TAIL [list span $tailSpan \
+            related_span [dict get $issue span] cause [dict get $issue code]]]
+        concurrent_candidate c $owner [lindex $tailSpan 0] unrecognized $evidence $tailForms $tailCapabilities
     }
 }
 
@@ -338,7 +361,7 @@ proc ::vhdl_index::parser::aggregate_concurrent {state owner ownerKind opening h
         return
     }
     set issue [diagnostic c PROCEDURE_CALL_EXPECTED_NAME [list span $group]]
-    recover_concurrent c $ownerKind
+    recover_concurrent c $owner $ownerKind
     concurrent_candidate c $owner $opening malformed $issue \
         {concurrent_procedure_call concurrent_signal_assignment} \
         {concurrent_procedure_calls actual_parameter_associations concurrent_signal_assignments}

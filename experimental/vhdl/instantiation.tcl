@@ -14,7 +14,7 @@ proc ::vhdl_index::parser::parse_instance {state owner ownerKind opening label c
             }
             return -options $options $row
         }
-        recover_concurrent c $ownerKind $row
+        recover_concurrent c $owner $ownerKind $row
         concurrent_candidate c $owner $opening malformed $row [list ${category}_instantiation] \
             {instantiations map_associations}
     } elseif {[dict get $row status] eq "malformed"} {
