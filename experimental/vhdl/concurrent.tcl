@@ -100,7 +100,6 @@ proc ::vhdl_index::parser::concurrent_leaf {state owner ownerKind opening label}
     concurrent_candidate c $owner $opening unrecognized $targetIssue $forms $capabilities
 }
 
-
 # Index one bounded production. On a local error the same cursor either
 # reaches a proved sibling boundary or lets the enclosing transaction unwind.
 proc ::vhdl_index::parser::parse_concurrent {state owner ownerKind opening head domain forms capabilities production args} {
@@ -118,17 +117,22 @@ proc ::vhdl_index::parser::parse_concurrent {state owner ownerKind opening head 
         if {[string match *LIMIT [dict get $issue code]]} {
             return -code error -errorcode {VHDL_INDEX STRUCTURE} $issue
         }
-        recover_concurrent c $ownerKind
+        recover_concurrent c $ownerKind $issue
         concurrent_candidate c $owner $opening malformed $issue $forms $capabilities
         return
     }
-    set lexical [::vhdl_index::grammar::association_lexical c $region]
-    if {$lexical ne {}} {
-        concurrent_candidate c $owner $opening malformed [lindex $lexical 0] $forms $capabilities
+    set parameters {}
+    if {[dict exists $row actual_parameters]} {set parameters [dict get $row actual_parameters]}
+    foreach lexical [::vhdl_index::grammar::association_lexical c $region] {
+        if {$parameters ne {}} {
+            lassign [dict get $parameters association_content_span] a b
+            set offset [lindex [dict get $lexical span] 0]
+            if {$a <= $offset && $offset < $b} {continue}
+        }
+        concurrent_candidate c $owner $opening malformed $lexical $forms $capabilities
         return
     }
-    if {[dict exists $row actual_parameters] && [dict get $row actual_parameters] ne {}} {
-        set parameters [dict get $row actual_parameters]
+    if {$parameters ne {}} {
         if {[dict get $parameters association_validation] ne "parsed"} {
             ::vhdl_index::ownership::gap c actual_parameter_list [dict get $parameters association_group_span] \
                 malformed {actual_parameter_associations} $owner [dict get $parameters association_diagnostics]
@@ -139,14 +143,21 @@ proc ::vhdl_index::parser::parse_concurrent {state owner ownerKind opening head 
         status parsed diagnostics {} expression_status opaque]]
 }
 
-proc ::vhdl_index::parser::recover_concurrent {state ownerKind} {
+proc ::vhdl_index::parser::recover_concurrent {state ownerKind {issue {}}} {
     upvar 1 $state c
+    if {$issue ne {} && [string match *EXPECTED*SEMICOLON [dict get $issue code]] &&
+        [is_name [peek c] 0] && ![statement_label c]} {
+        # A second name may start a sibling whose complete boundary is
+        # unknown. The root transaction must account for that suffix.
+        fail c UNPROVEN_CONCURRENT_BOUNDARY [list found [peek c]]
+    }
     # Mode 2 stops at a sibling even when recovery starts at its first token.
     set ends {end elsif}
     if {$ownerKind eq "generate"} {lappend ends else when}
     while {1} {
         set marker [scan c [concat {{;} begin =>} $ends] {} {} {begin end} 2]
         if {$marker eq ";"} {incr c(i); return}
+        if {$marker eq "eof"} {fail c TRUNCATED_SCOPE}
         if {$marker in {else when} && $marker in $ends} {
             if {[::vhdl_index::grammar::generate_alternative_start c]} {return}
             incr c(i)
@@ -256,7 +267,7 @@ proc ::vhdl_index::parser::parse_named_concurrent {state owner ownerKind opening
                 lappend capabilities concurrent_signal_assignments
             }
         } else {
-            if {[peek c] eq "<="} {
+            if {[peek c] in {<= guarded transport inertial reject}} {
                 lassign $name full components suffixes
                 parse_assignment c $owner $ownerKind $opening $head [name_target $full $components $suffixes]
                 return

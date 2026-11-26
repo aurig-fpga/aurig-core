@@ -1,0 +1,10 @@
+entity malformed_concurrent is end entity;
+architecture rtl of malformed_concurrent is
+    signal x : bit;
+begin
+    assert true report;
+    call_it(x => , y => '0');
+    x <= '1' after;
+    p: process () begin null; end process;
+    assert x = '0';
+end architecture;

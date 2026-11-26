@@ -31,7 +31,15 @@ The frontend retains explicit component, entity and configuration instantiations
 
 The private `map_associations` capability exposes source-ordered positional and named elements in generic and port maps. Supported sites include concurrent instantiations, package and subprogram headers and instantiations where admitted, block headers, formal package generic maps, and configuration specification bindings. The shared grammar preserves delimiters, separators, formal and actual spans, arrows, explicit `open`, and the VHDL-2008 port `inertial` prefix. Whole-map `<>` and `default` are retained on formal package maps. Association interiors preserve bounded source spans for calls, aggregates, conversions and names. Validation covers the extracted grammar profile.
 
-Configuration-block interiors, other concurrent and sequential statements, and expression internals remain opaque. Semantic binding, visibility, type resolution, staticness and elaboration are outside this structural index. VHDL-2019 is unsupported.
+Concurrent assertions retain the condition and optional report and severity clauses. Concurrent procedure calls retain the name and optional parameter list. Bare labeled names in instance-capable regions make both the instantiation and call inventories partial. Map and parameter association inventories have independent coverage.
+
+Simple, conditional and selected concurrent signal assignments retain the target envelope, delay mechanism, waveform elements and alternative connectors. VHDL-2008 matching selection retains its marker after select. Indexed and sliced suffixes, aggregates and external-name interiors retain bounded source spans. Each assignment retains the value and time-expression spans of its waveform elements.
+
+A process retains its header, typed ending and existing declaration owner. Sensitivity clauses distinguish a list of signal-name spans, the VHDL-2008 all form, an absent clause and a malformed bounded list. The sequential body remains opaque. Entity statement parts admit assertions, passive calls and passive processes. Passivity is a semantic rule.
+
+The concurrent region supports direct or subtree inventories through `concurrent_assertions`, `concurrent_procedure_calls`, `actual_parameter_associations`, `concurrent_signal_assignments`, `process_headers` and `sensitivity_lists`. A bounded malformed parameter or sensitivity list can retain its independently established elements. A failed owner fence withdraws its claims and records loss in the affected inventories.
+
+Configuration-block interiors, unsupported concurrent forms including PSL, sequential statements and expression internals remain opaque. Semantic binding, visibility, type resolution, staticness and elaboration are outside this structural index. VHDL-2019 is unsupported.
 
 ## Run an experiment
 
@@ -44,8 +52,8 @@ env -u AURIG_EXPERIMENTAL_FRONTEND AURIG_EXPERIMENTAL_SCRATCH="$scratch" \
     "$runtime" test/experimental/private_queries.tcl
 ~~~
 
-The focused repository-contained tests include candidate families, selected-name policy, owner regions, private queries, nested packages, blocks, generate scopes, instantiation ownership, association-list recovery and shared map sites. Experimental source fixtures use the .vhd.fixture suffix. Some inherited whole-corpus differential and resource harnesses also need review archives and corpora kept separately from the Git branch. Record which tests and interpreter builds were used. Use the coordinator's qualification kit for native Windows smoke on the exact reviewed revision.
+The focused repository-contained tests include candidate families, selected-name policy, owner regions, private queries, nested packages, blocks, generate scopes, instantiation ownership, association-list recovery, shared map sites, concurrent statement families, sensitivity lists and composed coverage. Experimental source fixtures use the .vhd.fixture suffix. Some inherited whole-corpus differential and resource harnesses also need review archives and corpora kept separately from the Git branch. Record which tests and interpreter builds were used. Use the coordinator's qualification kit for native Windows smoke on the exact reviewed revision.
 
 ## Qualification
 
-The experimental workflow uses pinned Tcl 8.5.19 and 8.6.14 sources. The published baseline `5b97b496c9758cb2774b781dd14bc12824fb41b6` passed both hosted experimental Linux jobs and the inherited production Linux and Windows jobs. Native Windows and hosted results qualify the revision actually tested. Use the coordinator's verification evidence for the exact revision under review. Use Core's production vhdlscan for production consumers.
+The experimental workflow uses pinned Tcl 8.5.19 and 8.6.14 sources. The published L-R1 baseline `3b993ecc937fcebd19072ce8a76eff55c2c89350` passed both hosted experimental Linux jobs and the inherited Core Linux and Windows jobs. The concurrent grammar increment requires separate qualification. Native Windows and hosted results qualify the revision actually tested. Use the coordinator's verification evidence for the exact revision under review. Use Core's production vhdlscan for production consumers.

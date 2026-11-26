@@ -16,6 +16,7 @@ env:
     aliases_attributes components file_objects coverage_composition groups specifications
     candidate_families selected_name_policy owner_regions private_queries
     nested_packages blocks generate_scopes association_lists instantiation_statements shared_map_sites
+    concurrent_assertions concurrent_calls concurrent_assignments process_headers concurrent_coverage
 
 jobs:
   linux-smoke:
@@ -50,7 +51,7 @@ jobs:
           production_count=$(wc -l < "$checked_paths")
           fixture_count=$(git ls-files test/experimental/fixtures | awk '/\.vhd\.fixture$/ {n++} END {print n+0}')
           test "$production_count" -eq 130
-          test "$fixture_count" -eq 80
+          test "$fixture_count" -eq 83
           printf 'Production VHDL paths %s, isolated fixtures %s\n' "$production_count" "$fixture_count"
       - name: Build the pinned Tcl from upstream source
         shell: bash

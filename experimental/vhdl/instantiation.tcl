@@ -14,13 +14,7 @@ proc ::vhdl_index::parser::parse_instance {state owner ownerKind opening label c
             }
             return -options $options $row
         }
-        # A following label or structural ending fences this failure.
-        # The opaque walker refuses to skip a possible nested owner.
-        set marker [peek c]
-        if {$marker ni {end elsif else when process assert} &&
-            $marker ni {postponed with block} && ![statement_label c]} {
-            opaque_concurrent c $ownerKind
-        }
+        recover_concurrent c $ownerKind $row
         concurrent_candidate c $owner $opening malformed $row [list ${category}_instantiation] \
             {instantiations map_associations}
     } elseif {[dict get $row status] eq "malformed"} {

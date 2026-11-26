@@ -1,0 +1,31 @@
+entity ordinary_concurrent is
+    port (clk, a, b : in bit; simple_out, conditional_out, selected_out : out bit);
+    procedure observe(x : in bit; y : in bit := '0') is
+    begin
+        assert x = y severity note;
+    end procedure;
+begin
+    observed: postponed observe(clk, y => '1');
+    assert clk = '1' report "when | else; severity" severity note;
+end entity;
+
+architecture rtl of ordinary_concurrent is
+    procedure idle is begin null; end procedure;
+begin
+    idle;
+    simple_out <= transport a after 1 ns, b after 2 ns;
+    conditional_out <= reject 1 ns inertial a after 2 ns when clk = '1' else unaffected;
+    \selected assignment\: with clk select
+        selected_out <= a when '0', b when others;
+    b0: block begin
+        p0: postponed process (clk, a, b) is
+            variable seen : bit;
+        begin
+            seen := clk;
+        end postponed process p0;
+        f0: for i in 0 to 1 generate
+            assert i >= 0;
+            observe(clk);
+        end generate f0;
+    end block b0;
+end architecture;
