@@ -8,16 +8,23 @@ proc ::vhdl_index::parser::formal_site {state} {
     set first $c(i)
     incr c(i)
     if {[peek c] ne "("} {fail c EXPECTED_INTERFACE_GROUP}
+    scope_group c INTERFACE 1
+    accept c {;}
+    return [list $first $c(i) 1 {}]
+}
+
+proc ::vhdl_index::parser::scope_group {state domain {recover 0}} {
+    upvar 1 $state c
+    if {[peek c] ne "("} {fail c EXPECTED_OPEN_GROUP}
     set c(grammarFence) [llength $c(significant)]
-    set c(grammarDomain) INTERFACE
-    if {[catch {::vhdl_index::grammar::group c 1} cause options]} {
-        if {[dict get $options -errorcode] ne {VHDL_INDEX INTERFACE}} {
+    set c(grammarDomain) $domain
+    if {[catch {::vhdl_index::grammar::group c $recover} cause options]} {
+        if {[dict get $options -errorcode] ne [list VHDL_INDEX $domain]} {
             return -options $options $cause
         }
         return -code error -errorcode {VHDL_INDEX STRUCTURE} $cause
     }
-    accept c {;}
-    return [list $first $c(i) 1 {}]
+    return $cause
 }
 
 proc ::vhdl_index::parser::map_aspect {state form} {
@@ -27,7 +34,7 @@ proc ::vhdl_index::parser::map_aspect {state form} {
     expect c map
     set open [span c]
     if {[peek c 1] eq ")"} {fail c EMPTY_ASSOCIATION_GROUP}
-    consume_group c
+    scope_group c MAP
     set close [span c previous]
     return [dict create kind $form span [list [lindex $keyword 0] [lindex $close 1]] \
         keyword_span $keyword map_span $connector open_span $open close_span $close \
@@ -105,7 +112,7 @@ proc ::vhdl_index::parser::block_statement {state depth owner ownerKind label} {
     if {[peek c] eq "("} {
         set open [span c]
         if {[peek c 1] eq ")"} {fail c EMPTY_BLOCK_GUARD}
-        consume_group c
+        scope_group c BLOCK
         set close [span c previous]
         set guard [list [lindex $open 1] [lindex $close 0]]
         set guardGroup [list [lindex $open 0] [lindex $close 1]]
@@ -195,12 +202,18 @@ proc ::vhdl_index::parser::generate_parameter {state} {
     set c(i) $begin
     set status parsed
     set issue {}
+    set diagnostics {}
     if {[catch {::vhdl_index::grammar::discrete_range c 0 {eof}} range options]} {
         if {[dict get $options -errorcode] ne {VHDL_INDEX GENERATE}} {
             return -options $options $range
         }
-        set status malformed
-        set issue $range
+        set status recognized-but-unsupported
+        set diagnostics [list $range]
+        if {$extent eq {} || [dict get $range code] ni
+            {GENERATE_EXPECTED_RANGE_DIRECTION GENERATE_EXPECTED_DIMENSION_SEPARATOR}} {
+            set status malformed
+            set issue $range
+        }
         set range [dict create kind opaque span $extent]
     } elseif {$c(i) != $fence} {
         set status malformed
@@ -209,7 +222,7 @@ proc ::vhdl_index::parser::generate_parameter {state} {
     set c(i) $fence
     set nameSpan [lindex $name 1]
     set parameter [dict create kind generate_parameter name [lindex $name 0] name_span $nameSpan in_span $in \
-        span [list [lindex $nameSpan 0] [lindex [span c previous] 1]] range $range status $status diagnostics {}]
+        span [list [lindex $nameSpan 0] [lindex [span c previous] 1]] range $range status $status diagnostics $diagnostics]
     return [list $parameter $issue]
 }
 

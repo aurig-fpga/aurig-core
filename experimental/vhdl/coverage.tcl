@@ -126,6 +126,10 @@ proc ::vhdl_index::coverage {snapshot tape structure} {
                     [dict get $result capabilities $capability] [dict get $clause status]]
             }
         }
+        if {[dict exists $scope syntax parameter]} {
+            dict set result capabilities generate_parameters [::vhdl_index::grammar::combine \
+                [dict get $result capabilities generate_parameters] [dict get $scope syntax parameter status]]
+        }
         if {![dict exists $scope declarations]} {continue}
         foreach row [dict get $scope declarations] {
             foreach capability [declaration_capabilities $row] {

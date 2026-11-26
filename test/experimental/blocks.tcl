@@ -15,7 +15,11 @@ check connector is [surface $r [dict get $shape is_span]]
 check block_begin begin [surface $r [dict get $shape begin_span]]
 check closing {end block outer;} [surface $r [dict get $shape terminator_span]]
 check end_name outer [surface $r [dict get $shape end_name_span]]
-check formal_inventory 2 [llength [scope_rows $v $outer block_interfaces]]
+set formals [scope_rows $v $outer block_interfaces]
+check formal_inventory 2 [llength $formals]
+foreach formal $formals {
+    check formal_owner $outer [dict get $formal owner_occurrence_id]
+}
 check generic_map {limit => 3} [surface $r [dict get [lindex [dict get $shape maps] 0] association_span]]
 check port_map {input => bus_in} [surface $r [dict get [lindex [dict get $shape maps] 1] association_span]]
 check arch_objects 1 [llength [scope_rows $v $a object_declarations]]
@@ -58,4 +62,8 @@ check proved_locals complete [scope_complete $v $b object_declarations]
 check withdrawn_interface unavailable [scope_complete $v $c block_interfaces]
 check good_sibling complete [scope_complete $v $keep object_declarations]
 scope_integrity $r $v
+set r [scope_input {entity e is end; architecture a of e is begin
+    b: block ((true)) begin end block;
+end;} 2008 {delimiters 1}]
+check guard_limit BLOCK_DELIMITER_LIMIT [scope_error $r]
 puts "Block ownership assertions passed"

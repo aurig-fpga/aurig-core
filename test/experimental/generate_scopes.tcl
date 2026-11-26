@@ -56,6 +56,10 @@ foreach {body cause} {
     {a: case 0 generate when 0 begin end generate;} INCOMPLETE_GENERATE_HEADER
     {a: if true generate b: block begin end generate;} MISMATCHED_END_KIND
     {a: if true generate end; elsif false generate end generate;} EDITION_GENERATE_BODY_END
+    {a: if true generate b: if true generate end generate a; end generate;} ANCESTOR_END_NAME
+    {a: if true generate constant a : bit else generate end generate;} UNPROVEN_GENERATE_DECLARATION_BOUNDARY
+    {a: if true generate report "missing separator" b: block begin end block; end generate;} UNPROVEN_CONCURRENT_BOUNDARY
+    {a: if true generate b: block begin end block; end generate a} EXPECTED_TOKEN
 } {
     set edition [expr {$cause eq "EDITION_GENERATE_BODY_END" ? 2002 : 2008}]
     set r [scope_input "entity e is end; architecture a of e is begin $body end;" $edition]
@@ -84,4 +88,13 @@ foreach first {{elsif okay:} {else generate} {when others}} {
 }
 check global_loss unrecognized [dict get $r capabilities object_declarations]
 scope_integrity $r $v
+set r [scope_input {entity e is end; architecture a of e is begin
+    g: for i in generate end generate;
+    keep: if true generate end generate;
+end;}]
+set vv [::vhdl_index::regions::view $r]
+check empty_range GENERATE_EXPECTED_INDEX [scope_error $r]
+check bad_parameter unavailable [scope_complete $vv [scope_find $vv for_generate g:] generate_parameters]
+check preserved_boundary complete [scope_complete $vv [scope_find $vv generate_alternative {if true}] object_declarations]
+scope_integrity $r $vv
 puts "Generate ownership assertions passed"

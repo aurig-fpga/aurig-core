@@ -47,6 +47,7 @@ foreach {source cause} {
     {package p is package is end; end;} EXPECTED_NAME
     {package p is package q is new work.template end;} EXPECTED_TOKEN
     {package p is package body q is end; end;} NESTED_PACKAGE_OUT_OF_CONTEXT
+    {package p is package q is end package p; package unrelated is end;} ANCESTOR_END_NAME
 } {
     set r [scope_input $source]
     check recovery $cause [scope_error $r]
