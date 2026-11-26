@@ -1,0 +1,15 @@
+entity name_host is end;
+architecture rtl of name_host is
+    signal s : bit;
+    alias external_signal is << signal .name_host.s : bit >>;
+    type lock is protected
+        procedure release_lock;
+        attribute foreign of release_lock [] : procedure is "VHPIDIRECT noop";
+    end protected;
+    type lock is protected body
+        variable bit_state : bit := '0';
+        alias local_state is bit_state;
+        procedure release_lock is begin local_state := '0'; end;
+    end protected body;
+begin
+end architecture;

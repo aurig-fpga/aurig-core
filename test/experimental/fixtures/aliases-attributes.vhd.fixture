@@ -1,0 +1,25 @@
+package declarations is
+    type flag is (flag_a, 'b');
+    alias 'z' is flag_a [return flag];
+    constant v : bit_vector(0 to 7) := "00000000";
+    procedure nop;
+    alias nop_alias is nop [];
+    function combine(a, b : integer) return integer;
+    alias "+" is combine [integer, std.standard.integer return integer];
+
+    constant w : integer := 1;
+    attribute note_text : string;
+    attribute note_text of nop [] : procedure is "alias; attribute";
+    attribute note_text of combine [integer, integer return integer] : function is "function";
+    attribute note_text of 'b' [return flag] : literal is "closing ; ]";
+    attribute note_text of v, w : constant is "group";
+    attribute mark_all : integer;
+    attribute mark_all of all : constant is (v'length + 1);
+    attribute mark_other : integer;
+    attribute mark_other of others : procedure is 3;
+end package;
+
+package slices is
+    constant v : bit_vector(0 to 7) := "00000000";
+    alias \renamed slice\ : std.standard.bit_vector(0 to 1) is v(2 to 3);
+end package;

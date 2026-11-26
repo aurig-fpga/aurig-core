@@ -84,7 +84,11 @@ proc ::vhdl_index::subprogram::instantiation {state recordVar} {
     dict set item is_span [require c is EXPECTED_IS]
     dict set item new_span [require c new EXPECTED_NEW]
     dict set item target_span [selected_name c 1]
-    if {[kind c] eq "\["} {dict set item signature_span [group c]}
+    if {[kind c] eq "\["} {
+        set sig [signature c]
+        dict set item signature_span [dict get $sig span]
+        dict set item signature $sig
+    }
     if {[kind c] eq "generic"} {
         lassign [generic_map c] group map
         dict set item generic_map_span $map

@@ -1,0 +1,14 @@
+package broken is
+    constant first : integer := 0
+    alias missing_is : integer first;
+    alias missing_target is ;
+    alias empty_result is other [integer return];
+    alias followed is first
+    attribute note : std.standard.integer;
+    attribute note of all, others : alias is 1;
+    attribute note of followed : constant is
+    constant after_attr : integer := 2;
+    alias careful is after_attr
+    constant uncertain integer;
+    alias retained is after_attr;
+end package;

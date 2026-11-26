@@ -71,6 +71,22 @@ proc ::vhdl_index::coverage {snapshot tape structure} {
             subprogram_bodies [dict get $structure body_status] \
             type_declarations [dict get $structure type_status] declarations opaque concurrent opaque \
             sequential opaque expressions opaque]]
+    set additional {alias_declarations attribute_declarations}
+    foreach capability $additional {dict set result capabilities $capability parsed}
+    foreach scope [dict get $structure object_declarations] {
+        if {[dict get $scope gaps] ne {} && [dict get $scope status] in {unrecognized recognized-but-unsupported}} {
+            foreach capability $additional {
+                dict set result capabilities $capability [::vhdl_index::grammar::combine \
+                    [dict get $result capabilities $capability] [dict get $scope status]]
+            }
+        }
+        if {![dict exists $scope declarations]} {continue}
+        foreach row [dict get $scope declarations] {
+            set capability [expr {[dict get $row kind] eq "alias" ? "alias_declarations" : "attribute_declarations"}]
+            dict set result capabilities $capability [::vhdl_index::grammar::combine \
+                [dict get $result capabilities $capability] [dict get $row status]]
+        }
+    }
     foreach lost [dict get $structure withdrawn_scopes] {
         foreach capability [dict get $lost capabilities] {
             dict set result capabilities $capability unrecognized

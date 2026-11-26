@@ -70,7 +70,7 @@ proc ::vhdl_index::grammar::group {state {recover 0}} {
 namespace eval ::vhdl_index::grammar {
     variable declarationFamilies {
         constant object signal object variable object shared object
-        type type subtype type file opaque alias opaque attribute opaque
+        type type subtype type file opaque alias alias attribute attribute
         function subprogram procedure subprogram pure subprogram impure subprogram
         component opaque package opaque group opaque disconnect opaque use opaque for opaque
     }
@@ -92,6 +92,10 @@ proc ::vhdl_index::grammar::declaration_start {state context} {
     upvar 1 $state c
     set first [peek c]
     set previous [peek c -1]
+    if {$context eq "attribute_item" && $previous eq ":" && [peek c 1] eq "is"} {
+        # At this position an attribute specification admits an entity class.
+        return {}
+    }
     if {$previous eq "'" || ($first eq "variable" && $previous eq "shared") ||
         ($first in {function procedure} && $previous in {pure impure})} {
         return {}
@@ -109,7 +113,7 @@ proc ::vhdl_index::grammar::declaration_start {state context} {
                 set name $connector
             }
             set named [expr {[is_name $name 0] || ($first in {for disconnect} && $name in {all others})}]
-            if {$context ne "object" && $first in {constant signal variable shared} && $named} {
+            if {$context ni {object indexed_item attribute_item} && $first in {constant signal variable shared} && $named} {
                 # Preserve the conservative D observation inside opaque sites.
                 return safe
             }
@@ -206,6 +210,41 @@ proc ::vhdl_index::grammar::selected_name {state {operator 0} {attributes 0}} {
         }
     }
     return [extent c $start]
+}
+
+# A simple designator can also denote a character literal or an operator.
+proc ::vhdl_index::grammar::designator {state} {
+    upvar 1 $state c
+    set form [kind c]
+    if {$form eq "character"} {return [list [take c] $form]}
+    set extent [name_span c 1]
+    if {$form eq "string"} {
+        validate_operator c $extent
+        set form operator
+    }
+    return [list $extent $form]
+}
+
+proc ::vhdl_index::grammar::signature {state} {
+    upvar 1 $state c
+    set open [require c {[} EXPECTED_SIGNATURE_OPEN]
+    set marks {}
+    set commas {}
+    if {[kind c] ni {return {]}}} {
+        lappend marks [selected_name c 0 1]
+        while {[kind c] eq ","} {
+            lappend commas [take c]
+            lappend marks [selected_name c 0 1]
+        }
+    }
+    set result [dict create open_span $open type_mark_spans $marks comma_spans $commas]
+    if {[kind c] eq "return"} {
+        dict set result return_keyword_span [take c]
+        dict set result return_type_span [selected_name c 0 1]
+    }
+    dict set result close_span [require c {]} EXPECTED_SIGNATURE_CLOSE]
+    dict set result span [extent c [lindex $open 0]]
+    return $result
 }
 
 # These two attributes can constitute the whole range. A name prefix may

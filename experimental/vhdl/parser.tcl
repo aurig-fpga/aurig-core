@@ -188,15 +188,28 @@ proc ::vhdl_index::parser::type_member_boundary {state kind name} {
 proc ::vhdl_index::parser::scope_clock {state} {
     upvar 1 $state c
     return [expr {[clock microseconds] - $c(objectTime) - $c(typeTime) -
-        $c(subprogramTime) - $c(bodyBoundaryTime) - $c(protectedTime)}]
+        $c(subprogramTime) - $c(declarativeTime) - $c(bodyBoundaryTime) - $c(protectedTime)}]
+}
+
+proc ::vhdl_index::parser::indexed_declaration {state owner ownerKind family} {
+    upvar 1 $state c
+    set first $c(i)
+    set context [expr {$family eq "attribute" ? "attribute_item" : "indexed_item"}]
+    set marker [boundary c {{;} end begin} $context]
+    set fence $c(i)
+    set terminator {}
+    if {$marker eq ";"} {set terminator [take c]}
+    set started [clock microseconds]
+    set record [::vhdl_index::declarative::index c $owner $ownerKind $family $first $fence $terminator $c(opaqueBoundary)]
+    incr c(declarativeTime) [expr {[clock microseconds] - $started}]
+    return $record
 }
 
 proc ::vhdl_index::parser::protected_member_allowed {state ownerKind} {
     upvar 1 $state c
     set next [peek c]
     if {$ownerKind eq "protected"} {
-        return [expr {$next in {function procedure pure impure use} ||
-            ($next eq "attribute" && [peek c 2] eq "of")}]
+        return [expr {$next in {function procedure pure impure use attribute}}]
     }
     return [expr {$next in {function procedure pure impure package type subtype constant
         variable file alias attribute use group}}]
@@ -629,6 +642,7 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
         set entries {}
         set types {}
         set subprograms {}
+        set declarations {}
         set typeStatus parsed
         set opaque {}
         set gaps {}
@@ -653,6 +667,10 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                 }
                 if {[llength $c(diagnostics)] == $before} {
                     set memberStatus [::vhdl_index::grammar::combine $objectStatus $typeStatus]
+                    foreach item $declarations {
+                        set memberStatus [::vhdl_index::grammar::combine $memberStatus [dict get $item status]]
+                        lappend memberIssues {*}[dict get $item diagnostics]
+                    }
                     foreach item $subprograms {
                         set memberStatus [::vhdl_index::grammar::combine $memberStatus [dict get $item status]]
                         lappend memberIssues {*}[dict get $item diagnostics]
@@ -691,6 +709,7 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                 set entries {}
                 set types {}
                 set subprograms {}
+                set declarations {}
                 set formals {}
                 set opaque {}
                 set gaps {}
@@ -699,13 +718,14 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                 return $tail
             }
             if {$parent ne {} || $objectStatus ne "parsed" || $entries ne {} || $opaque ne {} ||
-                $types ne {} || $subprograms ne {} || $typeStatus ne "parsed" || $gaps ne {} ||
+                $types ne {} || $subprograms ne {} || $declarations ne {} || $typeStatus ne "parsed" || $gaps ne {} ||
                 [llength $c(declarationScopes)] != $firstScope} {
                 set record [dict create id $owner parent_id $parent kind $kind \
                     name_span [lindex $name 1] span [list $owner [lindex $tail 1]] \
                     declarative_span [list $declarationStart $declarationEnd] entries $entries \
                     opaque $opaque gaps $gaps status $objectStatus types $types type_status $typeStatus]
                 if {$subprograms ne {}} {dict set record subprograms $subprograms}
+                if {$declarations ne {}} {dict set record declarations $declarations}
                 if {$formals ne {}} {dict set record formal_parameters $formals}
                 lappend c(declarationScopes) $record
             }
@@ -753,6 +773,16 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                     lappend memberIssues [::vhdl_index::type_declaration::at TYPE_PROTECTED_MEMBER_OUT_OF_CONTEXT $region]
                     set objectStatus [::vhdl_index::grammar::combine $objectStatus malformed]
                     set typeStatus [::vhdl_index::grammar::combine $typeStatus malformed]
+                } elseif {$family in {alias attribute}} {
+                    set row [indexed_declaration c $owner $kind $family]
+                    lappend declarations $row
+                    lappend opaque [list $next [dict get $row span]]
+                    if {[dict get $row status] eq "unrecognized"} {
+                        opaque_object_boundary c 1
+                        lappend gaps [list uncertain_opaque_item [dict get $row span]]
+                        set objectStatus unrecognized
+                        set typeStatus unrecognized
+                    }
                 } elseif {$family eq "object"} {
                     opaque_item c object
                     set started [clock microseconds]
@@ -875,7 +905,8 @@ proc ::vhdl_index::parser::unproven_scope {domain region cause} {
 # Protected specifications have no ordinary local declarations or bodies.
 proc ::vhdl_index::parser::withdrawal {kind region cause} {
     set capabilities {object_declarations type_declarations subprogram_specifications subprogram_bodies}
-    if {$kind eq "protected"} {set capabilities {subprogram_specifications}}
+    lappend capabilities alias_declarations attribute_declarations
+    if {$kind eq "protected"} {set capabilities {subprogram_specifications attribute_declarations}}
     if {$kind in {entity root}} {lappend capabilities entity_interfaces}
     return [dict create scope_kind $kind span $region capabilities $capabilities diagnostic $cause]
 }
@@ -905,7 +936,7 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
     array set c [list interfaces {} interfaceDiagnostics {} interfaceStatus parsed interfaceTime 0         interfacePending {} interfaceLexical [dict get $tape diagnostics] interfaceLexicalAt 0]
     array set c [list declarationScopes {} withdrawnScopes {} objectDiagnostics {} objectTime 0 \
         declarationLexical [dict get $tape diagnostics] objectLexicalAt 0 \
-        typeDiagnostics {} typeTime 0 typeLexicalAt 0 subprogramLexicalAt 0 subprogramTime 0 bodyBoundaryTime 0 protectedTime 0]
+        typeDiagnostics {} typeTime 0 typeLexicalAt 0 subprogramLexicalAt 0 subprogramTime 0 bodyBoundaryTime 0 protectedTime 0 declarativeTime 0 declarativeLexicalAt 0]
     set units {}
     set pending {}
     set recovery {}
@@ -985,7 +1016,7 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
         object_diagnostics $c(objectDiagnostics) object_status $objectStatus object_time_us $c(objectTime) \
         type_diagnostics $c(typeDiagnostics) type_status $typeStatus type_time_us $c(typeTime) \
         subprogram_status $subprogramStatus body_status $bodyStatus subprogram_time_us $c(subprogramTime) \
-        body_boundary_time_us $c(bodyBoundaryTime) protected_time_us $c(protectedTime) \
+        declarative_time_us $c(declarativeTime) body_boundary_time_us $c(bodyBoundaryTime) protected_time_us $c(protectedTime) \
         units $units structural_diagnostics $c(diagnostics) recovery $recovery \
         unowned_context $pending entity_interfaces $c(interfaces) interface_diagnostics $c(interfaceDiagnostics)         interface_status $c(interfaceStatus) interface_time_us $c(interfaceTime)]
 }
