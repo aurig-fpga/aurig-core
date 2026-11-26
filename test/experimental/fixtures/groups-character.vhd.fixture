@@ -1,0 +1,4 @@
+package characters is
+    group symbols is (literal);
+    group letters : symbols ('Q');
+end package;

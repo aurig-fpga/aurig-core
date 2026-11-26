@@ -1,0 +1,8 @@
+package rough_groups is
+    group bad_box is (signal <>, constant);
+    group bad_class is (integer);
+    group missing_element : holder (first,);
+    group follower : holder (second)
+    constant proven : bit := '1';
+    group good : holder (first);
+end package;

@@ -806,13 +806,12 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                 if {$kind eq "configuration" && $next ni {use attribute group}} {
                     fail c EXPECTED_CONFIGURATION_ITEM [list found $next]
                 }
-                if {$kind eq "configuration" && ($next eq "group" || ($next eq "use" && [peek c 1] eq "vunit"))} {
+                if {$kind eq "configuration" && $next eq "use" && [peek c 1] eq "vunit"} {
                     set start [lindex [span c] 0]
                     opaque_item c indexed_item
                     set region [list $start [lindex [span c previous] 1]]
                     lappend opaque [list $next $region]
-                    set capability [expr {$next eq "group" ? "group_declarations" : "configuration_blocks"}]
-                    note_gap c $next $region recognized-but-unsupported [list $capability]
+                    note_gap c verification_unit_binding $region recognized-but-unsupported {configuration_blocks}
                 } elseif {$kind eq "configuration" && $next eq "use"} {
                     set row [indexed_declaration c $owner $kind local_use]
                     lappend declarations $row
@@ -839,7 +838,7 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                     incr c(declarativeTime) [expr {[clock microseconds] - $started}]
                     lappend declarations $row
                     lappend opaque [list component [dict get $row span]]
-                } elseif {$family in {alias attribute file_object}} {
+                } elseif {$family in {alias attribute file_object group}} {
                     set row [indexed_declaration c $owner $kind $family]
                     lappend declarations $row
                     lappend opaque [list $next [dict get $row span]]

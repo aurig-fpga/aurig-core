@@ -72,7 +72,7 @@ namespace eval ::vhdl_index::grammar {
         constant object signal object variable object shared object
         type type subtype type file file_object alias alias attribute attribute
         function subprogram procedure subprogram pure subprogram impure subprogram
-        component component package opaque group opaque disconnect opaque use opaque for opaque
+        component component package opaque group group disconnect opaque use opaque for opaque
     }
 }
 
@@ -223,6 +223,16 @@ proc ::vhdl_index::grammar::designator {state} {
         set form operator
     }
     return [list $extent $form]
+}
+
+proc ::vhdl_index::grammar::entity_class {state} {
+    upvar 1 $state c
+    set class [kind c]
+    if {$class ni {entity architecture configuration procedure function package type subtype
+        constant signal variable component label literal units group file property sequence}} {
+        reject c EXPECTED_ENTITY_CLASS
+    }
+    return [list $class [take c]]
 }
 
 proc ::vhdl_index::grammar::signature {state} {

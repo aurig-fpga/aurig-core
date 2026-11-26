@@ -1,0 +1,20 @@
+package holdings is
+    group tuple is (constant, constant);
+    group many is (constant <>);
+    constant first, second : integer := 1;
+    group \pair; group\ : tuple (
+        first, second
+    );
+end package;
+
+package selected_holdings is
+    group repeated : work.holdings.many (work.holdings.first, work.holdings.second);
+end package;
+
+entity group_host is end entity;
+architecture rtl of group_host is begin end;
+use work.holdings.all;
+configuration group_config of group_host is
+    group local : many (first, second);
+    for rtl end for;
+end configuration;

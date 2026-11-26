@@ -5,7 +5,7 @@ namespace eval ::vhdl_index::declarative {
     namespace path {::vhdl_index::grammar ::vhdl_index::parser}
 }
 
-proc ::vhdl_index::declarative::alias_name {state recordVar} {
+proc ::vhdl_index::declarative::name_fields {state recordVar spanKey {allowTrailingSignature 0}} {
     upvar 1 $state c $recordVar item
     set start [lindex [span c] 0]
     set groups {}
@@ -31,7 +31,10 @@ proc ::vhdl_index::declarative::alias_name {state recordVar} {
             {[} {
                 set nameExtent [extent c $start]
                 set trailing [signature c]
-                if {[kind c] ne "'"} {break}
+                if {[kind c] ne "'"} {
+                    if {!$allowTrailingSignature} {reject c UNEXPECTED_SIGNATURE}
+                    break
+                }
                 lappend embedded $trailing
                 set trailing {}
             }
@@ -47,7 +50,7 @@ proc ::vhdl_index::declarative::alias_name {state recordVar} {
         }
     }
     if {$trailing eq {}} {set nameExtent [extent c $start]}
-    dict set item aliased_name_span $nameExtent
+    dict set item $spanKey $nameExtent
     if {$groups ne {}} {dict set item name_payload_spans $groups}
     if {$embedded ne {}} {dict set item embedded_signatures $embedded}
     if {$trailing ne {}} {dict set item signature $trailing}
@@ -74,7 +77,7 @@ proc ::vhdl_index::declarative::alias_declaration {state recordVar} {
         set item [dict merge $item [subtype_fields c {is eof}]]
     }
     dict set item is_span [require c is EXPECTED_IS]
-    return [alias_name c item]
+    return [name_fields c item aliased_name_span 1]
 }
 
 proc ::vhdl_index::declarative::attribute_declaration {state ownerKind recordVar} {
@@ -112,14 +115,9 @@ proc ::vhdl_index::declarative::attribute_declaration {state ownerKind recordVar
     dict set item entities $names
     dict set item comma_spans $commas
     dict set item entity_class_colon_span [require c : EXPECTED_ENTITY_CLASS_COLON]
-    set class [kind c]
-    if {$class ni {entity architecture configuration procedure function package type subtype
-        constant signal variable component label literal units group file property sequence}} {
-        reject c EXPECTED_ENTITY_CLASS
-    }
-    if {$class in {property sequence} && $c(edition) < 2008} {reject c EDITION_ATTRIBUTE_ENTITY_CLASS}
+    lassign [entity_class c] class classSpan
     dict set item entity_class $class
-    dict set item entity_class_span [take c]
+    dict set item entity_class_span $classSpan
     dict set item is_span [require c is EXPECTED_IS]
     dict set item value_span [payload c {eof}]
     return parsed
@@ -145,6 +143,49 @@ proc ::vhdl_index::declarative::file_object {state recordVar} {
     }
 }
 
+proc ::vhdl_index::declarative::group_declaration {state ownerKind recordVar} {
+    upvar 1 $state c $recordVar item
+    dict set item name_span [name_span c]
+    set form [kind c]
+    if {$form eq "is"} {
+        dict set item kind group_template
+        dict set item is_span [take c]
+    } else {
+        dict set item kind group
+        dict set item colon_span [require c : EXPECTED_COLON]
+        dict set item template_span [selected_name c]
+    }
+    dict set item open_span [require c ( EXPECTED_OPEN]
+    set rows {}
+    set commas {}
+    set status parsed
+    while {1} {
+        if {$form eq "is"} {
+            lassign [entity_class c] class classSpan
+            set entry [dict create entity_class $class entity_class_span $classSpan]
+            if {[kind c] eq "<>"} {
+                dict set entry box_span [take c]
+                if {[kind c] ne ")"} {reject c BOX_MUST_BE_LAST}
+            }
+            dict set entry span [extent c [lindex $classSpan 0]]
+        } elseif {[kind c] eq "character"} {
+            set entry [dict create kind character span [take c]]
+        } else {
+            set entry [dict create kind name]
+            set status [combine $status [name_fields c entry span]]
+            if {[dict exists $entry diagnostics]} {dict lappend item diagnostics {*}[dict get $entry diagnostics]}
+        }
+        lappend rows $entry
+        if {[kind c] ne ","} {break}
+        lappend commas [take c]
+    }
+    dict set item members $rows
+    dict set item comma_spans $commas
+    dict set item close_span [require c ) EXPECTED_CLOSE]
+    if {$form eq "is" && $ownerKind eq "configuration"} {reject c TEMPLATE_OUT_OF_CONTEXT}
+    return $status
+}
+
 # The structural walk owns the fence. Grammar recovery cannot consume a sibling.
 proc ::vhdl_index::declarative::index {state owner ownerKind family first fence terminator uncertainty} {
     upvar 1 $state c
@@ -165,6 +206,7 @@ proc ::vhdl_index::declarative::index {state owner ownerKind family first fence 
                 alias {set status [alias_declaration c item]}
                 attribute {set status [attribute_declaration c $ownerKind item]}
                 file_object {file_object c item}
+                group {set status [group_declaration c $ownerKind item]}
                 local_use {
                     lassign [context_names c use 1] names commas
                     dict set item names $names
