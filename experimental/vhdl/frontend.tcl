@@ -4,7 +4,7 @@ namespace eval ::vhdl_index {
     variable defaultLimits {tokens 2000000 scopes 64 delimiters 256}
 }
 
-foreach vhdlIndexModule {source lexer cursor grammar interface subprogram declarative object type_declaration ownership parser coverage regions} {
+foreach vhdlIndexModule {source lexer cursor grammar interface subprogram declarative object type_declaration ownership parser coverage regions query} {
     source [file join [file dirname [info script]] $vhdlIndexModule.tcl]
 }
 unset vhdlIndexModule

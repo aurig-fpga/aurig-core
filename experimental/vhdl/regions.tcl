@@ -68,7 +68,7 @@ proc ::vhdl_index::regions::view {result} {
             }
         }
         foreach row [dict get $record types] {
-            if {![dict exists $row fields] && ![dict exists $row primary_unit]} {continue}
+            if {[dict get $row kind] ni {record physical}} {continue}
             set span [dict get $row span]
             dict set rows [list type_members [lindex $span 0]]                 [list [dict get $row kind] $span $span $key proved $row]
         }
