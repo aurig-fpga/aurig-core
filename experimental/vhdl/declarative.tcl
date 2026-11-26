@@ -239,9 +239,13 @@ proc ::vhdl_index::declarative::map_aspect {state form} {
     set keyword [require c $form EXPECTED_MAP_KEYWORD]
     set map [require c map EXPECTED_MAP]
     if {[kind c] ne "("} {reject c EXPECTED_MAP_OPEN}
-    set associations [group c]
-    return [dict create keyword_span $keyword map_span $map association_span $associations \
-        span [extent c [lindex $keyword 0]]]
+    if {[kind c 1] eq ")"} {
+        incr c(i)
+        reject c EMPTY_GROUP
+    }
+    set details [map_association c $form binding_indication $keyword $map]
+    # This caller's inherited span includes the enclosing parentheses.
+    return [dict replace $details association_span [dict get $details association_group_span]]
 }
 
 proc ::vhdl_index::declarative::component_specification {state ownerKind recordVar} {

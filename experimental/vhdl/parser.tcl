@@ -109,7 +109,7 @@ proc ::vhdl_index::parser::header {state} {
 }
 
 # Recognize the package instantiation name and the generic map envelope.
-# The actual associations remain deliberately opaque.
+# The shared map grammar retains association spans.
 proc ::vhdl_index::parser::instantiation {state detailsVar} {
     upvar 1 $state c
     if {$c(edition) < 2008} {fail c EDITION_PACKAGE_INSTANTIATION}
@@ -129,7 +129,7 @@ proc ::vhdl_index::parser::instantiation {state detailsVar} {
     }
     set reference [list $start [lindex [span c previous] 1]]
     set map {}
-    if {[peek c] eq "generic"} {set map [map_aspect c generic]}
+    if {[peek c] eq "generic"} {set map [map_aspect c generic package_instantiation]}
     set details [dict create new_span $new referenced_name_span $reference \
         referenced_name_status $nameStatus generic_map $map]
     return [take_semicolon c]
@@ -805,7 +805,7 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
             set declarationEnd [lindex [span c] 0]
             configuration_block c $depth $owner
             ::vhdl_index::ownership::gap c configuration_block [list $declarationEnd [lindex [span c previous] 1]] \
-                recognized-but-unsupported {configuration_blocks} $owner
+                recognized-but-unsupported {configuration_blocks map_associations} $owner
             set phase configuration_end
         } elseif {$next eq "begin"} {
             if {$beginPolicy eq "forbid" || $phase ne "declare"} {fail c UNEXPECTED_BEGIN}
@@ -845,7 +845,7 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                     opaque_item c indexed_item
                     set region [list $start [lindex [span c previous] 1]]
                     lappend opaque [list $next $region]
-                    ::vhdl_index::ownership::gap c verification_unit_binding $region recognized-but-unsupported {configuration_blocks} $owner
+                    ::vhdl_index::ownership::gap c verification_unit_binding $region recognized-but-unsupported {configuration_blocks map_associations} $owner
                 } elseif {$protectedScope && $family ne {} && ![protected_member_allowed c $kind]} {
                     set start [lindex [span c] 0]
                     if {$family eq "object"} {
@@ -1122,7 +1122,8 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
     set scopes [lsort -integer -index 1 $c(declarationScopes)]
     set instances {}
     foreach row $c(instantiations) {dict lappend instances [dict get $row owner_id] $row}
-    return [dict create instantiations $instances object_declarations $scopes empty_regions $c(emptyRegions) withdrawn_scopes $c(withdrawnScopes) \
+    set maps [::vhdl_index::collect_maps $units $scopes $c(interfaces) $instances]
+    return [dict create instantiations $instances maps $maps object_declarations $scopes empty_regions $c(emptyRegions) withdrawn_scopes $c(withdrawnScopes) \
         coverage_gaps [lsort -integer -index {3 0} $c(coverageGaps)] withdrawal_time_us $c(withdrawalTime) \
         object_diagnostics $c(objectDiagnostics) object_status $objectStatus object_time_us $c(objectTime) \
         type_diagnostics $c(typeDiagnostics) type_status $typeStatus type_time_us $c(typeTime) \

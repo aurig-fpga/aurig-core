@@ -23,15 +23,15 @@ proc ::vhdl_index::ownership::profile {kind} {
         for_generate {return [linsert [profile generate] end generate_parameters]}
         generate_alternative {return [profile generate]}
         component {return {component_declarations}}
-        protected {return {subprogram_specifications attribute_declarations local_use_clauses}}
-        configuration {return {attribute_declarations group_declarations local_use_clauses configuration_blocks}}
+        protected {return {subprogram_specifications attribute_declarations local_use_clauses map_associations}}
+        configuration {return {attribute_declarations group_declarations local_use_clauses configuration_blocks map_associations}}
     }
     set result {object_declarations type_declarations subprogram_specifications subprogram_bodies
-        alias_declarations attribute_declarations file_objects group_templates group_declarations local_use_clauses}
+        alias_declarations attribute_declarations file_objects group_templates group_declarations local_use_clauses map_associations}
     if {$kind in {architecture package block generate}} {lappend result component_declarations}
     if {$kind in {architecture entity package block generate}} {lappend result disconnect_specifications}
     if {$kind in {architecture block generate}} {
-        lappend result configuration_specifications instantiations map_associations
+        lappend result configuration_specifications instantiations
     }
     if {$kind in {architecture entity package package_body process function procedure protected_body block generate}} {
         lappend result package_declarations package_instantiations

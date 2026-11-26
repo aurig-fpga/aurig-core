@@ -26,21 +26,20 @@ proc ::vhdl_index::parser::scope_group {state domain {recover 0}} {
     return $cause
 }
 
-proc ::vhdl_index::parser::map_aspect {state form} {
+proc ::vhdl_index::parser::map_aspect {state form site} {
     upvar 1 $state c
     set keyword [take c]
     set connector [span c]
     expect c map
     set c(grammarFence) [llength $c(significant)]
     set c(grammarDomain) ASSOCIATION
-    if {[catch {::vhdl_index::grammar::association_list c $form} details options]} {
+    if {[catch {::vhdl_index::grammar::map_association c $form $site $keyword $connector} details options]} {
         if {[dict get $options -errorcode] ne {VHDL_INDEX ASSOCIATION}} {
             return -options $options $details
         }
         return -code error -errorcode {VHDL_INDEX STRUCTURE} $details
     }
-    return [dict merge [dict create kind $form span [::vhdl_index::grammar::extent c [lindex $keyword 0]] \
-        keyword_span $keyword map_span $connector] $details]
+    return $details
 }
 
 proc ::vhdl_index::parser::package_header {state name head} {
@@ -61,7 +60,12 @@ proc ::vhdl_index::parser::package_header {state name head} {
         dict set shape interfaces [dict get [::vhdl_index::interface::index_owner c $owner [list $site] scopeLexicalAt] clauses]
     }
     if {[peek c] eq "generic"} {
-        set map [map_aspect c generic]
+        set map [map_aspect c generic package_header]
+        if {$c(edition) < 2008} {
+            dict set map associations {}
+            dict set map association_validation recognized-but-unsupported
+            dict lappend map association_diagnostics $issue
+        }
         set separator [take_semicolon c]
         dict set shape generic_map [dict merge $map [dict create terminator_span $separator]]
     }
@@ -136,7 +140,7 @@ proc ::vhdl_index::parser::block_statement {state depth owner ownerKind label} {
         if {[peek c 1] eq "map"} {fail c BLOCK_MAP_WITHOUT_CLAUSE}
         lappend sites [formal_site c]
         if {[peek c] eq $form && [peek c 1] eq "map"} {
-            set map [map_aspect c $form]
+            set map [map_aspect c $form block_header]
             dict set map terminator_span [take_semicolon c]
             lappend maps $map
         }

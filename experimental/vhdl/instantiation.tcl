@@ -118,7 +118,7 @@ proc ::vhdl_index::parser::instance_statement {state ownerKind opening label col
         if {$issue eq {} && ([dict exists $maps $form] || ($form eq "generic" && [dict exists $maps port]))} {
             set issue [diagnostic c INSTANTIATION_MAP_ORDER [list found $form]]
         }
-        dict set maps $form [map_aspect c $form]
+        dict set maps $form [map_aspect c $form concurrent_instantiation]
     }
     if {[peek c] ne ";"} {fail c EXPECTED_INSTANTIATION_SEMICOLON}
     set tail [take c]

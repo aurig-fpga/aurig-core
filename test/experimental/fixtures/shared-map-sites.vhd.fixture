@@ -1,0 +1,26 @@
+package template is
+    generic (x : integer := 1; type t);
+end package;
+package instance_pkg is new work.template generic map (1, t => integer);
+entity top is
+    generic (package formal is new work.template generic map (x => 1, t => integer);
+             package any_formal is new work.template generic map (<>);
+             package defaults_formal is new work.template generic map (default));
+end entity;
+architecture rtl of top is
+    package local_pkg is new work.template generic map (x => 2, t => integer);
+    function copy is new work.tools.copy [integer return integer] generic map (t => integer);
+    procedure swap generic (type t) generic map (t => integer) parameter (x : in integer);
+    component leaf is
+        generic (n : integer);
+        port (q : out bit);
+    end component;
+    for all : leaf use entity work.leaf(rtl) generic map (n => n) port map (q => q);
+    signal s : bit;
+begin
+    b: block generic (k : integer); generic map (k => 7);
+        port (q : out bit); port map (q => s);
+    begin
+        u: leaf port map (q => q);
+    end block;
+end architecture;

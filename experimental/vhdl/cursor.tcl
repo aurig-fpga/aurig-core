@@ -89,8 +89,8 @@ proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext 
     set package [dict get $c(symbols) package]
     set body [dict get $c(symbols) body]
     set pos $c(i)
-    set scanStart $pos
     if {$concurrent} {
+        set scanStart $pos
         set colon [dict get $c(symbols) :]
         set concurrentStops {}
         foreach word {entity component configuration generic port for if case assert postponed} {

@@ -1,6 +1,14 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2024-2026 LogiMentor S.r.l.
 
+proc ::vhdl_index::grammar::map_association {state form site keyword connector {context {}}} {
+    upvar 1 $state c
+    if {$context eq {}} {set context $form}
+    set details [association_list c $context]
+    return [dict merge [dict create kind $form site $site \
+        span [extent c [lindex $keyword 0]] keyword_span $keyword map_span $connector] $details]
+}
+
 # Association callers supply the enclosing grammar fence and diagnostic domain.
 # Expression islands are scanned with the shared delimiter stack.
 proc ::vhdl_index::grammar::association_list {state context} {
@@ -24,7 +32,10 @@ proc ::vhdl_index::grammar::association_list {state context} {
         if {$failed} {return -options $options $result}
     }
     set close [require c ) EXPECTED_ASSOCIATION_CLOSE]
-    return [dict create open_span $open close_span $close association_span [list $contents [lindex $close 0]] \
+    set inside [list $contents [lindex $close 0]]
+    set group [list [lindex $open 0] [lindex $close 1]]
+    return [dict create open_span $open close_span $close association_span $inside \
+        association_content_span $inside association_group_span $group \
         association_status opaque association_form $form special_span $special associations $rows \
         separator_spans $separators association_validation [expr {$issues eq {} ? "parsed" : "malformed"}] \
         association_diagnostics $issues]

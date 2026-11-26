@@ -35,15 +35,107 @@ proc ::vhdl_index::declaration_capabilities {row} {
     return [list $capability]
 }
 
-# Association rows stay on their enclosing syntax. Assemble a private view of
-# maps without duplicating their contents in the retained index.
-proc ::vhdl_index::maps_at {result address payload} {
-    lassign $address role at
+# Maps retain their caller-specific fields. This sparse index groups the
+# shared map records by syntactic owner and source order.
+proc ::vhdl_index::maps_at {result address} {
+    if {[dict exists $result maps $address]} {return [dict get $result maps $address]}
+    return {}
+}
+
+proc ::vhdl_index::interface_maps {clauses} {
     set maps {}
-    if {$role eq "region" && [dict exists $result instantiations $at]} {
-        foreach row [dict get $result instantiations $at] {lappend maps {*}[dict values [dict get $row maps]]}
+    foreach clause $clauses {
+        if {[dict get $clause kind] ne "generic"} {continue}
+        set items [dict get $clause items]
+        if {$items eq {}} {lappend maps {*}[indeterminate_maps $clause]}
+        foreach item $items {
+            if {[dict exists $item generic_map]} {
+                lappend maps [dict get $item generic_map]
+            } elseif {[dict get $item category] in {unknown package}} {
+                lappend maps {*}[indeterminate_maps $item]
+            }
+        }
     }
     return $maps
+}
+
+proc ::vhdl_index::collect_maps {units scopes interfaces instances} {
+    set found {}
+    foreach unit $units {
+        if {[dict exists $unit syntax generic_map] && [dict get $unit syntax generic_map] ne {}} {
+            dict lappend found [list unit [lindex [dict get $unit span] 0]] [dict get $unit syntax generic_map]
+        }
+    }
+    foreach interface $interfaces {
+        set address [list region [lindex [dict get $interface owner_span] 0]]
+        foreach map [interface_maps [dict get $interface clauses]] {dict lappend found $address $map}
+    }
+    foreach scope $scopes {
+        set address [list region [dict get $scope id]]
+        set maps {}
+        if {[dict exists $scope syntax]} {
+            set shape [dict get $scope syntax]
+            if {[dict exists $shape interfaces]} {lappend maps {*}[interface_maps [dict get $shape interfaces]]}
+            if {[dict exists $shape maps]} {lappend maps {*}[dict get $shape maps]}
+            if {[dict exists $shape generic_map] && [dict get $shape generic_map] ne {}} {
+                lappend maps [dict get $shape generic_map]
+            }
+        }
+        if {[dict exists $scope declarations]} {
+            foreach declaration [dict get $scope declarations] {
+                switch -- [dict get $declaration kind] {
+                    component {lappend maps {*}[interface_maps [dict get $declaration clauses]]}
+                    package_instantiation {
+                        if {[dict get $declaration generic_map] ne {}} {
+                            lappend maps [dict get $declaration generic_map]
+                        }
+                    }
+                    configuration_specification {
+                        foreach form {generic port} {
+                            if {[dict exists $declaration binding ${form}_map]} {
+                                lappend maps [dict get $declaration binding ${form}_map]
+                            }
+                        }
+                        lappend maps {*}[indeterminate_maps $declaration]
+                    }
+                }
+            }
+        }
+        if {[dict exists $scope subprograms]} {
+            foreach spec [dict get $scope subprograms] {
+                if {[dict exists $spec generic_parameters]} {
+                    lappend maps {*}[interface_maps [list [dict merge {kind generic} [dict get $spec generic_parameters]]]]
+                }
+                if {[dict exists $spec generic_map]} {lappend maps [dict get $spec generic_map]}
+                lappend maps {*}[indeterminate_maps $spec]
+            }
+        }
+        if {$maps ne {}} {dict lappend found $address {*}$maps}
+    }
+    dict for {owner rows} $instances {
+        foreach row $rows {
+            foreach map [dict values [dict get $row maps]] {
+                dict lappend found [list region $owner] \
+                    [dict merge $map [dict create instantiation_start [lindex [dict get $row span] 0]]]
+            }
+        }
+    }
+    dict for {address maps} $found {
+        set ordered {}
+        foreach map $maps {lappend ordered [list [lindex [dict get $map span] 0] $map]}
+        set sorted {}
+        foreach pair [lsort -integer -index 0 $ordered] {lappend sorted [lindex $pair 1]}
+        dict set found $address $sorted
+    }
+    return $found
+}
+
+# An established but broken caller may have lost an otherwise applicable map.
+proc ::vhdl_index::indeterminate_maps {record} {
+    set status [dict get $record status]
+    if {$status ni {malformed unrecognized}} {return {}}
+    return [list [dict create span [dict get $record span] association_validation $status \
+        association_diagnostics [dict get $record diagnostics] associations {}]]
 }
 
 proc ::vhdl_index::coverage {snapshot tape structure} {
@@ -130,8 +222,8 @@ proc ::vhdl_index::coverage {snapshot tape structure} {
                 [dict get $result capabilities $capability] [dict get $gap status]]
         }
     }
-    dict for {owner rows} [dict get $structure instantiations] {
-        foreach map [maps_at $structure [list region $owner] {}] {
+    dict for {address maps} [dict get $structure maps] {
+        foreach map $maps {
             dict set result capabilities map_associations [::vhdl_index::grammar::combine \
                 [dict get $result capabilities map_associations] [dict get $map association_validation]]
         }

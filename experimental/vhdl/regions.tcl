@@ -119,7 +119,7 @@ proc ::vhdl_index::regions::view {result} {
             dict incr ordinals $anchor
             lappend address [dict get $ordinals $anchor]
         }
-        set availability [expr {[dict get $gap status] eq "unrecognized" ? "uncertain" : "unsupported"}]
+        set availability [expr {[dict get $gap status] eq "recognized-but-unsupported" ? "unsupported" : "uncertain"}]
         dict set rows $address [list $kind $span {} $parent $availability $gap]
         if {$parent ne {}} {dict lappend gaps $parent $address}
     }
@@ -153,7 +153,8 @@ proc ::vhdl_index::regions::region {view id} {
 # never inherits that child's legal declaration kinds for direct queries.
 proc ::vhdl_index::regions::applicable {role kind capability} {
     switch -- $role {
-        unit {return [expr {$capability in {unit_boundaries context} || ($kind eq "entity" && $capability eq "entity_interfaces")}]}
+        unit {return [expr {$capability in {unit_boundaries context} || ($kind eq "entity" && $capability eq "entity_interfaces") ||
+            ($kind eq "package_instantiation" && $capability eq "map_associations")}]}
         interface {return [expr {$capability eq "entity_interfaces"}]}
         specification {return [expr {$capability in {subprogram_specifications formal_parameters}}]}
         component {return [expr {$capability eq "component_interfaces"}]}
@@ -173,6 +174,10 @@ proc ::vhdl_index::regions::evidence {view address capability row} {
     set proof [dict create owner_id [identity $view $address] kind declaration \
         span [dict get $row span] status [dict get $row status] \
         capabilities [list $capability] diagnostics [dict get $row diagnostics]]
+    if {$capability eq "map_associations"} {
+        dict set proof kind map_association_list
+        dict set proof evidence_id [identity $view [list map [lindex [dict get $row span] 0]]]
+    }
     if {[dict exists $row candidate_forms]} {
         dict set proof kind declaration_candidates
         dict set proof forms [dict get $row candidate_forms]
@@ -198,6 +203,7 @@ proc ::vhdl_index::regions::coverage {view id capability} {
             set completeness unavailable
             lappend proofs [dict merge $payload [dict create loss_id $id evidence_role $role]]
             set validation [expr {$availability eq "unsupported" ? "recognized-but-unsupported" : "unrecognized"}]
+            if {$role eq "gap"} {set validation [dict get $payload status]}
         } else {
             set completeness not_applicable
             set validation opaque
@@ -219,7 +225,7 @@ proc ::vhdl_index::regions::coverage {view id capability} {
         }
         set checked {}
         if {$capability eq "map_associations"} {
-            foreach map [::vhdl_index::maps_at [dict get $view result] $key $payload] {
+            foreach map [::vhdl_index::maps_at [dict get $view result] $key] {
                 set status [dict get $map association_validation]
                 if {$status ne "parsed"} {
                     lappend checked [dict create span [dict get $map span] status $status \

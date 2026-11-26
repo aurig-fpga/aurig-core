@@ -32,9 +32,16 @@ proc ::vhdl_index::query::items {view address capability payload} {
     }
     if {$capability eq "map_associations"} {
         set rows {}
-        foreach map [::vhdl_index::maps_at $result $address $payload] {
+        foreach map [::vhdl_index::maps_at $result $address] {
             foreach row [dict get $map associations] {
-                lappend rows [dict merge $row [dict create map_kind [dict get $map kind] map_span [dict get $map span]]]
+                dict set row map_kind [dict get $map kind]
+                dict set row map_span [dict get $map span]
+                dict set row map_site [dict get $map site]
+                if {[dict exists $map instantiation_start]} {
+                    dict set row instantiation_occurrence_id [::vhdl_index::regions::identity $view \
+                        [list instantiation [dict get $map instantiation_start]]]
+                }
+                lappend rows $row
             }
         }
         return $rows

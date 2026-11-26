@@ -5,11 +5,14 @@ namespace eval ::vhdl_index::subprogram {
     namespace path {::vhdl_index::grammar ::vhdl_index::parser}
 }
 
-proc ::vhdl_index::subprogram::generic_map {state} {
-    upvar 1 $state c
-    set start [lindex [require c generic EXPECTED_GENERIC] 0]
-    require c map EXPECTED_MAP
-    return [list [group c] [extent c $start]]
+proc ::vhdl_index::subprogram::generic_map {state site recordVar} {
+    upvar 1 $state c $recordVar item
+    set keyword [require c generic EXPECTED_GENERIC]
+    set connector [require c map EXPECTED_MAP]
+    set map [map_association c generic $site $keyword $connector]
+    dict set item generic_map $map
+    dict set item generic_map_span [dict get $map span]
+    dict set item generic_map_group_span [dict get $map association_group_span]
 }
 
 # Both callers own the separator. A formal's IS default belongs to its
@@ -58,9 +61,7 @@ proc ::vhdl_index::subprogram::specification {state recordVar context} {
         set status [dict get $generics status]
         lappend diagnostics {*}[dict get $generics diagnostics]
         if {[kind c] eq "generic"} {
-            lassign [generic_map c] group map
-            dict set item generic_map_span $map
-            dict set item generic_map_group_span $group
+            generic_map c subprogram_header item
         }
     }
     set parameterKeyword {}
@@ -90,9 +91,7 @@ proc ::vhdl_index::subprogram::instantiation {state recordVar} {
         dict set item signature $sig
     }
     if {[kind c] eq "generic"} {
-        lassign [generic_map c] group map
-        dict set item generic_map_span $map
-        dict set item generic_map_group_span $group
+        generic_map c subprogram_instantiation item
     }
 }
 

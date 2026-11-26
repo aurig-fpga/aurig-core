@@ -103,18 +103,24 @@ proc ::vhdl_index::interface::generic_item {state context} {
         require c is PACKAGE_EXPECTED_IS
         require c new PACKAGE_EXPECTED_NEW
         dict set item package_target_span [selected_name c]
-        set mapStart [lindex [require c generic PACKAGE_EXPECTED_GENERIC] 0]
-        require c map PACKAGE_EXPECTED_MAP
+        set mapKeyword [require c generic PACKAGE_EXPECTED_GENERIC]
+        set mapConnector [require c map PACKAGE_EXPECTED_MAP]
         if {[kind c] ne "("} {reject c EXPECTED_OPEN}
         set first [kind c 1]
-        if {$first eq ")"} {reject c EMPTY_MAP}
         set mapKind associations
-        if {$first in {<> default}} {
-            if {[kind c 2] ne ")"} {reject c INVALID_MAP_FORM}
-            set mapKind $first
+        if {$first in {<> default} && [kind c 2] eq ")"} {set mapKind $first}
+        if {$c(edition) < 2008} {
+            if {$first eq ")"} {reject c EMPTY_MAP}
+            if {$first in {<> default} && $mapKind eq "associations"} {reject c INVALID_MAP_FORM}
         }
-        dict set item map_group_span [group c]
-        dict set item map_span [extent c $mapStart]
+        if {$c(edition) == 2008} {
+            set map [map_association c generic formal_package $mapKeyword $mapConnector formal_package]
+            dict set item generic_map $map
+            dict set item map_group_span [dict get $map association_group_span]
+        } else {
+            dict set item map_group_span [group c]
+        }
+        dict set item map_span [extent c [lindex $mapKeyword 0]]
         dict set item map_kind $mapKind
     } else {
         incr c(i) -1
