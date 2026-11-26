@@ -183,7 +183,7 @@ proc ::vhdl_index::parser::type_member_boundary {state kind name} {
     return $kind
 }
 
-proc ::vhdl_index::parser::declaration {state depth {owner {}}} {
+proc ::vhdl_index::parser::declaration {state depth {owner {}} {recordVar {}}} {
     upvar 1 $state c
     set first [peek c]
     set observe [expr {$owner ne {}}]
@@ -191,27 +191,50 @@ proc ::vhdl_index::parser::declaration {state depth {owner {}}} {
     set itemContext [expr {$observe ? "opaque_item" : ""}]
     switch -- $first {
         impure - pure - function - procedure {
-            if {$owner ne {}} {set opening [lindex [span c] 0]}
+            if {$observe} {
+                upvar 1 $recordVar subprogram
+                set firstSpec $c(i)
+                set opening [lindex [span c] 0]
+                set headerContext subprogram_header
+            }
             if {$first in {impure pure}} {incr c(i)}
             set kind [peek c]
             if {$kind ni {function procedure}} {fail c EXPECTED_SUBPROGRAM}
             incr c(i)
             set name [read_name c 1]
             set marker [boundary c {is {;} end begin} $headerContext]
+            set fence $c(i)
             set obscured [opaque_object_boundary c $observe]
+            set index [expr {$observe && !$obscured}]
             if {$marker eq "is"} {
-                incr c(i)
+                set is [take c]
                 if {[peek c] ne "new"} {
                     set child {}
-                    if {$observe && !$obscured} {set child [list $opening $owner]}
+                    if {$index} {
+                        set child [list $opening $owner]
+                        set subprogram [::vhdl_index::subprogram::index c $owner $firstSpec $fence body $is]
+                    }
                     scope c $kind $name [descend c $depth] require $child
                     if {$obscured} {return uncertain_opaque_item}
                     return {}
                 }
                 if {$c(edition) < 2008} {fail c EDITION_SUBPROGRAM_INSTANTIATION}
                 opaque_item c
-            } elseif {$marker eq ";"} {
-                incr c(i)
+                if {$index} {
+                    set tail {}
+                    set fence $c(i)
+                    if {[peek c -1] eq ";"} {
+                        set tail [span c previous]
+                        incr fence -1
+                    }
+                    set subprogram [::vhdl_index::subprogram::index c $owner $firstSpec $fence instantiation $tail]
+                }
+            } elseif {$marker eq ";" || $marker eq "declaration"} {
+                set tail {}
+                if {$marker eq ";"} {set tail [take c]}
+                if {$index} {
+                    set subprogram [::vhdl_index::subprogram::index c $owner $firstSpec $fence declaration $tail]
+                }
             } else {
                 fail c INCOMPLETE_SUBPROGRAM_SPEC
             }
@@ -539,6 +562,7 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
         set firstTypeIssue [llength $c(typeDiagnostics)]
         set entries {}
         set types {}
+        set subprograms {}
         set typeStatus parsed
         set opaque {}
         set gaps {}
@@ -564,16 +588,19 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                 set typeStatus unrecognized
                 set entries {}
                 set types {}
+                set subprograms {}
                 set opaque {}
                 set gaps {}
             }
             if {$parent ne {} || $objectStatus ne "parsed" || $entries ne {} || $opaque ne {} ||
-                $types ne {} || $typeStatus ne "parsed" || $gaps ne {} ||
+                $types ne {} || $subprograms ne {} || $typeStatus ne "parsed" || $gaps ne {} ||
                 [llength $c(declarationScopes)] != $firstScope} {
-                lappend c(declarationScopes) [dict create id $owner parent_id $parent kind $kind \
+                set record [dict create id $owner parent_id $parent kind $kind \
                     name_span [lindex $name 1] span [list $owner [lindex $tail 1]] \
                     declarative_span [list $declarationStart $declarationEnd] entries $entries \
                     opaque $opaque gaps $gaps status $objectStatus types $types type_status $typeStatus]
+                if {$subprograms ne {}} {dict set record subprograms $subprograms}
+                lappend c(declarationScopes) $record
             }
             return $tail
         }
@@ -621,7 +648,9 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                 } else {
                     set start [lindex [span c] 0]
                     set prior [llength $c(diagnostics)]
-                    set category [declaration c $depth $owner]
+                    set subprogram {}
+                    set category [declaration c $depth $owner subprogram]
+                    if {$subprogram ne {}} {lappend subprograms $subprogram}
                     set region [list $start [lindex [span c previous] 1]]
                     if {$category ne {}} {
                         lappend opaque [list $next $region]
@@ -743,7 +772,7 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
     array set c [list interfaces {} interfaceDiagnostics {} interfaceStatus parsed interfaceTime 0         interfacePending {} interfaceLexical [dict get $tape diagnostics] interfaceLexicalAt 0]
     array set c [list declarationScopes {} objectDiagnostics {} objectTime 0 \
         declarationLexical [dict get $tape diagnostics] objectLexicalAt 0 \
-        typeDiagnostics {} typeTime 0 typeLexicalAt 0]
+        typeDiagnostics {} typeTime 0 typeLexicalAt 0 subprogramLexicalAt 0 subprogramTime 0]
     set units {}
     set pending {}
     set recovery {}
@@ -791,18 +820,29 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
     }
     set objectStatus parsed
     set typeStatus parsed
+    set subprogramStatus parsed
     if {$recovery ne {}} {
         set objectStatus unrecognized
         set typeStatus unrecognized
+        set subprogramStatus unrecognized
     }
     foreach scope $c(declarationScopes) {
         set objectStatus [::vhdl_index::grammar::combine $objectStatus [dict get $scope status]]
         set typeStatus [::vhdl_index::grammar::combine $typeStatus [dict get $scope type_status]]
+        if {[dict get $scope gaps] ne {}} {
+            set subprogramStatus [::vhdl_index::grammar::combine $subprogramStatus [dict get $scope status]]
+        }
+        if {[dict exists $scope subprograms]} {
+            foreach item [dict get $scope subprograms] {
+                set subprogramStatus [::vhdl_index::grammar::combine $subprogramStatus [dict get $item status]]
+            }
+        }
     }
     set scopes [lsort -integer -index 1 $c(declarationScopes)]
     return [dict create object_declarations $scopes \
         object_diagnostics $c(objectDiagnostics) object_status $objectStatus object_time_us $c(objectTime) \
         type_diagnostics $c(typeDiagnostics) type_status $typeStatus type_time_us $c(typeTime) \
+        subprogram_status $subprogramStatus subprogram_time_us $c(subprogramTime) \
         units $units structural_diagnostics $c(diagnostics) recovery $recovery \
         unowned_context $pending entity_interfaces $c(interfaces) interface_diagnostics $c(interfaceDiagnostics)         interface_status $c(interfaceStatus) interface_time_us $c(interfaceTime)]
 }

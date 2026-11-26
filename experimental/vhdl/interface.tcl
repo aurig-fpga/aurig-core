@@ -5,7 +5,7 @@ namespace eval ::vhdl_index::interface {
     variable genericKinds {type function procedure pure impure package}
 }
 
-proc ::vhdl_index::interface::object {state context} {
+proc ::vhdl_index::interface::object {state context {routine {}}} {
     variable classes
     variable modes
     upvar 1 $state c
@@ -36,7 +36,7 @@ proc ::vhdl_index::interface::object {state context} {
     }
     if {$explicitClass ne {}} {set class $explicitClass}
     if {$class eq "file"} {set mode {}}
-    lassign [subtype_indication c {bus := {;} )}] subtype
+    lassign [subtype_indication c {bus := {;} )}] subtype constraint mark resolution resolutionKind
     set bus {}
     if {[kind c] eq "bus"} {set bus [take c]}
     set marker {}
@@ -60,11 +60,24 @@ proc ::vhdl_index::interface::object {state context} {
         ($context eq "parameter" && ($class eq "signal" || ($class eq "variable" && $mode ne "in"))))} {
         lappend diagnostics [dict create code INTERFACE_INVALID_DEFAULT severity error span $marker]
     }
+    if {$routine eq "function" && (($class ne "file" && $mode ne "in") || $class eq "variable")} {
+        lappend diagnostics [dict create code SUBPROGRAM_FUNCTION_PARAMETER severity error span [extent c $start]]
+    }
+    if {$routine ne {} && $bus ne {} && $class eq "signal"} {
+        lappend diagnostics [dict create code SUBPROGRAM_PARAMETER_BUS severity error span $bus]
+    }
     set status [expr {$diagnostics eq {} ? "parsed" : "malformed"}]
-    return [dict create category object span [extent c $start] names $names comma_spans $commas \
+    set item [dict create category object span [extent c $start] names $names comma_spans $commas \
         colon_span $colon explicit_class $explicitClass class_span $classSpan effective_class $class \
         explicit_mode $explicitMode mode_span $modeSpan effective_mode $mode subtype_span $subtype \
         bus_span $bus default_marker_span $marker default_span $default status $status diagnostics $diagnostics]
+    if {$routine ne {}} {
+        dict set item type_mark_span $mark
+        dict set item constraint_span $constraint
+        dict set item resolution_span $resolution
+        dict set item resolution_kind $resolutionKind
+    }
+    return $item
 }
 
 proc ::vhdl_index::interface::generic_item {state context} {
@@ -104,34 +117,9 @@ proc ::vhdl_index::interface::generic_item {state context} {
         dict set item map_span [extent c $mapStart]
         dict set item map_kind $mapKind
     } else {
-        set purity {}
-        set puritySpan {}
-        if {$form in {pure impure}} {
-            set purity $form
-            set puritySpan $keyword
-            set form [kind c]
-            require c function EXPECTED_FUNCTION
-        }
-        dict set item subprogram_kind $form
-        dict set item explicit_purity $purity
-        dict set item purity_span $puritySpan
-        if {$form eq "function"} {
-            dict set item effective_purity [expr {$purity eq {} ? "pure" : $purity}]
-        }
-        dict set item names [list [name_span c [expr {$form eq "function"}]]]
-        set parameterKeyword {}
-        if {[kind c] eq "parameter"} {set parameterKeyword [take c]}
-        if {[kind c] eq "(" || $parameterKeyword ne {}} {
-            dict set item parameter_keyword_span $parameterKeyword
-            set params [list_body c parameter]
-            dict set item parameters $params
-            set status [dict get $params status]
-            lappend diagnostics {*}[dict get $params diagnostics]
-        }
-        if {$form eq "function"} {
-            dict set item return_keyword_span [require c return EXPECTED_RETURN]
-            dict set item return_type_span [selected_name c 0 1]
-        }
+        incr c(i) -1
+        lassign [::vhdl_index::subprogram::specification c item formal] status diagnostics
+        set form [dict get $item subprogram_kind]
         if {[kind c] eq "is"} {
             dict set item default_marker_span [take c]
             if {[kind c] eq "<>"} {
@@ -170,7 +158,7 @@ proc ::vhdl_index::interface::recover_item {state start} {
     }
 }
 
-proc ::vhdl_index::interface::list_body {state context} {
+proc ::vhdl_index::interface::list_body {state context {routine {}}} {
     variable genericKinds
     upvar 1 $state c
     set open [require c ( EXPECTED_OPEN]
@@ -189,14 +177,14 @@ proc ::vhdl_index::interface::list_body {state context} {
             if {$context ne "parameter" && [kind c] in $genericKinds} {
                 set item [generic_item c $context]
             } else {
-                set item [object c $context]
+                set item [object c $context $routine]
             }
             if {[kind c] ni {{;} )} && ![item_prefix c]} {
                 reject c UNEXPECTED_ITEM_TAIL [list found [kind c]]
             }
         } diagnostic options]
         if {$caught} {
-            if {[dict get $options -errorcode] ne {VHDL_INDEX INTERFACE}} {
+            if {[dict get $options -errorcode] ne [list VHDL_INDEX $c(grammarDomain)]} {
                 return -options $options $diagnostic
             }
             recover_item c $first

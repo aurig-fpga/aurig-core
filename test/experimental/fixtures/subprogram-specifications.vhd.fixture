@@ -1,0 +1,10 @@
+package signatures is
+    type stream_t is file of bit;
+    function zero return std.standard.integer; procedure ping;
+    pure function "+" (left, right : in bit) return bit;
+    impure function read_stream (file stream : stream_t) return bit;
+    procedure move (constant first, second : integer := (1 + 2);
+                    target : out bit; variable transfer : inout bit;
+                    signal bus_value : out bit_vector(7 downto 0));
+    procedure \work; item\ (word : string := "function; end; )");
+end package;

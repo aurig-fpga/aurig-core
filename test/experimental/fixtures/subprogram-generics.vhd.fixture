@@ -1,0 +1,13 @@
+package generic_programs is
+    function identity generic (type element_t)
+        parameter (value : element_t) return element_t;
+    function identity_int is new identity generic map (integer);
+end;
+
+package body generic_programs is
+    function identity generic (type element_t)
+        parameter (value : element_t) return element_t is
+    begin
+        return value;
+    end function;
+end;

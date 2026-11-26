@@ -248,7 +248,7 @@ check verified-absence parsed [dict get $r capabilities type_declarations]
 check verified-absence-rows {} [inventory $r]
 
 set fixtureNames [lsort [glob -tails -directory [file join $tests fixtures] *.vhd.fixture]]
-check isolated-fixture-count 47 [llength $fixtureNames]
+check isolated-fixture-count 50 [llength $fixtureNames]
 check no-production-vhdl-fixtures {} [glob -nocomplain -directory [file join $tests fixtures] *.vhd *.vhdl]
 puts [list Tcl [info patchlevel] assertions $assertions failures $failures]
 exit [expr {$failures > 0}]

@@ -55,7 +55,7 @@ namespace eval ::vhdl_index::grammar {
     variable declarationFamilies {
         constant object signal object variable object shared object
         type type subtype type file opaque alias opaque attribute opaque
-        function opaque procedure opaque pure opaque impure opaque
+        function subprogram procedure subprogram pure subprogram impure subprogram
         component opaque package opaque group opaque disconnect opaque use opaque for opaque
     }
 }
@@ -123,8 +123,8 @@ proc ::vhdl_index::grammar::declaration_start {state context} {
                 set connector [peek c 3]
             }
             set safe [expr {[is_name $name 1] &&
-                (($first eq "function" && $connector in {( return generic is}) ||
-                 ($first eq "procedure" && $connector in {( is generic {;}}))}]
+                (($first eq "function" && $connector in {( return generic parameter is}) ||
+                 ($first eq "procedure" && $connector in {( is generic parameter {;}}))}]
         }
     }
     if {$safe} {return safe}

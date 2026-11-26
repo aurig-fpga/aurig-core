@@ -1,0 +1,9 @@
+entity signature_recovery is
+    function missing_return (value : integer);
+    procedure bad (a : bit; b bit; c : in bit);
+    function bad_mode (variable value : inout bit) return bit;
+    procedure separator_lost (value : bit)
+    procedure retained;
+    procedure missing_parameter_list parameter;
+    function last_function return bit;
+end;

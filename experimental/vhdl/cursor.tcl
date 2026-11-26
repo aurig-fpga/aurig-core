@@ -88,7 +88,7 @@ proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext 
     if {$declarationContext ne {}} {
         set c(opaqueBoundary) {}
         set declarationKinds $c(declarationKinds)
-        set firstCandidate [expr {$pos + ($declarationContext ne "opaque_tail")}]
+        set firstCandidate [expr {$pos + ($declarationContext ni {opaque_tail subprogram_header})}]
     }
     set grouped [expr {$groupMode ne {}}]
     if {$grouped} {
@@ -156,7 +156,8 @@ proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext 
             $pos >= $firstCandidate && $c(opaqueBoundary) eq {}} {
             set c(i) $pos
             set certainty [::vhdl_index::grammar::declaration_start c $declarationContext]
-            if {$certainty eq "safe" && $declarationContext eq "object"} {
+            if {$certainty eq "safe" && ($declarationContext eq "object" ||
+                ($declarationContext eq "subprogram_header" && [dict get $declarationKinds $k] eq "subprogram"))} {
                 return declaration
             }
             if {$certainty eq "safe" || ($certainty eq "uncertain" && $declarationContext eq "object")} {
