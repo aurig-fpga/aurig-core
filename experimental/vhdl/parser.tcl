@@ -455,7 +455,7 @@ proc ::vhdl_index::parser::declaration {state depth {owner {}} {recordVar {}} {o
     return $first
 }
 
-proc ::vhdl_index::parser::configuration_block {state depth} {
+proc ::vhdl_index::parser::configuration_block {state depth owner} {
     upvar 1 $state c
     set child [descend c $depth]
     expect c for
@@ -463,17 +463,17 @@ proc ::vhdl_index::parser::configuration_block {state depth} {
     set marker [boundary c {for end use {;}}]
     if {$start == $c(i)} {fail c INCOMPLETE_CONFIGURATION_HEADER}
     if {$marker eq ";"} {incr c(i)}
-    configuration_part c $child
+    configuration_part c $child $owner
     terminator c for {} 0
 }
 
 # Configuration for-headers end before the first child, use binding or end.
-proc ::vhdl_index::parser::configuration_part {state depth} {
+proc ::vhdl_index::parser::configuration_part {state depth owner} {
     upvar 1 $state c
     while {[peek c] ne "end"} {
         set next [peek c]
         if {$next eq "for"} {
-            configuration_block c $depth
+            configuration_block c $depth $owner
         } elseif {$next in {use attribute group}} {
             set start [lindex [span c] 0]
             set keyword [peek c 1]
@@ -488,7 +488,7 @@ proc ::vhdl_index::parser::configuration_part {state depth} {
             }
             if {$kind ne {}} {
                 note_gap c configuration_block_item [list $start [lindex [span c previous] 1]] \
-                    recognized-but-unsupported [list $kind]
+                    recognized-but-unsupported [list $kind] $owner
             }
         } else {
             fail c EXPECTED_CONFIGURATION_ITEM [list found $next]
@@ -767,7 +767,7 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
             if {[llength $c(diagnostics)] != $before} {
                 set cause [lindex $c(diagnostics) end]
                 set affected [list $owner [lindex $tail 1]]
-                set loss [compose_withdrawal c $kind $affected $cause $firstScope $firstGap $firstWithdrawal $declarations]
+                set loss [compose_withdrawal c $kind $affected $cause $parent $firstScope $firstGap $firstWithdrawal $declarations]
                 trim_suffix c declarationScopes $firstScope
                 trim_suffix c objectDiagnostics $firstIssue
                 trim_suffix c typeDiagnostics $firstTypeIssue
@@ -801,15 +801,17 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                 if {$declarations ne {}} {dict set record declarations $declarations}
                 if {$formals ne {}} {dict set record formal_parameters $formals}
                 lappend c(declarationScopes) $record
+            } else {
+                dict set c(emptyRegions) $owner [list $declarationStart $declarationEnd]
             }
             return $tail
         }
         if {$phase eq "configuration_end"} {fail c EXPECTED_CONFIGURATION_END}
         if {$kind eq "configuration" && $next eq "for"} {
             set declarationEnd [lindex [span c] 0]
-            configuration_block c $depth
+            configuration_block c $depth $owner
             note_gap c configuration_block [list $declarationEnd [lindex [span c previous] 1]] \
-                recognized-but-unsupported {configuration_blocks}
+                recognized-but-unsupported {configuration_blocks} $owner
             set phase configuration_end
         } elseif {$next eq "begin"} {
             if {$beginPolicy eq "forbid" || $phase ne "declare"} {fail c UNEXPECTED_BEGIN}
@@ -848,7 +850,7 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                     opaque_item c indexed_item
                     set region [list $start [lindex [span c previous] 1]]
                     lappend opaque [list $next $region]
-                    note_gap c verification_unit_binding $region recognized-but-unsupported {configuration_blocks}
+                    note_gap c verification_unit_binding $region recognized-but-unsupported {configuration_blocks} $owner
                 } elseif {$protectedScope && $family ne {} && ![protected_member_allowed c $kind]} {
                     set start [lindex [span c] 0]
                     if {$family eq "object"} {
@@ -882,7 +884,7 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                             set objectStatus unrecognized
                             set typeStatus unrecognized
                         }
-                        scope_gap c gaps $kind uncertain_opaque_item [dict get $row span] unrecognized
+                        scope_gap c gaps $owner $kind uncertain_opaque_item [dict get $row span] unrecognized
                     }
                 } elseif {$family eq "object"} {
                     opaque_item c object
@@ -892,7 +894,7 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                     if {$state ne "parsed"} {
                         set objectStatus [::vhdl_index::grammar::combine $objectStatus $state]
                         if {$state eq "unrecognized"} {
-                            scope_gap c gaps $kind uncertain_opaque_item [dict get [lindex $records 0 2] span] unrecognized
+                            scope_gap c gaps $owner $kind uncertain_opaque_item [dict get [lindex $records 0 2] span] unrecognized
                             set typeStatus unrecognized
                         }
                     }
@@ -921,16 +923,16 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                     if {[llength $c(diagnostics)] != $prior && $category in {protected protected_body}} {
                         # The withdrawn member region carries its own capability mask.
                     } elseif {[llength $c(diagnostics)] != $prior && $category ne {}} {
-                        scope_gap c gaps $kind $category $region unrecognized
+                        scope_gap c gaps $owner $kind $category $region unrecognized
                         set objectStatus unrecognized
                         set typeStatus unrecognized
                     } elseif {$category eq "package" || ($category eq "protected_body" && $typeShape eq {})} {
-                        scope_gap c gaps $kind $category $region recognized-but-unsupported
+                        scope_gap c gaps $owner $kind $category $region recognized-but-unsupported
                         set objectStatus [::vhdl_index::grammar::combine $objectStatus recognized-but-unsupported]
                         set typeStatus [::vhdl_index::grammar::combine $typeStatus recognized-but-unsupported]
                     } elseif {$category ni {{} alias attribute component disconnect file for generic group impure
                         function procedure pure signal subtype type units record protected protected_body use}} {
-                        scope_gap c gaps $kind $category $region unrecognized
+                        scope_gap c gaps $owner $kind $category $region unrecognized
                         set objectStatus unrecognized
                         set typeStatus unrecognized
                     }
@@ -940,7 +942,7 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
             if {$owner ne {}} {set start [lindex [span c] 0]}
             set category [statement c $depth $phase $owner]
             if {$owner ne {} && $category ne {}} {
-                scope_gap c gaps $kind $category [list $start [lindex [span c previous] 1]] \
+                scope_gap c gaps $owner $kind $category [list $start [lindex [span c previous] 1]] \
                     recognized-but-unsupported
                 set objectStatus [::vhdl_index::grammar::combine $objectStatus recognized-but-unsupported]
                 set typeStatus [::vhdl_index::grammar::combine $typeStatus recognized-but-unsupported]
@@ -1019,12 +1021,12 @@ proc ::vhdl_index::parser::region_capabilities {kind} {
     return $result
 }
 
-proc ::vhdl_index::parser::note_gap {state kind region status capabilities} {
+proc ::vhdl_index::parser::note_gap {state kind region status capabilities owner} {
     upvar 1 $state c
-    lappend c(coverageGaps) [dict create kind $kind span $region status $status capabilities $capabilities]
+    lappend c(coverageGaps) [dict create kind $kind span $region status $status capabilities $capabilities owner_id $owner]
 }
 
-proc ::vhdl_index::parser::scope_gap {state gapsVar ownerKind kind region status} {
+proc ::vhdl_index::parser::scope_gap {state gapsVar owner ownerKind kind region status} {
     upvar 1 $state c $gapsVar gaps
     lappend gaps [list $kind $region]
     set profile $ownerKind
@@ -1039,7 +1041,7 @@ proc ::vhdl_index::parser::scope_gap {state gapsVar ownerKind kind region status
     }
     # A hidden declarative item cannot take ownership of the separate entity header.
     set capabilities [lsearch -all -inline -not -exact $capabilities entity_interfaces]
-    note_gap c $kind $region $status $capabilities
+    note_gap c $kind $region $status $capabilities $owner
 }
 
 proc ::vhdl_index::parser::trim_suffix {state key length} {
@@ -1049,14 +1051,14 @@ proc ::vhdl_index::parser::trim_suffix {state key length} {
     }
 }
 
-proc ::vhdl_index::parser::withdrawal {kind region cause} {
-    return [dict create scope_kind $kind span $region capabilities [region_capabilities $kind] diagnostic $cause]
+proc ::vhdl_index::parser::withdrawal {kind region cause parent} {
+    return [dict create scope_kind $kind span $region capabilities [region_capabilities $kind] diagnostic $cause parent_id $parent]
 }
 
-proc ::vhdl_index::parser::compose_withdrawal {state kind region cause firstScope firstGap firstWithdrawal declarations} {
+proc ::vhdl_index::parser::compose_withdrawal {state kind region cause parent firstScope firstGap firstWithdrawal declarations} {
     upvar 1 $state c
     set started [clock microseconds]
-    set lost [withdrawal $kind $region $cause]
+    set lost [withdrawal $kind $region $cause $parent]
     set mask {}
     foreach capability [dict get $lost capabilities] {dict set mask $capability 1}
     set contributors [lrange $c(coverageGaps) $firstGap end]
@@ -1120,7 +1122,7 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
     }
 
     array set c [list interfaces {} interfaceDiagnostics {} interfaceStatus parsed interfaceTime 0         interfacePending {} interfaceLexical [dict get $tape diagnostics] interfaceLexicalAt 0 componentLexicalAt 0]
-    array set c [list declarationScopes {} withdrawnScopes {} coverageGaps {} withdrawalTime 0 objectDiagnostics {} objectTime 0 \
+    array set c [list declarationScopes {} emptyRegions {} withdrawnScopes {} coverageGaps {} withdrawalTime 0 objectDiagnostics {} objectTime 0 \
         declarationLexical [dict get $tape diagnostics] objectLexicalAt 0 \
         typeDiagnostics {} typeTime 0 typeLexicalAt 0 subprogramLexicalAt 0 subprogramTime 0 bodyBoundaryTime 0 protectedTime 0 declarativeTime 0 declarativeLexicalAt 0]
     set units {}
@@ -1146,7 +1148,7 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
             lappend c(diagnostics) $item
             set recovery [list $begin [dict get $snapshot length]]
             set c(interfaceStatus) unrecognized
-            set loss [compose_withdrawal c root $recovery $item $firstScope $firstGap $firstWithdrawal {}]
+            set loss [compose_withdrawal c root $recovery $item {} $firstScope $firstGap $firstWithdrawal {}]
             if {!$compound} {
                 trim_suffix c declarationScopes $firstScope
                 trim_suffix c objectDiagnostics $firstIssue
@@ -1199,7 +1201,7 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
         }
     }
     set scopes [lsort -integer -index 1 $c(declarationScopes)]
-    return [dict create object_declarations $scopes withdrawn_scopes $c(withdrawnScopes) \
+    return [dict create object_declarations $scopes empty_regions $c(emptyRegions) withdrawn_scopes $c(withdrawnScopes) \
         coverage_gaps [lsort -integer -index {3 0} $c(coverageGaps)] withdrawal_time_us $c(withdrawalTime) \
         object_diagnostics $c(objectDiagnostics) object_status $objectStatus object_time_us $c(objectTime) \
         type_diagnostics $c(typeDiagnostics) type_status $typeStatus type_time_us $c(typeTime) \

@@ -400,7 +400,7 @@ proc ::vhdl_index::declarative::component {state depth owner ownerKind} {
         terminator_span $tail clauses {} status parsed diagnostics {}]
     if {[llength $c(diagnostics)] != $before} {
         set cause [lindex $c(diagnostics) end]
-        lappend c(withdrawnScopes) [withdrawal component $region $cause]
+        lappend c(withdrawnScopes) [withdrawal component $region $cause $owner]
         dict set row diagnostics [list [unproven_scope COMPONENT $region $cause]]
         dict set row status unrecognized
     } else {
