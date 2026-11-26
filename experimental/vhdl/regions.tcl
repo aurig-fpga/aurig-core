@@ -50,7 +50,10 @@ proc ::vhdl_index::regions::view {result} {
         } else {
             set parent [list region $parent]
         }
-        dict set rows $key [list [dict get $record kind] [dict get $record span]             [dict get $record declarative_span] $parent proved $record]
+        set kind [dict get $record kind]
+        set inventory [dict get $record declarative_span]
+        if {$kind in {if_generate case_generate}} {set inventory {}}
+        dict set rows $key [list $kind [dict get $record span] $inventory $parent proved $record]
         if {[dict exists $record subprograms]} {
             foreach spec [dict get $record subprograms] {
                 set span [dict get $spec specification_span]

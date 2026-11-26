@@ -147,7 +147,9 @@ proc ::vhdl_index::parser::block_statement {state depth owner ownerKind label} {
 # expression. A missing separator must not hide a local declaration owner.
 proc ::vhdl_index::parser::opaque_concurrent {state ownerKind} {
     upvar 1 $state c
-    set marker [boundary c {{;} end begin block process generate elsif =>}]
+    set stops {begin end block process generate elsif}
+    set marker [scan c [concat {{;} =>} $stops] {} {} $stops]
+    if {$marker eq "eof"} {fail c TRUNCATED_SCOPE}
     if {$marker eq ";"} {
         incr c(i)
     } elseif {$marker eq "end" && $ownerKind ni {block generate}} {
@@ -350,8 +352,11 @@ proc ::vhdl_index::parser::generate_statement {state depth owner ownerKind label
         return
     }
     set syntax [dict merge $syntax [scope_closing c $tail {}]]
+    # Sparse scope rows retain a two-point fence. The logical view exposes
+    # no declarative inventory for the outer if/case envelope.
+    set fence [lindex [dict get $syntax header_span] 1]
     ::vhdl_index::ownership::publish c [dict create id $opening parent_id $owner kind $kind \
-        name_span [lindex $label 1] span $region declarative_span {} entries {} \
+        name_span [lindex $label 1] span $region declarative_span [list $fence $fence] entries {} \
         opaque {} gaps {} status parsed types {} type_status parsed syntax $syntax]
 }
 

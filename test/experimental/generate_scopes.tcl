@@ -8,6 +8,8 @@ set v [::vhdl_index::regions::view $r]
 set forId [scope_find $v for_generate g:]
 set ifId [scope_find $v if_generate choose:]
 set caseId [scope_find $v case_generate c:]
+check envelope_inventory {} [dict get [::vhdl_index::regions::region $v $ifId] inventory_span]
+check envelope_direct not_applicable [scope_complete $v $ifId object_declarations]
 set p [lindex [scope_rows $v $forId generate_parameters] 0]
 check parameter_role generate_parameter [lindex [dict get $p occurrence_id] 1]
 check parameter_owner $forId [dict get $p owner_occurrence_id]
@@ -59,6 +61,7 @@ foreach {body cause} {
     {a: if true generate b: if true generate end generate a; end generate;} ANCESTOR_END_NAME
     {a: if true generate constant a : bit else generate end generate;} UNPROVEN_GENERATE_DECLARATION_BOUNDARY
     {a: if true generate report "missing separator" b: block begin end block; end generate;} UNPROVEN_CONCURRENT_BOUNDARY
+    {a: if true generate opaque(b: block begin end block); end generate;} UNCLOSED_DELIMITER
     {a: if true generate b: block begin end block; end generate a} EXPECTED_TOKEN
 } {
     set edition [expr {$cause eq "EDITION_GENERATE_BODY_END" ? 2002 : 2008}]

@@ -73,10 +73,12 @@ proc ::vhdl_index::parser::read_name {state {designator 0}} {
 
 # Advance to a stop at delimiter depth zero. Absolute character positions are
 # obtained only on a diagnostic or when materializing a completed record.
-proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext {}}} {
+proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext {}} {hardStops {}}} {
     upvar 1 $state c
     set stopIds {0 8}
     foreach stop $stops {lappend stopIds [dict get $c(symbols) $stop]}
+    set hardIds {}
+    foreach stop $hardStops {lappend hardIds [dict get $c(symbols) $stop]}
     set depthLimit $c(delimiters)
     set stack {}
     set significant $c(significant)
@@ -118,7 +120,7 @@ proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext 
                 set c(i) $pos
                 ::vhdl_index::grammar::reject c INVALID_GROUP_TOKEN [list found [lindex $c(labels) $k]]
             }
-        } elseif {$k == 0 || $k == 8 || ($stack eq {} && $k in $stopIds)} {
+        } elseif {$k == 0 || $k == 8 || ($stack eq {} && $k in $stopIds) || $k in $hardIds} {
             set c(i) $pos
             if {$stack ne {}} {fail c UNCLOSED_DELIMITER}
             if {$k == 8} {fail c UNSUPPORTED_TOKEN}
