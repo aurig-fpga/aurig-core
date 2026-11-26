@@ -1,0 +1,31 @@
+package annotations is constant k : integer := 2; end;
+entity child is
+    generic (g : natural := 1);
+    port (p : in bit);
+end;
+architecture behavior of child is begin end;
+configuration child_configuration of child is
+    for behavior end for;
+end;
+
+use work.annotations.all;
+entity host is end;
+architecture rtl of host is
+    use work.annotations.k, work.annotations.all;
+    component a generic (g : natural := 1); port (p : in bit); end component;
+    component b is generic (g : natural := 1); port (p : in bit); end component;
+    component c is end component;
+    type bus_type is array (natural range <>) of bit;
+    function resolved_signals(items : bus_type) return bit is begin return items(0); end;
+    signal s, t : resolved_signals bit bus;
+    disconnect s, t : bit after (1 + 2) * 1 ns;
+    for first, second : a use entity work.child(behavior)
+        generic map (g => k) port map (p => '0');
+    for others : b use configuration work.child_configuration;
+    for all : c use open;
+begin
+    first : a port map (p => '0');
+    second : a port map (p => '1');
+    other_instance : b port map (p => '0');
+    unbound_instance : c;
+end architecture;

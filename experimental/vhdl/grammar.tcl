@@ -72,7 +72,7 @@ namespace eval ::vhdl_index::grammar {
         constant object signal object variable object shared object
         type type subtype type file file_object alias alias attribute attribute
         function subprogram procedure subprogram pure subprogram impure subprogram
-        component component package opaque group group disconnect opaque use opaque for opaque
+        component component package opaque group group disconnect disconnect use local_use for configuration_specification
     }
 }
 
@@ -92,6 +92,10 @@ proc ::vhdl_index::grammar::declaration_start {state context} {
     upvar 1 $state c
     set first [peek c]
     set previous [peek c -1]
+    if {$context eq "configuration_specification" && $first eq "use" &&
+        [peek c 1] in {entity configuration open vunit}} {
+        return {}
+    }
     if {$context eq "attribute_item" && $previous eq ":" && [peek c 1] eq "is"} {
         # At this position an attribute specification admits an entity class.
         return {}
@@ -113,8 +117,11 @@ proc ::vhdl_index::grammar::declaration_start {state context} {
                 set name $connector
             }
             set named [expr {[is_name $name 0] || ($first in {for disconnect} && $name in {all others})}]
-            if {$context ni {object indexed_item attribute_item} && $first in {constant signal variable shared} && $named} {
+            if {$context ni {object indexed_item attribute_item configuration_specification} && $first in {constant signal variable shared} && $named} {
                 # Preserve the conservative D observation inside opaque sites.
+                return safe
+            }
+            if {$first eq "disconnect" && $named && $connector in {. ( ,}} {
                 return safe
             }
             while {$named && [peek c [incr at]] eq ","} {

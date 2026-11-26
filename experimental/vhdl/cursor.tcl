@@ -158,11 +158,11 @@ proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext 
             $pos >= $firstCandidate && $c(opaqueBoundary) eq {}} {
             set c(i) $pos
             set certainty [::vhdl_index::grammar::declaration_start c $declarationContext]
-            if {$certainty eq "safe" && ($declarationContext in {object indexed_item attribute_item} ||
+            if {$certainty eq "safe" && ($declarationContext in {object indexed_item attribute_item configuration_specification} ||
                 ($declarationContext eq "subprogram_header" && [dict get $declarationKinds $k] eq "subprogram"))} {
                 return declaration
             }
-            if {$certainty eq "safe" || ($certainty eq "uncertain" && $declarationContext in {object indexed_item attribute_item})} {
+            if {$certainty eq "safe" || ($certainty eq "uncertain" && $declarationContext in {object indexed_item attribute_item configuration_specification})} {
                 set c(opaqueBoundary) [span c]
             }
         }

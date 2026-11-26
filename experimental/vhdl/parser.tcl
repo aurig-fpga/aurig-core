@@ -21,7 +21,9 @@ proc ::vhdl_index::parser::context_names {state kind {bounded 0}} {
             while {1} {
                 set suffix [peek c]
                 if {$kind eq "use" && $suffix in {all character string}} {
-                    lappend components [take c]
+                    set selected [take c]
+                    if {$bounded && $suffix eq "string"} {::vhdl_index::grammar::validate_operator c $selected}
+                    lappend components $selected
                     break
                 }
                 if {$bounded} {set part [::vhdl_index::grammar::name_span c]} else {lassign [read_name c] _ part}
@@ -210,7 +212,11 @@ proc ::vhdl_index::parser::scope_clock {state} {
 proc ::vhdl_index::parser::indexed_declaration {state owner ownerKind family} {
     upvar 1 $state c
     set first $c(i)
-    set context [expr {$family eq "attribute" ? "attribute_item" : "indexed_item"}]
+    switch -- $family {
+        attribute {set context attribute_item}
+        configuration_specification {set context configuration_specification}
+        default {set context indexed_item}
+    }
     set stops {{;} end begin}
     if {$ownerKind eq "configuration"} {lappend stops for}
     set marker [boundary c $stops $context]
@@ -221,6 +227,48 @@ proc ::vhdl_index::parser::indexed_declaration {state owner ownerKind family} {
     set record [::vhdl_index::declarative::index c $owner $ownerKind $family $first $fence $terminator $c(opaqueBoundary)]
     incr c(declarativeTime) [expr {[clock microseconds] - $started}]
     return $record
+}
+
+proc ::vhdl_index::parser::indexed_configuration {state owner ownerKind} {
+    upvar 1 $state c
+    set row [indexed_declaration c $owner $ownerKind configuration_specification]
+    set separator [dict get $row terminator_span]
+    dict set row binding_terminator_span $separator
+    set units {}
+    if {$separator ne {} && $c(edition) >= 2008} {
+        while {[peek c] eq "use" && [peek c 1] eq "vunit"} {
+            set start [lindex [span c] 0]
+            opaque_item c configuration_specification
+            lappend units [list $start [lindex [span c previous] 1]]
+        }
+    }
+    if {$units ne {}} {
+        dict set row verification_unit_binding_spans $units
+        dict set row status [::vhdl_index::grammar::combine [dict get $row status] recognized-but-unsupported]
+        dict lappend row diagnostics [diagnostic c UNSUPPORTED_VERIFICATION_UNIT_BINDING [list span [lindex $units 0]]]
+        dict set row span [list [lindex [dict get $row span] 0] [lindex $units end 1]]
+        dict set row terminator_span {}
+    }
+    if {[peek c] eq "end" && [peek c 1] eq "for"} {
+        set tail [terminator c for {} 0 0 1]
+        dict set row end_for_span $tail
+        dict set row span [list [lindex [dict get $row span] 0] [lindex $tail 1]]
+        if {[peek c -1] eq ";"} {
+            dict set row terminator_span [span c previous]
+        } else {
+            dict set row terminator_span {}
+            dict set row status [::vhdl_index::grammar::combine [dict get $row status] malformed]
+            dict lappend row diagnostics [diagnostic c CONFIGURATION_SPECIFICATION_MISSING_END_SEPARATOR {}]
+        }
+        if {$c(edition) < 2008} {
+            dict set row status [::vhdl_index::grammar::combine [dict get $row status] recognized-but-unsupported]
+            dict lappend row diagnostics [diagnostic c EDITION_CONFIGURATION_SPECIFICATION_END [list span $tail]]
+        }
+    } elseif {$units ne {}} {
+        dict set row status [::vhdl_index::grammar::combine [dict get $row status] malformed]
+        dict lappend row diagnostics [diagnostic c CONFIGURATION_SPECIFICATION_EXPECTED_END_FOR {}]
+    }
+    return $row
 }
 
 proc ::vhdl_index::parser::protected_member_allowed {state ownerKind} {
@@ -812,13 +860,6 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                     set region [list $start [lindex [span c previous] 1]]
                     lappend opaque [list $next $region]
                     note_gap c verification_unit_binding $region recognized-but-unsupported {configuration_blocks}
-                } elseif {$kind eq "configuration" && $next eq "use"} {
-                    set row [indexed_declaration c $owner $kind local_use]
-                    lappend declarations $row
-                    lappend opaque [list use [dict get $row span]]
-                    if {[dict get $row status] eq "unrecognized"} {
-                        scope_gap c gaps $kind uncertain_opaque_item [dict get $row span] unrecognized
-                    }
                 } elseif {$protectedScope && $family ne {} && ![protected_member_allowed c $kind]} {
                     set start [lindex [span c] 0]
                     if {$family eq "object"} {
@@ -838,8 +879,12 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                     incr c(declarativeTime) [expr {[clock microseconds] - $started}]
                     lappend declarations $row
                     lappend opaque [list component [dict get $row span]]
-                } elseif {$family in {alias attribute file_object group}} {
-                    set row [indexed_declaration c $owner $kind $family]
+                } elseif {$family in {alias attribute file_object group disconnect local_use configuration_specification}} {
+                    if {$family eq "configuration_specification"} {
+                        set row [indexed_configuration c $owner $kind]
+                    } else {
+                        set row [indexed_declaration c $owner $kind $family]
+                    }
                     lappend declarations $row
                     lappend opaque [list $next [dict get $row span]]
                     if {[dict get $row status] eq "unrecognized"} {
@@ -996,6 +1041,13 @@ proc ::vhdl_index::parser::scope_gap {state gapsVar ownerKind kind region status
     set profile $ownerKind
     if {$kind in {package block generate protected_body}} {set profile $kind}
     set capabilities [region_capabilities $profile]
+    if {$c(edition) >= 2008 &&
+        ($kind eq "protected_body" || ($kind eq "uncertain_opaque_item" &&
+         $ownerKind in {entity architecture package package_body process function procedure protected_body})) &&
+        "component_declarations" ni $capabilities} {
+        # A nested package may be hidden inside this bounded opaque span.
+        lappend capabilities component_declarations
+    }
     # A hidden declarative item cannot take ownership of the separate entity header.
     set capabilities [lsearch -all -inline -not -exact $capabilities entity_interfaces]
     note_gap c $kind $region $status $capabilities
@@ -1040,7 +1092,9 @@ proc ::vhdl_index::parser::compose_withdrawal {state kind region cause firstScop
         foreach capability [dict get $contributor capabilities] {dict set mask $capability 1}
     }
     dict set lost capabilities [dict keys $mask]
-    if {$contributors ne {}} {dict set lost contributors $contributors}
+    if {$contributors ne {}} {
+        dict set lost contributors [lsort -integer -index {3 0} $contributors]
+    }
     trim_suffix c coverageGaps $firstGap
     trim_suffix c withdrawnScopes $firstWithdrawal
     incr c(withdrawalTime) [expr {[clock microseconds] - $started}]
@@ -1150,7 +1204,7 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
     }
     set scopes [lsort -integer -index 1 $c(declarationScopes)]
     return [dict create object_declarations $scopes withdrawn_scopes $c(withdrawnScopes) \
-        coverage_gaps $c(coverageGaps) withdrawal_time_us $c(withdrawalTime) \
+        coverage_gaps [lsort -integer -index {3 0} $c(coverageGaps)] withdrawal_time_us $c(withdrawalTime) \
         object_diagnostics $c(objectDiagnostics) object_status $objectStatus object_time_us $c(objectTime) \
         type_diagnostics $c(typeDiagnostics) type_status $typeStatus type_time_us $c(typeTime) \
         subprogram_status $subprogramStatus body_status $bodyStatus subprogram_time_us $c(subprogramTime) \

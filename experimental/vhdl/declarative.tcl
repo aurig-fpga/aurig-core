@@ -186,6 +186,98 @@ proc ::vhdl_index::declarative::group_declaration {state ownerKind recordVar} {
     return $status
 }
 
+# A list selector owns its commas. Parenthesized signal-name suffixes remain
+# part of that name, while instance labels are simple identifiers.
+proc ::vhdl_index::declarative::selector {state recordVar {signals 0}} {
+    upvar 1 $state c $recordVar item
+    set start [lindex [span c] 0]
+    set listKind [kind c]
+    set names {}
+    set commas {}
+    set status parsed
+    if {$listKind in {all others}} {
+        take c
+    } else {
+        set listKind names
+        while {1} {
+            if {$signals} {
+                set entry {}
+                set status [combine $status [name_fields c entry span]]
+                if {[dict exists $entry diagnostics]} {
+                    dict lappend item diagnostics {*}[dict get $entry diagnostics]
+                }
+            } else {
+                set entry [dict create span [name_span c]]
+            }
+            lappend names $entry
+            if {[kind c] ne ","} {break}
+            lappend commas [take c]
+        }
+    }
+    dict set item selector_kind $listKind
+    dict set item selector_span [extent c $start]
+    dict set item selected_names $names
+    dict set item comma_spans $commas
+    dict set item colon_span [require c : EXPECTED_COLON]
+    return $status
+}
+
+proc ::vhdl_index::declarative::disconnect {state ownerKind recordVar} {
+    upvar 1 $state c $recordVar item
+    set start [lindex [span c] 0]
+    set status [selector c item 1]
+    dict set item type_mark_span [selected_name c 0 1]
+    dict set item guarded_signal_span [extent c $start]
+    dict set item after_span [require c after EXPECTED_AFTER]
+    dict set item time_span [payload c {eof}]
+    if {$ownerKind ni {architecture entity package}} {reject c OUT_OF_CONTEXT}
+    return $status
+}
+
+proc ::vhdl_index::declarative::map_aspect {state form} {
+    upvar 1 $state c
+    set keyword [require c $form EXPECTED_MAP_KEYWORD]
+    set map [require c map EXPECTED_MAP]
+    if {[kind c] ne "("} {reject c EXPECTED_MAP_OPEN}
+    set associations [group c]
+    return [dict create keyword_span $keyword map_span $map association_span $associations \
+        span [extent c [lindex $keyword 0]]]
+}
+
+proc ::vhdl_index::declarative::component_specification {state ownerKind recordVar} {
+    upvar 1 $state c $recordVar item
+    set start [lindex [span c] 0]
+    selector c item
+    dict set item component_name_span [selected_name c]
+    dict set item component_specification_span [extent c $start]
+    set first $c(i)
+    set start [lindex [span c] 0]
+    set binding {}
+    if {[kind c] eq "use"} {
+        dict set binding use_span [take c]
+        set aspect [kind c]
+        if {$aspect ni {entity configuration open}} {reject c EXPECTED_ENTITY_ASPECT}
+        set aspectKeyword [take c]
+        dict set binding aspect_kind $aspect
+        dict set binding aspect_keyword_span $aspectKeyword
+        if {$aspect ne "open"} {
+            dict set binding target_span [selected_name c]
+        }
+        if {$aspect eq "entity" && [kind c] eq "("} {
+            dict set binding architecture_open_span [take c]
+            dict set binding architecture_name_span [name_span c]
+            dict set binding architecture_close_span [require c ) EXPECTED_ARCHITECTURE_CLOSE]
+        }
+        dict set binding aspect_span [extent c [lindex $aspectKeyword 0]]
+    }
+    foreach form {generic port} {
+        if {[kind c] eq $form} {dict set binding ${form}_map [map_aspect c $form]}
+    }
+    if {$c(i) != $first} {dict set binding span [extent c $start]}
+    dict set item binding $binding
+    if {$ownerKind ne "architecture"} {reject c OUT_OF_CONTEXT}
+}
+
 # The structural walk owns the fence. Grammar recovery cannot consume a sibling.
 proc ::vhdl_index::declarative::index {state owner ownerKind family first fence terminator uncertainty} {
     upvar 1 $state c
@@ -207,6 +299,8 @@ proc ::vhdl_index::declarative::index {state owner ownerKind family first fence 
                 attribute {set status [attribute_declaration c $ownerKind item]}
                 file_object {file_object c item}
                 group {set status [group_declaration c $ownerKind item]}
+                disconnect {set status [disconnect c $ownerKind item]}
+                configuration_specification {component_specification c $ownerKind item}
                 local_use {
                     lassign [context_names c use 1] names commas
                     dict set item names $names

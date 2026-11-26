@@ -1,0 +1,14 @@
+entity recovery_host is end;
+architecture rtl of recovery_host is
+    disconnect all : bit after (1 + 2) * 1 ns
+    use std.standard.all;
+    disconnect others : bit after ;
+    disconnect a.data(0), b.keep : std.standard.bit after 1 ns;
+    for : component_name use open;
+    for first : c use entity work.child(broken, other);
+    for second : c use entity work.child generic map () ;
+    for third : c use open; use vunit work.watch; end for;
+    for fourth : c use open; end for
+    constant held : integer := 3;
+begin
+end architecture;

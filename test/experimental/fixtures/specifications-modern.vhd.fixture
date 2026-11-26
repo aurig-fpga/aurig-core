@@ -1,0 +1,7 @@
+entity modern_host is end;
+architecture rtl of modern_host is
+    component c end component;
+    for all : c use open; end for;
+begin
+    unbound : c;
+end architecture;

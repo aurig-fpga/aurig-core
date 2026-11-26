@@ -112,5 +112,23 @@ check scope-limit [list configuration_blocks unrecognized] \
     [list configuration_blocks [cap [inline limits {entity e is end; configuration c of e is for rtl end for; end;} {scopes 1}] configuration_blocks]]
 check delimiter-limit [list component_declarations unrecognized] \
     [list component_declarations [cap [inline limits-delim {package p is component c generic (x : bit := ('0')); end component; end;} {delimiters 1}] component_declarations]]
+set r [inline component-child-loss {package p is component c end component bad; end package wrong;}]
+set lost [lindex [dict get $r withdrawn_scopes] 0]
+check component-loss-is-composed component [gap_kinds $lost]
+check composed-child-clauses-gone {} [rows $r]
+
+set r [inline configuration-loss {configuration cfg of e is
+    attribute keep of cfg : configuration is "true";
+    for rtl use work.tags.all; end for;
+end configuration wrong;
+package sibling is constant kept : integer := 2; end;}]
+check configuration-only-loss unrecognized [cap $r attribute_declarations]
+check configuration-block-loss unrecognized [cap $r configuration_blocks]
+check configuration-local-use-loss unrecognized [cap $r local_use_clauses]
+check configuration-unrelated-object parsed [cap $r object_declarations]
+check configuration-unrelated-component parsed [cap $r component_declarations]
+check configuration-unrelated-interface parsed [cap $r entity_interfaces]
+check configuration-no-orphans {} [rows $r]
+verify_source $r
 puts [list Tcl [info patchlevel] assertions $checks failures $failures]
 exit [expr {$failures > 0}]
