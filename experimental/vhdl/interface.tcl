@@ -5,7 +5,7 @@ namespace eval ::vhdl_index::interface {
     variable genericKinds {type function procedure pure impure package}
 }
 
-proc ::vhdl_index::interface::object {state context {routine {}}} {
+proc ::vhdl_index::interface::object {state context {routine {}} {enriched 0}} {
     variable classes
     variable modes
     upvar 1 $state c
@@ -71,7 +71,7 @@ proc ::vhdl_index::interface::object {state context {routine {}}} {
         colon_span $colon explicit_class $explicitClass class_span $classSpan effective_class $class \
         explicit_mode $explicitMode mode_span $modeSpan effective_mode $mode subtype_span $subtype \
         bus_span $bus default_marker_span $marker default_span $default status $status diagnostics $diagnostics]
-    if {$routine ne {}} {
+    if {$enriched} {
         dict set item type_mark_span $mark
         dict set item constraint_span $constraint
         dict set item resolution_span $resolution
@@ -158,7 +158,7 @@ proc ::vhdl_index::interface::recover_item {state start} {
     }
 }
 
-proc ::vhdl_index::interface::list_body {state context {routine {}}} {
+proc ::vhdl_index::interface::list_body {state context {routine {}} {enriched 0}} {
     variable genericKinds
     upvar 1 $state c
     set open [require c ( EXPECTED_OPEN]
@@ -177,7 +177,7 @@ proc ::vhdl_index::interface::list_body {state context {routine {}}} {
             if {$context ne "parameter" && [kind c] in $genericKinds} {
                 set item [generic_item c $context]
             } else {
-                set item [object c $context $routine]
+                set item [object c $context $routine $enriched]
             }
             if {[kind c] ni {{;} )} && ![item_prefix c]} {
                 reject c UNEXPECTED_ITEM_TAIL [list found [kind c]]

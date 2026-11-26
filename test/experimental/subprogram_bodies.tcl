@@ -70,6 +70,7 @@ set wrong [lindex [dict get $items wrong_ending] 0]
 check wrong-spec parsed [dict get $wrong status]
 check wrong-body unrecognized [dict get $wrong body_status]
 check withdrawn-scope 0 [dict exists $wrong body_scope_id]
+check no-orphan-scope 0 [dict exists $scopes [lindex [dict get $wrong span] 0]]
 check reason MISMATCHED_END_NAME [dict get [lindex [dict get $wrong body_diagnostics] 0] cause]
 foreach scope [dict values $scopes] {
     if {[dict get $scope status] eq "unrecognized"} {

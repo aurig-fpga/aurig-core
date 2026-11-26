@@ -49,7 +49,10 @@ proc ::vhdl_index::subprogram::specification {state recordVar context} {
             }
             if {$c(edition) < 2008 && [string index $operator 1] eq "?"} {reject c EDITION_OPERATOR}
         }
-        if {$context eq "instantiation"} {return [list parsed {}]}
+        if {$context eq "instantiation"} {
+            if {$purity ne {} || $nameKind eq "string"} {reject c INVALID_INSTANTIATION_DESIGNATOR}
+            return [list parsed {}]
+        }
     }
 
     set status parsed
@@ -71,8 +74,7 @@ proc ::vhdl_index::subprogram::specification {state recordVar context} {
     if {[kind c] eq "parameter"} {set parameterKeyword [take c]}
     if {[kind c] eq "(" || $parameterKeyword ne {}} {
         dict set item parameter_keyword_span $parameterKeyword
-        set routine [expr {$context eq "ordinary" ? $form : ""}]
-        set params [::vhdl_index::interface::list_body c parameter $routine]
+        set params [::vhdl_index::interface::list_body c parameter $form [expr {$context eq "ordinary"}]]
         dict set item parameters $params
         set status [combine $status [dict get $params status]]
         lappend diagnostics {*}[dict get $params diagnostics]
@@ -148,8 +150,13 @@ proc ::vhdl_index::subprogram::index {state owner first fence category {introduc
         set status [combine $status malformed]
     }
     set c(i) $resume
+    set diagnostics {}
+    foreach issue $issues {
+        if {![dict exists $issue phase]} {dict set issue phase subprogram}
+        lappend diagnostics $issue
+    }
     dict set item status $status
-    dict set item diagnostics $issues
+    dict set item diagnostics $diagnostics
     incr c(subprogramTime) [expr {[clock microseconds] - $started}]
     return $item
 }

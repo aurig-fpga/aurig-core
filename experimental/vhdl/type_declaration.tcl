@@ -235,9 +235,12 @@ proc ::vhdl_index::type_declaration::syntax {state ownerKind category recordVar}
             physical_definition c item
         } elseif {$category in {protected protected_body}} {
             dict set item kind $category
-            dict set item status recognized-but-unsupported
-            if {$category eq "protected_body" && $ownerKind eq "package"} {
-                dict set item diagnostics [list [at TYPE_PROTECTED_BODY_OUT_OF_SCOPE [span c]]]
+            dict set item protected_keyword_span [require c protected EXPECTED_PROTECTED]
+            if {$category eq "protected_body"} {
+                dict set item body_keyword_span [require c body EXPECTED_PROTECTED_BODY]
+            }
+            if {$ownerKind eq "package" && $category eq "protected_body"} {
+                dict set item diagnostics [list [at TYPE_PROTECTED_BODY_OUT_OF_SCOPE [dict get $item body_keyword_span]]]
             }
             set c(i) $c(typeDefinitionFence)
         } else {
@@ -283,7 +286,7 @@ proc ::vhdl_index::type_declaration::at {code region} {
     return [dict create code $code severity error phase type span $region]
 }
 
-proc ::vhdl_index::type_declaration::index {state ownerKind owner first region category cause} {
+proc ::vhdl_index::type_declaration::index {state ownerKind owner first region category cause {shape {}}} {
     upvar 1 $state c
     set c(grammarFence) $c(i)
     set c(grammarDomain) TYPE
@@ -303,6 +306,7 @@ proc ::vhdl_index::type_declaration::index {state ownerKind owner first region c
             if {[kind c] eq "is"} {dict set item is_span [take c]}
             dict set item header_span [extent c [lindex $intro 0]]
             if {[kind c] in {array record access file}} {dict set item kind [kind c]}
+            if {$category in {protected protected_body}} {dict set item kind $category}
         }
         set issue [at TYPE_UNPROVEN_DECLARATION_BOUNDARY $region]
         if {$category eq "uncertain_opaque_item"} {
@@ -326,6 +330,10 @@ proc ::vhdl_index::type_declaration::index {state ownerKind owner first region c
                 dict set item terminator_span [span c]
             }
         }
+    }
+    if {$shape ne {}} {
+        set item [dict merge $item $shape]
+        dict set item status [combine [dict get $item status] [dict get $shape member_status]]
     }
     set c(i) $c(grammarFence)
     dict lappend item diagnostics {*}[lexical_diagnostics c $region typeLexicalAt]

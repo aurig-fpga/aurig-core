@@ -1,0 +1,26 @@
+package protected_inventory is
+    attribute note_tag : string;
+    type \gate; control\ is protected
+        use std.standard.all;
+        procedure set_value (value : bit);
+        impure function sample return bit;
+        attribute note_tag of set_value : procedure is "member;";
+    end protected \gate; control\;
+end package;
+
+package body protected_inventory is
+    type \gate; control\ is protected body
+        subtype stored_t is bit;
+        variable saved : stored_t := '0';
+        procedure reset_local;
+        procedure reset_local is begin saved := '0'; end;
+        procedure set_value(value : bit) is
+            function convert(v : bit) return stored_t is begin return v; end;
+        begin
+            saved := convert(value);
+            report "end protected body; procedure" severity note;
+        end procedure set_value;
+        impure function sample return bit is begin return saved; end function;
+    end protected body \gate; control\;
+    subtype next_type is bit;
+end package body;

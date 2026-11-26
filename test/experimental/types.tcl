@@ -212,7 +212,8 @@ foreach edition {2002 2008} {
     set byName [index_by_name [inventory $r]]
     check "$edition protected type" protected [dict get [lindex [dict get $byName lock] 0] kind]
     check "$edition protected body" protected_body [dict get [lindex [dict get $byName lock] 1] kind]
-    check "$edition hidden names" {lock after_lock} [dict keys $byName]
+    check "$edition separate nested names" {lock after_lock private_t deeper} [dict keys $byName]
+    check "$edition protected coverage" parsed [dict get $r capabilities type_declarations]
 }
 set r [fixture types-protected 1993]
 check protected-1993-coverage unrecognized [dict get $r capabilities type_declarations]
@@ -248,7 +249,7 @@ check verified-absence parsed [dict get $r capabilities type_declarations]
 check verified-absence-rows {} [inventory $r]
 
 set fixtureNames [lsort [glob -tails -directory [file join $tests fixtures] *.vhd.fixture]]
-check isolated-fixture-count 52 [llength $fixtureNames]
+check isolated-fixture-count 55 [llength $fixtureNames]
 check no-production-vhdl-fixtures {} [glob -nocomplain -directory [file join $tests fixtures] *.vhd *.vhdl]
 puts [list Tcl [info patchlevel] assertions $assertions failures $failures]
 exit [expr {$failures > 0}]

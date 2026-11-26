@@ -1,0 +1,22 @@
+package failed_methods is
+    type gate is protected
+        variable illegal_member : bit;
+        procedure first
+        procedure second;
+        procedure inappropriate is begin null; end;
+    end protected gate;
+    procedure retained;
+end package;
+
+package mismatched is
+    type gone is protected
+        procedure lost;
+    end protected different;
+    procedure retained_again;
+end package;
+
+package body incomplete is
+    type broken is protected body
+        variable lost_state : bit;
+        procedure not_committed is begin null; end;
+end package body;

@@ -76,6 +76,12 @@ proc ::vhdl_index::analyze_file {path edition {requestedLimits {}}} {
     dict unset structure subprogram_time_us
     dict unset structure subprogram_status
     dict unset structure body_status
+    foreach {key phase} {body_boundary_time_us body_boundaries protected_time_us protected_members} {
+        set elapsed [dict get $structure $key]
+        dict set timing $phase $elapsed
+        dict incr timing structural -$elapsed
+        dict unset structure $key
+    }
     return [dict merge $structure $coverage [dict create engine $engine edition $edition \
         source_id $sourceId snapshot $source tape $tape lexical_diagnostics [dict get $tape diagnostics] \
         limits $actualLimits timing_us $timing]]

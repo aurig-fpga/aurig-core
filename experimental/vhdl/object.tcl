@@ -58,7 +58,7 @@ proc ::vhdl_index::object::syntax {state ownerKind recordVar} {
 }
 
 proc ::vhdl_index::object::allowed {ownerKind form} {
-    set local [expr {$ownerKind in {process function procedure}}]
+    set local [expr {$ownerKind in {process function procedure protected_body}}]
     switch -- $form {
         variable {return $local}
         shared_variable {return [expr {!$local}]}

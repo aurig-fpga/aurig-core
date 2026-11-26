@@ -109,6 +109,7 @@ set expected {
     {package objects shared_variable lock lock_type {} {} {} {;} parsed 0}
     {package_body objects constant deferred_a integer {} {} 1 {;} parsed 0}
     {package_body objects constant deferred_b integer {} {} 2 {;} parsed 0}
+    {procedure touch variable protected_local integer {} {} 0 {;} parsed 0}
     {function computation variable {local_a local_b} std.standard.integer {} {} 0 {;} parsed 0}
     {procedure helper constant helper_only integer {} {} 3 {;} parsed 0}
     {entity object_test constant entity_only natural {} {} n {;} parsed 0}

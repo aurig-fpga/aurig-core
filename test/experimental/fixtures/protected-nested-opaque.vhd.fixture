@@ -1,0 +1,15 @@
+package wrapper is
+    type gate is protected
+        procedure run;
+    end protected;
+end package;
+
+package body wrapper is
+    type gate is protected body
+        package hidden is
+            subtype internal_t is natural;
+            procedure unstated;
+        end package;
+        procedure run is begin null; end;
+    end protected body;
+end package body;
