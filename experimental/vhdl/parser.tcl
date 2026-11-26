@@ -541,8 +541,11 @@ proc ::vhdl_index::parser::statement {state depth phase {owner {}} {ownerKind {}
     set opening [lindex [span c] 0]
     set label [optional_label c]
     set first [peek c]
+    set postponed {}
+    set colon {}
+    if {$label ne {}} {set colon [span c previous]}
     if {$first eq "postponed" && [peek c 1] eq "process"} {
-        incr c(i)
+        set postponed [take c]
         set first process
     }
     switch -- $first {
@@ -552,14 +555,7 @@ proc ::vhdl_index::parser::statement {state depth phase {owner {}} {ownerKind {}
         }
         process {
             if {$phase ne "concurrent"} {fail c UNEXPECTED_CONCURRENT_SCOPE}
-            incr c(i)
-            # Headers can have a delimiter group and an optional IS. The
-            # declaration scan handles the following item independently.
-            if {[peek c] eq "("} {consume_group c}
-            accept c is
-            set child {}
-            if {$owner ne {}} {set child [list $opening $owner]}
-            scope c process $label [descend c $depth] require $child
+            process_statement c [descend c $depth] $owner $opening $label $colon $postponed
         }
         if - case - for - while - loop {
             if {$phase eq "concurrent" && $first in {if case for}} {
@@ -632,14 +628,6 @@ proc ::vhdl_index::parser::sequential_control {state depth kind name matching} {
         }
     }
     return [terminator c $kind $name 1 $matching]
-}
-
-proc ::vhdl_index::parser::consume_group {state} {
-    upvar 1 $state c
-    expect c (
-    # Scan with ')' as a stop at relative depth zero.
-    if {[boundary c {) {;} end begin}] ne ")"} {fail c UNCLOSED_DELIMITER}
-    expect c )
 }
 
 proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {}} {shapeVar {}} {formals {}} {syntax {}} {scopeIssue {}}} {
@@ -720,7 +708,11 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
             } else {
                 set tail [terminator c $kind $name]
                 set endOffset [lindex $tail 1]
-                if {$syntax ne {}} {
+                if {$kind eq "process"} {
+                    set syntax [dict merge $syntax [process_closing c $syntax $endOrdinal $tail $structuralBegin] \
+                        [dict create span [list $owner $endOffset] declarative_span [list $declarationStart $declarationEnd] \
+                         owner_id $parent capability process_headers status parsed diagnostics {}]]
+                } elseif {$syntax ne {}} {
                     set syntax [dict merge $syntax [scope_closing c $tail $structuralBegin]]
                 }
             }
@@ -765,6 +757,12 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                 set cause [lindex $c(diagnostics) end]
                 set affected [list $owner $endOffset]
                 ::vhdl_index::ownership::rollback c $checkpoint $regionKind $affected $cause $parent $declarations
+                if {$kind eq "process"} {
+                    set capabilities {process_headers}
+                    if {[dict get $syntax sensitivity] ne {}} {lappend capabilities sensitivity_lists}
+                    ::vhdl_index::ownership::gap c process_header_loss $affected unrecognized $capabilities \
+                        $parent [list $cause] {process_statement}
+                }
                 if {$entityScope} {set c(interfaceSites) {}}
                 if {$kind ne "configuration"} {
                     lappend c(objectDiagnostics) [::vhdl_index::ownership::unproven_scope OBJECT $affected $cause]
@@ -795,6 +793,7 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                 if {$declarations ne {}} {dict set record declarations $declarations}
                 if {$formals ne {}} {dict set record formal_parameters $formals}
                 ::vhdl_index::ownership::publish c $record
+                if {$kind eq "process"} {publish_process c $syntax $parent}
             } else {
                 ::vhdl_index::ownership::empty c $owner [list $declarationStart $declarationEnd]
             }

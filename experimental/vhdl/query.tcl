@@ -25,6 +25,17 @@ proc ::vhdl_index::query::owners {view} {
 
 proc ::vhdl_index::query::items {view address capability payload} {
     set result [dict get $view result]
+    if {$capability eq "sensitivity_lists"} {
+        set rows {}
+        foreach process [::vhdl_index::concurrent_at $result $address process_headers] {
+            set sensitivity [dict get $process sensitivity]
+            if {$sensitivity eq {}} {continue}
+            set at [lindex [dict get $process span] 0]
+            dict set sensitivity process_occurrence_id [::vhdl_index::regions::identity $view [list region $at]]
+            lappend rows $sensitivity
+        }
+        return $rows
+    }
     if {$capability eq "actual_parameter_associations"} {
         set rows {}
         foreach call [::vhdl_index::concurrent_at $result $address concurrent_procedure_calls] {
@@ -145,6 +156,8 @@ proc ::vhdl_index::query::direct {view id capability} {
         }
         if {$capability eq "instantiations"} {set occurrenceRole instantiation}
         switch -- $capability {
+            process_headers {set occurrenceRole region}
+            sensitivity_lists {set occurrenceRole sensitivity_list}
             concurrent_assertions {set occurrenceRole concurrent_assertion}
             concurrent_signal_assignments {set occurrenceRole concurrent_signal_assignment}
             concurrent_procedure_calls {set occurrenceRole concurrent_procedure_call}

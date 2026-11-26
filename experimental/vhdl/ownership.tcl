@@ -10,7 +10,7 @@ proc ::vhdl_index::ownership::unproven_scope {domain region cause} {
 
 proc ::vhdl_index::ownership::concurrent_profile {kind} {
     if {$kind ni {root architecture entity block generate}} {return {}}
-    set capabilities {concurrent_assertions concurrent_procedure_calls actual_parameter_associations}
+    set capabilities {concurrent_assertions concurrent_procedure_calls actual_parameter_associations process_headers sensitivity_lists}
     if {$kind ne "entity"} {lappend capabilities concurrent_signal_assignments}
     return $capabilities
 }
