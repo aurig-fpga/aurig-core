@@ -779,7 +779,7 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                     incr c(declarativeTime) [expr {[clock microseconds] - $started}]
                     lappend declarations $row
                     lappend opaque [list component [dict get $row span]]
-                } elseif {$family in {alias attribute}} {
+                } elseif {$family in {alias attribute file_object}} {
                     set row [indexed_declaration c $owner $kind $family]
                     lappend declarations $row
                     lappend opaque [list $next [dict get $row span]]
@@ -911,7 +911,7 @@ proc ::vhdl_index::parser::unproven_scope {domain region cause} {
 # Protected specifications have no ordinary local declarations or bodies.
 proc ::vhdl_index::parser::withdrawal {kind region cause} {
     set capabilities {object_declarations type_declarations subprogram_specifications subprogram_bodies}
-    lappend capabilities alias_declarations attribute_declarations
+    lappend capabilities alias_declarations attribute_declarations file_objects
     if {$kind eq "protected"} {set capabilities {subprogram_specifications attribute_declarations}}
     if {$kind in {entity root}} {lappend capabilities entity_interfaces}
     if {$kind in {architecture package root}} {lappend capabilities component_declarations}

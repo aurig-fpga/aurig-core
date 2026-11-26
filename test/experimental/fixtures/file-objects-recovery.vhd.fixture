@@ -1,0 +1,13 @@
+package broken_files is
+    type stream is file of integer;
+    constant x : integer := 0
+    file with_missing_kind : stream open is "bad";
+    file with_missing_is : stream open read_mode;
+    file with_missing_name : stream is ;
+    file legacy : stream is in "data";
+    file first : stream
+    alias safe is x;
+    file uncertain : stream is "data"
+    signal weak bit;
+    file retained : stream;
+end package;

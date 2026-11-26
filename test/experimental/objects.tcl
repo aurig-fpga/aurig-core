@@ -203,10 +203,16 @@ check nested-separator-no-terminator {} [dict get [lindex $damaged 3] terminator
 check outer-separator-recovers saved [lindex $saved 2]
 
 set r [inline missing-opaque-separator {package p is file stream : text constant hidden : integer := 1; end;} 2008]
-check opaque-recovery-unavailable unrecognized [dict get $r capabilities object_declarations]
-check opaque-still-owns-span file [lindex [dict get [lindex [dict get $r object_declarations] 0] opaque] 0 0]
-check opaque-boundary-diagnostic OBJECT_OPAQUE_BOUNDARY [lindex [diagnostic_codes $r] 0]
-check opaque-recovery-no-speculation 0 [llength [find_records $r]]
+check indexed-file-boundary-proved parsed [dict get $r capabilities object_declarations]
+check indexed-file-still-owns-span file [lindex [dict get [lindex [dict get $r object_declarations] 0] opaque] 0 0]
+check indexed-file-object-diagnostics {} [diagnostic_codes $r]
+check indexed-file-keeps-sibling hidden [lindex [find_records $r] 0 2]
+set file [lindex [dict get [lindex [dict get $r object_declarations] 0] declarations] 0]
+check indexed-file-missing-separator FILE_OBJECT_MISSING_SEMICOLON [dict get [lindex [dict get $file diagnostics] 0] code]
+set r [inline missing-unsupported-opaque-separator {package p is group selection : template (s) constant hidden : integer := 1; end;} 2008]
+check unsupported-recovery-unavailable unrecognized [dict get $r capabilities object_declarations]
+check unsupported-boundary-diagnostic OBJECT_OPAQUE_BOUNDARY [lindex [diagnostic_codes $r] 0]
+check unsupported-recovery-no-speculation 0 [llength [find_records $r]]
 
 set r [inline mismatched-label {entity e is end; architecture rtl of e is
     signal first : bit;

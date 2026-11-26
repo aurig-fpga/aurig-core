@@ -71,7 +71,7 @@ proc ::vhdl_index::coverage {snapshot tape structure} {
             subprogram_bodies [dict get $structure body_status] \
             type_declarations [dict get $structure type_status] declarations opaque concurrent opaque \
             sequential opaque expressions opaque]]
-    set additional {alias_declarations attribute_declarations component_declarations}
+    set additional {alias_declarations attribute_declarations component_declarations file_objects}
     foreach capability $additional {dict set result capabilities $capability parsed}
     foreach scope [dict get $structure object_declarations] {
         if {[dict get $scope gaps] ne {} && [dict get $scope status] in {unrecognized recognized-but-unsupported}} {
@@ -85,6 +85,7 @@ proc ::vhdl_index::coverage {snapshot tape structure} {
             switch -- [dict get $row kind] {
                 alias {set capability alias_declarations}
                 component {set capability component_declarations}
+                file_object {set capability file_objects}
                 default {set capability attribute_declarations}
             }
             dict set result capabilities $capability [::vhdl_index::grammar::combine \

@@ -1,0 +1,15 @@
+package protected_files is
+    type stream is file of integer;
+    type gate is protected procedure update_state; end protected;
+end package;
+package body protected_files is
+    type gate is protected body
+        file local_file : stream;
+        procedure update_state is
+            file local_operation_file : stream;
+        begin
+            null;
+        end procedure;
+    end protected body;
+    file outer_file : stream;
+end package body;

@@ -1,0 +1,15 @@
+package streams is
+    type stream is file of integer;
+    file f, \other; file\ : stream open read_mode is "file; open is data";
+    file lazy : std.textio.text;
+    file automatic : stream is "log." & "txt";
+    procedure sample(file incoming : stream);
+end package;
+
+package body streams is
+    procedure sample(file incoming : stream) is
+        file local_copy : work.streams.stream open read_mode is ("nested");
+    begin
+        null;
+    end procedure;
+end package body;

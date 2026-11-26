@@ -61,7 +61,6 @@ foreach {label declaration} {
 foreach {label declaration} {
     type {type t is (a, b)}
     subtype {subtype t is integer}
-    file {file f : text}
     subprogram {procedure p}
 } {
     set r [analyze "opaque-$label" "entity e is $declaration signal hidden : bit; signal kept : bit; end;"]
@@ -69,6 +68,12 @@ foreach {label declaration} {
     check "$label opaque diagnostic" OBJECT_OPAQUE_BOUNDARY [lindex [codes $r] 0]
     check "$label opaque retention" {{{signal kept : bit;} parsed}} [objects $r]
 }
+set r [analyze opaque-file {entity e is file f : text signal hidden : bit; signal kept : bit; end;}]
+check indexed-file-object-coverage parsed [dict get $r capabilities object_declarations]
+check indexed-file-object-diagnostic {} [codes $r]
+check indexed-file-object-recovery {{{signal hidden : bit;} parsed} {{signal kept : bit;} parsed}} [objects $r]
+set file [lindex [dict get [lindex [dict get $r object_declarations] 0] declarations] 0]
+check indexed-file-diagnostic FILE_OBJECT_MISSING_SEMICOLON [dict get [lindex [dict get $file diagnostics] 0] code]
 set r [analyze constraining {entity e is
     signal p : integer range 0 to 2
     type color is (red, blue);

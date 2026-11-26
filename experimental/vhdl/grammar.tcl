@@ -70,7 +70,7 @@ proc ::vhdl_index::grammar::group {state {recover 0}} {
 namespace eval ::vhdl_index::grammar {
     variable declarationFamilies {
         constant object signal object variable object shared object
-        type type subtype type file opaque alias alias attribute attribute
+        type type subtype type file file_object alias alias attribute attribute
         function subprogram procedure subprogram pure subprogram impure subprogram
         component component package opaque group opaque disconnect opaque use opaque for opaque
     }

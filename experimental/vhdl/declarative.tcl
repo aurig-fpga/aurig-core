@@ -125,6 +125,26 @@ proc ::vhdl_index::declarative::attribute_declaration {state ownerKind recordVar
     return parsed
 }
 
+proc ::vhdl_index::declarative::file_object {state recordVar} {
+    upvar 1 $state c $recordVar item
+    lassign [identifier_list c] names commas colon
+    dict set item names $names
+    dict set item comma_spans $commas
+    dict set item colon_span $colon
+    set item [dict merge $item [subtype_fields c {open is eof}]]
+    if {[kind c] eq "open"} {
+        dict set item open_span [take c]
+        dict set item open_kind_span [payload c {is eof}]
+        dict set item is_span [require c is EXPECTED_IS]
+    } elseif {[kind c] eq "is"} {
+        dict set item is_span [take c]
+    }
+    if {[dict exists $item is_span]} {
+        if {[kind c] in {in out}} {reject c LEGACY_FILE_MODE}
+        dict set item logical_name_span [payload c {eof}]
+    }
+}
+
 # The structural walk owns the fence. Grammar recovery cannot consume a sibling.
 proc ::vhdl_index::declarative::index {state owner ownerKind family first fence terminator uncertainty} {
     upvar 1 $state c
@@ -144,6 +164,7 @@ proc ::vhdl_index::declarative::index {state owner ownerKind family first fence 
             switch -- $family {
                 alias {set status [alias_declaration c item]}
                 attribute {set status [attribute_declaration c $ownerKind item]}
+                file_object {file_object c item}
             }
             if {[kind c] ne "eof"} {reject c UNEXPECTED_TAIL [list found [kind c]]}
         } issue options]} {
