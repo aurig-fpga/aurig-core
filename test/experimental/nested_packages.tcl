@@ -40,8 +40,10 @@ scope_integrity $r $v
 foreach edition {1993 2002} {
     set r [scope_input {package p is package q is end; end;} $edition]
     check old_edition EDITION_NESTED_PACKAGE [scope_error $r]
-    set r [scope_input {package p is generic (n : integer); end;} $edition]
+    set r [scope_input {package p is generic (n : integer); end; entity e is port (x : in bit); end;} $edition]
     check old_generic EDITION_PACKAGE_GENERIC [scope_error $r]
+    check next_unit 2 [llength [dict get $r units]]
+    check independent_interface parsed [dict get $r capabilities entity_interfaces]
 }
 foreach {source cause} {
     {package p is package is end; end;} EXPECTED_NAME

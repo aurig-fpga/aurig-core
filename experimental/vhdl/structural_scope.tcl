@@ -45,11 +45,19 @@ proc ::vhdl_index::parser::package_header {state name head} {
     upvar 1 $state c
     set shape [dict create header_span $head name [lindex $name 0] interfaces {} generic_map {}]
     if {[peek c] ne "generic"} {return $shape}
-    if {$c(edition) < 2008} {fail c EDITION_PACKAGE_GENERIC}
     if {[peek c 1] eq "map"} {fail c EXPECTED_GENERIC_CLAUSE}
+    set keyword [span c]
     set site [formal_site c]
-    set owner [dict create name_span [lindex $name 1] span $head]
-    dict set shape interfaces [dict get [::vhdl_index::interface::index_owner c $owner [list $site] scopeLexicalAt] clauses]
+    if {$c(edition) < 2008} {
+        set extent [list [lindex $keyword 0] [lindex [span c previous] 1]]
+        set issue [diagnostic c EDITION_PACKAGE_GENERIC [list span $keyword]]
+        lappend c(diagnostics) $issue
+        dict set shape interfaces [list [dict create kind generic span $extent keyword_span $keyword \
+            items {} status recognized-but-unsupported diagnostics [list $issue]]]
+    } else {
+        set owner [dict create name_span [lindex $name 1] span $head]
+        dict set shape interfaces [dict get [::vhdl_index::interface::index_owner c $owner [list $site] scopeLexicalAt] clauses]
+    }
     if {[peek c] eq "generic"} {
         set map [map_aspect c generic]
         set separator [take_semicolon c]
