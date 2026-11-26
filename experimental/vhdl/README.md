@@ -1,6 +1,6 @@
 # Experimental VHDL structural frontend
 
-This opt-in Tcl frontend explores a source-preserving structural index for VHDL. It retains normalized source, a token tape, source spans, syntactic owners and explicit coverage evidence. The current experimental reference is c7f40b8e705c475dfbd7afb3cc122016ccddd6d4. The authoritative Core command remains ::aurig::core::analyze::vhdlscan. Treat the experimental commands, result dictionaries, and identifiers as private and revision-specific.
+This opt-in Tcl frontend explores a source-preserving structural index for VHDL. It retains normalized source, a token tape, source spans, syntactic owners and explicit coverage evidence. The authoritative Core command remains ::aurig::core::analyze::vhdlscan. Treat the experimental commands, result dictionaries, and identifiers as private and revision-specific.
 
 ## Opt in
 
@@ -23,7 +23,11 @@ Structural extraction is limited to declaration and envelope boundaries. The pro
 
 Owner regions distinguish empty, partial, unsupported, withdrawn, and uncertain inventory. Queries return boundary availability, completeness for the requested family, grammar-validation status, and evidence with source spans. A proved empty direct inventory is distinct from an unavailable one. File-wide summaries remain conservative when a sibling or descendant is missing. Positions use normalized Tcl string offsets, one-based line numbers, and zero-based columns. Snapshot-local occurrence identifiers are qualified by role and snapshot.
 
-Nested package contents, block and generate-alternative ownership, and configuration-block interiors remain outside the complete extraction profile. Concurrent and sequential bodies and expression payloads can have proved fences while their internals remain opaque. Semantic binding, type resolution and elaboration are outside this structural index. VHDL-2019 is unsupported.
+Nested package declarations and bodies own their local declarations in supported VHDL-2008 contexts. Generic package headers retain formal clauses and opaque map spans. Package instantiations retain the referenced name and optional map without expanding exports. A nested package has its own source occurrence and remains outside the design-unit inventory.
+
+Block statements own formal generic and port interfaces, local declarations and nested structural scopes. Guards and map associations are opaque. For and if generate bodies support local declarations and optional declarative prefixes in VHDL-1993, 2002 and 2008. VHDL-2008 adds elsif and else alternatives, case generate, alternative labels and optional local endings. Each if or case alternative has a distinct owner. A for generate parameter has its own syntactic role. Ranges, condition and selector expressions, and case choices retain spans and selected structural fields.
+
+Configuration-block interiors, ordinary concurrent and sequential statements, and expression internals remain opaque. Semantic binding, visibility, type resolution, staticness and elaboration are outside this structural index. VHDL-2019 is unsupported.
 
 ## Run an experiment
 
@@ -36,17 +40,8 @@ env -u AURIG_EXPERIMENTAL_FRONTEND AURIG_EXPERIMENTAL_SCRATCH="$scratch" \
     "$runtime" test/experimental/private_queries.tcl
 ~~~
 
-The focused repository-contained tests include candidate families, selected-name policy, owner regions, private queries, and declaration-family fixtures. Experimental source fixtures use the .vhd.fixture suffix. Some inherited whole-corpus differential and resource harnesses also need review archives and corpora kept separately from the Git branch. Record which tests and interpreter builds were used. Use the coordinator's qualification kit for native Windows smoke on the exact reviewed revision.
+The focused repository-contained tests include candidate families, selected-name policy, owner regions, private queries, nested packages, blocks and generate scopes. Experimental source fixtures use the .vhd.fixture suffix. Some inherited whole-corpus differential and resource harnesses also need review archives and corpora kept separately from the Git branch. Record which tests and interpreter builds were used. Use the coordinator's qualification kit for native Windows smoke on the exact reviewed revision.
 
-## Qualification at the experimental reference
+## Qualification
 
-| Environment | Result |
-| --- | --- |
-| Linux Tcl 8.5.19 and 8.6.14 | Full inherited experimental functional regression passed on both. The locked Core, Lint and Doc regressions also passed on the reviewed revision. |
-| Native Windows ActiveTcl 8.6.14, AMD64 | Passed the exact-source smoke with 13 assertions. |
-| Native Windows Tcl 8.5 | NOT RUN. The overall Windows verifier recorded NOT RUN because the second runtime was unavailable. The coordinator accepted the 8.6.14 result for the proposed experimental publication. |
-| Vivado 2024.1 embedded Tcl 8.6.13 | Batch smoke passed. |
-| Questa 2024.3 Tcl | Verification unavailable in the isolated environment because a license could not be checked out. |
-| GitHub Actions | Hosted CI has not yet run. |
-
-The qualification covers the experimental reference and the checks listed above. The query interface, result dictionaries, and source identities can change between revisions. Use Core's production vhdlscan for production consumers.
+The experimental workflow uses pinned Tcl 8.5.19 and 8.6.14 sources. The published baseline `ebb14c32807d8222e01ff4585fd3f91d99940985` passed both hosted experimental Linux jobs and the inherited production Linux and Windows jobs. Native Windows and hosted results qualify the revision actually tested. Use the coordinator's verification evidence for the exact revision under review. Use Core's production vhdlscan for production consumers.
