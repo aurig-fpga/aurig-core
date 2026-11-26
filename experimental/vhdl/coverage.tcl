@@ -9,6 +9,21 @@ proc ::vhdl_index::cover_through {ledgerVar offsetVar state extent} {
     set offset $end
 }
 
+proc ::vhdl_index::declaration_capability {kind} {
+    switch -- $kind {
+        alias {return alias_declarations}
+        component {return component_declarations}
+        file_object {return file_objects}
+        local_use {return local_use_clauses}
+        attribute - attribute_declaration - attribute_specification {return attribute_declarations}
+        group_template {return group_templates}
+        group {return group_declarations}
+        disconnect {return disconnect_specifications}
+        configuration_specification {return configuration_specifications}
+    }
+    return {}
+}
+
 proc ::vhdl_index::coverage {snapshot tape structure} {
     set length [dict get $snapshot length]
     set ledger {}
@@ -71,23 +86,21 @@ proc ::vhdl_index::coverage {snapshot tape structure} {
             subprogram_bodies [dict get $structure body_status] \
             type_declarations [dict get $structure type_status] declarations opaque concurrent opaque \
             sequential opaque expressions opaque]]
-    set additional {alias_declarations attribute_declarations component_declarations file_objects}
+    set additional {alias_declarations attribute_declarations component_declarations file_objects
+        group_templates group_declarations disconnect_specifications local_use_clauses
+        configuration_specifications configuration_blocks}
     foreach capability $additional {dict set result capabilities $capability parsed}
-    foreach scope [dict get $structure object_declarations] {
-        if {[dict get $scope gaps] ne {} && [dict get $scope status] in {unrecognized recognized-but-unsupported}} {
-            foreach capability $additional {
-                dict set result capabilities $capability [::vhdl_index::grammar::combine \
-                    [dict get $result capabilities $capability] [dict get $scope status]]
-            }
+    # Publish known gaps even when no declaration row was eligible for the scope.
+    foreach gap [dict get $structure coverage_gaps] {
+        foreach capability [dict get $gap capabilities] {
+            dict set result capabilities $capability [::vhdl_index::grammar::combine \
+                [dict get $result capabilities $capability] [dict get $gap status]]
         }
+    }
+    foreach scope [dict get $structure object_declarations] {
         if {![dict exists $scope declarations]} {continue}
         foreach row [dict get $scope declarations] {
-            switch -- [dict get $row kind] {
-                alias {set capability alias_declarations}
-                component {set capability component_declarations}
-                file_object {set capability file_objects}
-                default {set capability attribute_declarations}
-            }
+            set capability [declaration_capability [dict get $row kind]]
             dict set result capabilities $capability [::vhdl_index::grammar::combine \
                 [dict get $result capabilities $capability] [dict get $row status]]
         }

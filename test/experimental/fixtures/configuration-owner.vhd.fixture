@@ -1,0 +1,16 @@
+package configuration_tags is
+    attribute keep : string;
+    constant annotation : string := "true";
+end package;
+
+entity e is end entity;
+architecture rtl of e is begin end architecture;
+
+use work.configuration_tags.all;
+configuration cfg of e is
+    use work.configuration_tags.annotation;
+    attribute keep of cfg : configuration is "true";
+    for rtl
+        use work.configuration_tags.annotation;
+    end for;
+end configuration cfg;

@@ -84,7 +84,7 @@ proc ::vhdl_index::declarative::attribute_declaration {state ownerKind recordVar
         dict set item kind attribute_declaration
         dict set item colon_span [take c]
         dict set item type_mark_span [selected_name c 0 1]
-        if {$ownerKind eq "protected"} {reject c DECLARATION_OUT_OF_CONTEXT}
+        if {$ownerKind in {protected configuration}} {reject c DECLARATION_OUT_OF_CONTEXT}
         return parsed
     }
 
@@ -165,6 +165,11 @@ proc ::vhdl_index::declarative::index {state owner ownerKind family first fence 
                 alias {set status [alias_declaration c item]}
                 attribute {set status [attribute_declaration c $ownerKind item]}
                 file_object {file_object c item}
+                local_use {
+                    lassign [context_names c use 1] names commas
+                    dict set item names $names
+                    dict set item comma_spans $commas
+                }
             }
             if {[kind c] ne "eof"} {reject c UNEXPECTED_TAIL [list found [kind c]]}
         } issue options]} {

@@ -1,0 +1,7 @@
+package p is end package;
+package body p is
+    package nested is
+        component c
+        end component;
+    end package;
+end package body wrong;

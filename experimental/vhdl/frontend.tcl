@@ -77,7 +77,7 @@ proc ::vhdl_index::analyze_file {path edition {requestedLimits {}}} {
     dict unset structure subprogram_status
     dict unset structure body_status
     foreach {key phase} {body_boundary_time_us body_boundaries protected_time_us protected_members
-            declarative_time_us additional_declarations} {
+            declarative_time_us additional_declarations withdrawal_time_us withdrawal} {
         set elapsed [dict get $structure $key]
         dict set timing $phase $elapsed
         dict incr timing structural -$elapsed
