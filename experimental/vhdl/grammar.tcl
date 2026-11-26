@@ -84,6 +84,21 @@ proc ::vhdl_index::grammar::declaration_family {keyword} {
     return {}
 }
 
+# Inspect only the bounded header slots shared by a family. A missing
+# identifier can leave the discriminator in the first slot.
+proc ::vhdl_index::grammar::candidate_forms {state discriminators} {
+    upvar 1 $state c
+    set first [kind c]
+    if {[dict exists $discriminators $first]} {
+        return [list [dict get $discriminators $first]]
+    }
+    set next [kind c 1]
+    if {$first ni {eof ( ) {[} {]} << >> {;} ,} && [dict exists $discriminators $next]} {
+        return [list [dict get $discriminators $next]]
+    }
+    return [dict values $discriminators]
+}
+
 # The caller proves delimiter depth and selects a declarative context. Only a
 # declaration-shaped prefix can end an object. Weak prefixes are evidence of
 # uncertainty there. In an opaque header they may be grammatical (file OF,

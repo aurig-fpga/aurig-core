@@ -24,6 +24,15 @@ proc ::vhdl_index::declaration_capability {kind} {
     return {}
 }
 
+proc ::vhdl_index::declaration_capabilities {row} {
+    if {[dict exists $row candidate_capabilities]} {
+        return [dict get $row candidate_capabilities]
+    }
+    set capability [declaration_capability [dict get $row kind]]
+    if {$capability eq {}} {return {}}
+    return [list $capability]
+}
+
 proc ::vhdl_index::coverage {snapshot tape structure} {
     set length [dict get $snapshot length]
     set ledger {}
@@ -100,9 +109,10 @@ proc ::vhdl_index::coverage {snapshot tape structure} {
     foreach scope [dict get $structure object_declarations] {
         if {![dict exists $scope declarations]} {continue}
         foreach row [dict get $scope declarations] {
-            set capability [declaration_capability [dict get $row kind]]
-            dict set result capabilities $capability [::vhdl_index::grammar::combine \
-                [dict get $result capabilities $capability] [dict get $row status]]
+            foreach capability [declaration_capabilities $row] {
+                dict set result capabilities $capability [::vhdl_index::grammar::combine \
+                    [dict get $result capabilities $capability] [dict get $row status]]
+            }
         }
     }
     foreach lost [dict get $structure withdrawn_scopes] {

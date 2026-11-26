@@ -1085,8 +1085,15 @@ proc ::vhdl_index::parser::compose_withdrawal {state kind region cause firstScop
         if {[dict exists $child declarations]} {lappend declarations {*}[dict get $child declarations]}
     }
     foreach declaration $declarations {
-        set capability [::vhdl_index::declaration_capability [dict get $declaration kind]]
-        if {$capability ne {}} {dict set mask $capability 1}
+        foreach capability [::vhdl_index::declaration_capabilities $declaration] {
+            dict set mask $capability 1
+        }
+        if {[dict exists $declaration candidate_forms]} {
+            lappend contributors [dict create kind declaration_candidates span [dict get $declaration span] \
+                status [dict get $declaration status] capabilities [dict get $declaration candidate_capabilities] \
+                forms [dict get $declaration candidate_forms] owner_id [dict get $declaration owner_id] \
+                diagnostics [dict get $declaration diagnostics]]
+        }
     }
     foreach contributor $contributors {
         foreach capability [dict get $contributor capabilities] {dict set mask $capability 1}

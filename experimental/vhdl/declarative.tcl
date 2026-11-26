@@ -291,6 +291,12 @@ proc ::vhdl_index::declarative::index {state owner ownerKind family first fence 
     set start [lindex $keyword 0]
     set item [dict create owner_id $owner kind $family keyword_span $keyword terminator_span $terminator \
         diagnostics {}]
+    set forms {}
+    switch -- $family {
+        group {set forms [candidate_forms c {is group_template : group}]}
+        attribute {set forms [candidate_forms c {: attribute_declaration of attribute_specification}]}
+    }
+    if {[llength $forms] == 1} {dict set item kind [lindex $forms 0]}
     set status parsed
     if {$uncertainty eq {}} {
         if {[catch {
@@ -336,6 +342,15 @@ proc ::vhdl_index::declarative::index {state owner ownerKind family first fence 
     }
     dict set item span $region
     dict set item status $status
+    if {$forms ne {} && $status ne "parsed"} {
+        set capabilities {}
+        foreach form $forms {
+            set capability [::vhdl_index::declaration_capability $form]
+            if {$capability ni $capabilities} {lappend capabilities $capability}
+        }
+        dict set item candidate_forms $forms
+        dict set item candidate_capabilities $capabilities
+    }
     return $item
 }
 
