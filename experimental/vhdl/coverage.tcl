@@ -63,7 +63,7 @@ proc ::vhdl_index::coverage {snapshot tape structure} {
         set structural malformed
         if {[dict get $structure unowned_context] ne {}} {set context malformed}
     }
-    return [dict create ledger $ledger opaque_regions $opaque \
+    set result [dict create ledger $ledger opaque_regions $opaque \
         capabilities [dict create source parsed accounting parsed lexical $lexical \
             unit_boundaries $structural context $context entity_interfaces [dict get $structure interface_status] \
             object_declarations [dict get $structure object_status] \
@@ -71,4 +71,10 @@ proc ::vhdl_index::coverage {snapshot tape structure} {
             subprogram_bodies [dict get $structure body_status] \
             type_declarations [dict get $structure type_status] declarations opaque concurrent opaque \
             sequential opaque expressions opaque]]
+    foreach lost [dict get $structure withdrawn_scopes] {
+        foreach capability [dict get $lost capabilities] {
+            dict set result capabilities $capability unrecognized
+        }
+    }
+    return $result
 }

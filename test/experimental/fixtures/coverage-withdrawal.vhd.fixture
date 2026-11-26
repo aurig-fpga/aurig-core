@@ -1,0 +1,17 @@
+package body p is
+    function f return integer is
+        variable x : integer;
+        type t is (a, b);
+        function g return integer is
+        begin
+            return 1;
+        end;
+    begin
+        return g;
+    end function wrong;
+
+    procedure q is
+    begin
+        null;
+    end;
+end;

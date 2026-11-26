@@ -37,6 +37,22 @@ proc ::vhdl_index::grammar::name_span {state {operator 0}} {
     return [take c]
 }
 
+# String tokens can use either lexical delimiter in editions that accept it.
+# Validate the operator image while retaining the caller's exact source span.
+proc ::vhdl_index::grammar::validate_operator {state extent} {
+    upvar 1 $state c
+    set image [::vhdl_index::slice $c(snapshot) $extent]
+    set symbol [string tolower [string range $image 1 end-1]]
+    set details [list span $extent designator_span $extent]
+    if {$symbol ni {** abs not * / mod rem + - & sll srl sla sra rol ror
+        = /= < <= > >= and or nand nor xor xnor ?= ?/= ?< ?<= ?> ?>= ??}} {
+        reject c INVALID_OPERATOR $details
+    }
+    if {$c(edition) < 2008 && [string index $symbol 0] eq "?"} {
+        reject c EDITION_OPERATOR $details
+    }
+}
+
 proc ::vhdl_index::grammar::extent {state start} {
     upvar 1 $state c
     return [list $start [lindex [span c previous] 1]]

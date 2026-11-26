@@ -625,6 +625,7 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
         set firstScope [llength $c(declarationScopes)]
         set firstIssue [llength $c(objectDiagnostics)]
         set firstTypeIssue [llength $c(typeDiagnostics)]
+        set firstWithdrawal [llength $c(withdrawnScopes)]
         set entries {}
         set types {}
         set subprograms {}
@@ -680,6 +681,9 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                 set c(typeDiagnostics) [lrange $c(typeDiagnostics) 0 [expr {$firstTypeIssue - 1}]]
                 set cause [lindex $c(diagnostics) end]
                 set affected [list $owner [lindex $tail 1]]
+                set c(withdrawnScopes) [lrange $c(withdrawnScopes) 0 [expr {$firstWithdrawal - 1}]]
+                lappend c(withdrawnScopes) [withdrawal $kind $affected $cause]
+                if {$entityScope} {set c(interfaceSites) {}}
                 lappend c(objectDiagnostics) [unproven_scope OBJECT $affected $cause]
                 lappend c(typeDiagnostics) [unproven_scope TYPE $affected $cause]
                 set objectStatus unrecognized
@@ -783,7 +787,9 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                         }
                         incr c(typeTime) [expr {[clock microseconds] - $started}]
                     }
-                    if {[llength $c(diagnostics)] != $prior && $category ne {}} {
+                    if {[llength $c(diagnostics)] != $prior && $category in {protected protected_body}} {
+                        # The withdrawn member region carries its own capability mask.
+                    } elseif {[llength $c(diagnostics)] != $prior && $category ne {}} {
                         lappend gaps [list $category $region]
                         set objectStatus unrecognized
                         set typeStatus unrecognized
@@ -865,6 +871,15 @@ proc ::vhdl_index::parser::unproven_scope {domain region cause} {
         related_span [dict get $cause span] cause [dict get $cause code]]
 }
 
+# A coverage loss is an interval and provenance, independent of live scopes.
+# Protected specifications have no ordinary local declarations or bodies.
+proc ::vhdl_index::parser::withdrawal {kind region cause} {
+    set capabilities {object_declarations type_declarations subprogram_specifications subprogram_bodies}
+    if {$kind eq "protected"} {set capabilities {subprogram_specifications}}
+    if {$kind in {entity root}} {lappend capabilities entity_interfaces}
+    return [dict create scope_kind $kind span $region capabilities $capabilities diagnostic $cause]
+}
+
 proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
     variable ::vhdl_index::lexer::labels
     variable ::vhdl_index::lexer::symbols
@@ -888,7 +903,7 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
     }
 
     array set c [list interfaces {} interfaceDiagnostics {} interfaceStatus parsed interfaceTime 0         interfacePending {} interfaceLexical [dict get $tape diagnostics] interfaceLexicalAt 0]
-    array set c [list declarationScopes {} objectDiagnostics {} objectTime 0 \
+    array set c [list declarationScopes {} withdrawnScopes {} objectDiagnostics {} objectTime 0 \
         declarationLexical [dict get $tape diagnostics] objectLexicalAt 0 \
         typeDiagnostics {} typeTime 0 typeLexicalAt 0 subprogramLexicalAt 0 subprogramTime 0 bodyBoundaryTime 0 protectedTime 0]
     set units {}
@@ -903,6 +918,7 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
             set firstScope [llength $c(declarationScopes)]
             set firstIssue [llength $c(objectDiagnostics)]
             set firstTypeIssue [llength $c(typeDiagnostics)]
+            set firstWithdrawal [llength $c(withdrawnScopes)]
             set status [catch {unit c $pending} item options]
         }
         if {$status} {
@@ -916,7 +932,9 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
                 set c(declarationScopes) [lrange $c(declarationScopes) 0 [expr {$firstScope - 1}]]
                 set c(objectDiagnostics) [lrange $c(objectDiagnostics) 0 [expr {$firstIssue - 1}]]
                 set c(typeDiagnostics) [lrange $c(typeDiagnostics) 0 [expr {$firstTypeIssue - 1}]]
+                set c(withdrawnScopes) [lrange $c(withdrawnScopes) 0 [expr {$firstWithdrawal - 1}]]
             }
+            lappend c(withdrawnScopes) [withdrawal root $recovery $item]
             lappend c(objectDiagnostics) [unproven_scope OBJECT $recovery $item]
             lappend c(typeDiagnostics) [unproven_scope TYPE $recovery $item]
             if {$c(interfacePending) ne {}} {
@@ -963,7 +981,7 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
         }
     }
     set scopes [lsort -integer -index 1 $c(declarationScopes)]
-    return [dict create object_declarations $scopes \
+    return [dict create object_declarations $scopes withdrawn_scopes $c(withdrawnScopes) \
         object_diagnostics $c(objectDiagnostics) object_status $objectStatus object_time_us $c(objectTime) \
         type_diagnostics $c(typeDiagnostics) type_status $typeStatus type_time_us $c(typeTime) \
         subprogram_status $subprogramStatus body_status $bodyStatus subprogram_time_us $c(subprogramTime) \

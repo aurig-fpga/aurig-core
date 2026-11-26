@@ -1,0 +1,5 @@
+entity e is
+    generic (
+        function "bad"(x : integer) return integer
+    );
+end;

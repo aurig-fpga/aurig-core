@@ -40,20 +40,13 @@ proc ::vhdl_index::subprogram::specification {state recordVar context} {
         dict set item keyword_span $keyword
         dict set item designator_span $name
         dict set item designator_kind [expr {$nameKind eq "string" ? "operator" : $nameKind}]
-        if {$nameKind eq "string"} {
-            set operator [string tolower [::vhdl_index::slice $c(snapshot) $name]]
-            set symbol [string range $operator 1 end-1]
-            if {$symbol ni {** abs not * / mod rem + - & sll srl sla sra rol ror
-                = /= < <= > >= and or nand nor xor xnor ?= ?/= ?< ?<= ?> ?>= ??}} {
-                reject c INVALID_OPERATOR [list designator_span $name]
-            }
-            if {$c(edition) < 2008 && [string index $operator 1] eq "?"} {reject c EDITION_OPERATOR}
-        }
         if {$context eq "instantiation"} {
             if {$purity ne {} || $nameKind eq "string"} {reject c INVALID_INSTANTIATION_DESIGNATOR}
             return [list parsed {}]
         }
     }
+
+    if {$nameKind eq "string"} {validate_operator c $name}
 
     set status parsed
     set diagnostics {}

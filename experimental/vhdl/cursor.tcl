@@ -63,6 +63,8 @@ proc ::vhdl_index::parser::read_name {state {designator 0}} {
     set spelling [::vhdl_index::slice $c(snapshot) $extent]
     if {$kind eq "extended_identifier"} {
         set key $spelling
+    } elseif {$kind eq "string"} {
+        set key [string tolower [string range $spelling 1 end-1]]
     } else {
         set key [string tolower $spelling]
     }
