@@ -9,7 +9,7 @@ proc ::vhdl_index::ownership::unproven_scope {domain region cause} {
 }
 
 proc ::vhdl_index::ownership::concurrent_profile {kind} {
-    if {$kind in {root architecture entity block generate}} {return {concurrent_assertions}}
+    if {$kind in {root architecture entity block generate}} {return {concurrent_assertions concurrent_procedure_calls actual_parameter_associations}}
     return {}
 }
 

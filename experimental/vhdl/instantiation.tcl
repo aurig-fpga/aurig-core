@@ -12,17 +12,16 @@ proc ::vhdl_index::parser::concurrent_candidate {state owner start status issue 
 
 # Only a selected target followed by a map, or an explicit category keyword,
 # selects the instantiation production. A bare labeled name has two readings.
-proc ::vhdl_index::parser::instance_leaf {state owner ownerKind opening label} {
+proc ::vhdl_index::parser::instance_leaf {state owner ownerKind opening label head first} {
     upvar 1 $state c
-    set first $c(i)
     set starter [peek c]
     set category {}
     set next $starter
     set target {}
     set components {}
     set targetIssue {}
-    set colon {}
-    if {$label ne {}} {set colon [span c previous]}
+    set colon [dict get $head colon_span]
+    set postponed [dict get $head postponed_span]
     set c(grammarFence) [llength $c(significant)]
     set c(grammarDomain) INSTANTIATION
     if {$starter in {component entity configuration}} {
@@ -45,7 +44,7 @@ proc ::vhdl_index::parser::instance_leaf {state owner ownerKind opening label} {
     }
     if {$category ne {}} {
         set code [catch {
-            instance_statement c $ownerKind $opening $label $colon $category $starter $target $components $targetIssue
+            instance_statement c $ownerKind $opening $label $colon $category $starter $target $components $targetIssue $postponed
         } row options]
         if {$code} {
             if {[dict get $options -errorcode] ni {{VHDL_INDEX STRUCTURE} {VHDL_INDEX INSTANTIATION}} ||
@@ -73,29 +72,35 @@ proc ::vhdl_index::parser::instance_leaf {state owner ownerKind opening label} {
         }
         return
     }
-    if {$label ne {} && $target ne {} && $next eq ";"} {
+    if {$label ne {} && $postponed eq {} && $target ne {} && $next eq ";" && $ownerKind ne "entity"} {
         incr c(i)
-        if {$ownerKind ne "entity"} {
-            set issue [dict create code AMBIGUOUS_CONCURRENT_NAME severity info span $target]
-            concurrent_candidate c $owner $opening recognized-but-unsupported $issue \
-                {component_instantiation concurrent_procedure_call} {instantiations}
-        }
+        set issue [dict create code AMBIGUOUS_CONCURRENT_NAME severity info span $target]
+        concurrent_candidate c $owner $opening recognized-but-unsupported $issue \
+            {component_instantiation concurrent_procedure_call} {instantiations concurrent_procedure_calls}
         return
+    }
+    if {($target ne {} && $next in {( {;}}) || ($target eq {} && $starter eq "(" && $label ne {})} {
+        if {[parse_call_candidate c $owner $ownerKind $opening $head $target $components]} {return}
     }
     set c(i) $first
     set excluded [expr {$starter in {assert postponed with (} ||
         ($target ne {} && ($next in {( <=} || ($label eq {} && $next eq ";")))}]
     opaque_concurrent c $ownerKind
-    if {!$excluded && $ownerKind ne "entity"} {
+    if {!$excluded || $postponed ne {}} {
         if {$targetIssue eq {}} {
             set targetIssue [dict create code UNRESOLVED_CONCURRENT_FORM severity info span [list $opening [lindex [span c previous] 1]]]
         }
-        concurrent_candidate c $owner $opening unrecognized $targetIssue \
-            {component_instantiation concurrent_procedure_call other_concurrent_statement} {instantiations map_associations}
+        set forms {concurrent_procedure_call other_concurrent_statement}
+        set capabilities [::vhdl_index::ownership::concurrent_profile $ownerKind]
+        if {$ownerKind ne "entity" && $postponed eq {}} {
+            set forms [linsert $forms 0 component_instantiation]
+            lappend capabilities instantiations map_associations
+        }
+        concurrent_candidate c $owner $opening unrecognized $targetIssue $forms $capabilities
     }
 }
 
-proc ::vhdl_index::parser::instance_statement {state ownerKind opening label colon category starter target components targetIssue} {
+proc ::vhdl_index::parser::instance_statement {state ownerKind opening label colon category starter target components targetIssue postponed} {
     upvar 1 $state c
     set keyword {}
     if {$starter in {entity component configuration}} {set keyword [take c]}
@@ -113,6 +118,8 @@ proc ::vhdl_index::parser::instance_statement {state ownerKind opening label col
     set issue {}
     if {$label eq {}} {
         set issue [diagnostic c MISSING_INSTANTIATION_LABEL [list span $target]]
+    } elseif {$postponed ne {}} {
+        set issue [diagnostic c POSTPONED_INSTANTIATION [list span $postponed]]
     } elseif {$ownerKind eq "entity"} {
         set issue [diagnostic c INSTANTIATION_OUT_OF_CONTEXT [list span $target]]
     }

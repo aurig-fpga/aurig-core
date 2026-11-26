@@ -118,7 +118,7 @@ proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext 
         set hard [list 0 [dict get $c(symbols) end] [dict get $c(symbols) begin]]
         set invalid [list 7 8 [dict get $c(symbols) {;}]]
         incr pos
-        if {$strict && $pos < $fence && [lindex $c(labels) $k] eq "(" &&
+        if {$strict && $concurrent != 2 && $pos < $fence && [lindex $c(labels) $k] eq "(" &&
             [lindex $kinds [lindex $significant $pos]] == [lindex $stack 0]} {
             set c(i) $pos
             ::vhdl_index::grammar::reject c EMPTY_GROUP

@@ -25,6 +25,21 @@ proc ::vhdl_index::query::owners {view} {
 
 proc ::vhdl_index::query::items {view address capability payload} {
     set result [dict get $view result]
+    if {$capability eq "actual_parameter_associations"} {
+        set rows {}
+        foreach call [::vhdl_index::concurrent_at $result $address concurrent_procedure_calls] {
+            set parameters [dict get $call actual_parameters]
+            if {$parameters eq {}} {continue}
+            set at [lindex [dict get $call span] 0]
+            set id [::vhdl_index::regions::identity $view [list concurrent_procedure_call $at]]
+            foreach row [dict get $parameters associations] {
+                dict set row call_occurrence_id $id
+                dict set row parameter_list_span [dict get $parameters association_group_span]
+                lappend rows $row
+            }
+        }
+        return $rows
+    }
     if {$capability in [::vhdl_index::ownership::concurrent_profile root]} {
         return [::vhdl_index::concurrent_at $result $address $capability]
     }
@@ -129,7 +144,11 @@ proc ::vhdl_index::query::direct {view id capability} {
             }
         }
         if {$capability eq "instantiations"} {set occurrenceRole instantiation}
-        if {$capability eq "concurrent_assertions"} {set occurrenceRole concurrent_assertion}
+        switch -- $capability {
+            concurrent_assertions {set occurrenceRole concurrent_assertion}
+            concurrent_procedure_calls {set occurrenceRole concurrent_procedure_call}
+            actual_parameter_associations {set occurrenceRole actual_parameter_association}
+        }
         if {$capability eq "map_associations"} {set occurrenceRole association}
         set owner $id
         if {$role eq "specification" && $occurrenceRole eq "specification"} {
