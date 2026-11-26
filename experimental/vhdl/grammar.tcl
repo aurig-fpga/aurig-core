@@ -34,7 +34,9 @@ proc ::vhdl_index::grammar::name_span {state {operator 0}} {
     if {![is_name $next $operator]} {
         reject c EXPECTED_NAME
     }
-    return [take c]
+    set extent [take c]
+    if {$next eq "string"} {validate_operator c $extent}
+    return $extent
 }
 
 # String tokens can use either lexical delimiter in editions that accept it.
@@ -240,11 +242,50 @@ proc ::vhdl_index::grammar::designator {state} {
     set form [kind c]
     if {$form eq "character"} {return [list [take c] $form]}
     set extent [name_span c 1]
-    if {$form eq "string"} {
-        validate_operator c $extent
-        set form operator
-    }
+    if {$form eq "string"} {set form operator}
     return [list $extent $form]
+}
+
+# Both clause callers use these selected-name slots. A root caller can
+# retain an invalid operator and continue to the next comma or terminator.
+proc ::vhdl_index::grammar::context_names {state clause {issuesVar {}}} {
+    upvar 1 $state c
+    if {$issuesVar ne {}} {upvar 1 $issuesVar issues}
+    set names {}
+    set commas {}
+    while {1} {
+        set first [name_span c]
+        set components [list $first]
+        if {$clause ne "library"} {
+            require c . EXPECTED_DOT
+            while {1} {
+                set suffix [kind c]
+                if {$clause eq "use" && $suffix in {all character string}} {
+                    set selected [take c]
+                    if {$suffix eq "string"} {
+                        if {$issuesVar eq {}} {
+                            validate_operator c $selected
+                        } elseif {[catch {validate_operator c $selected} diagnostic options]} {
+                            if {[dict get $options -errorcode] ne {VHDL_INDEX CONTEXT}} {
+                                return -options $options $diagnostic
+                            }
+                            lappend issues $diagnostic
+                        }
+                    }
+                    lappend components $selected
+                    break
+                }
+                lappend components [name_span c]
+                if {[kind c] ne "."} {break}
+                take c
+            }
+        }
+        set selection [list [lindex $first 0] [lindex $components end 1]]
+        lappend names [dict create span $selection components $components]
+        if {[kind c] ne ","} {break}
+        lappend commas [take c]
+    }
+    return [list $names $commas]
 }
 
 proc ::vhdl_index::grammar::entity_class {state} {

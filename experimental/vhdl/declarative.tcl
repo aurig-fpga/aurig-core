@@ -308,7 +308,7 @@ proc ::vhdl_index::declarative::index {state owner ownerKind family first fence 
                 disconnect {set status [disconnect c $ownerKind item]}
                 configuration_specification {component_specification c $ownerKind item}
                 local_use {
-                    lassign [context_names c use 1] names commas
+                    lassign [context_names c use] names commas
                     dict set item names $names
                     dict set item comma_spans $commas
                 }

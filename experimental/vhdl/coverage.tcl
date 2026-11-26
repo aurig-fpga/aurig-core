@@ -38,16 +38,27 @@ proc ::vhdl_index::coverage {snapshot tape structure} {
     set ledger {}
     set offset 0
     set opaque {}
+    set context parsed
     foreach unit [dict get $structure units] {
         foreach item [dict get $unit context] {
-            cover_through ledger offset parsed [dict get $item span]
+            set state parsed
+            if {[dict exists $item status]} {
+                set state [dict get $item status]
+                set context [::vhdl_index::grammar::combine $context $state]
+            }
+            cover_through ledger offset $state [dict get $item span]
         }
         if {[dict get $unit status] eq "malformed"} {
             cover_through ledger offset malformed [dict get $unit span]
         } else {
             cover_through ledger offset parsed [dict get $unit header_span]
             foreach item [dict get $unit context_items] {
-                cover_through ledger offset parsed [dict get $item span]
+                set state parsed
+                if {[dict exists $item status]} {
+                    set state [dict get $item status]
+                    set context [::vhdl_index::grammar::combine $context $state]
+                }
+                cover_through ledger offset $state [dict get $item span]
             }
             set region [dict get $unit opaque]
             if {$region ne {}} {
@@ -79,7 +90,6 @@ proc ::vhdl_index::coverage {snapshot tape structure} {
         }
     }
     set structural parsed
-    set context parsed
     if {[dict get $structure recovery] ne {}} {
         set structural unrecognized
         set context unrecognized

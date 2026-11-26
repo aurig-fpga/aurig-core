@@ -1,43 +1,32 @@
-# Context clauses keep exact whole-clause, selected-name and component spans.
+# Context clauses retain diagnostics inside a proved semicolon fence.
 proc ::vhdl_index::parser::context_item {state} {
     upvar 1 $state c
     set kind [peek c]
     set start [lindex [take c] 0]
-    set names [context_names c $kind]
-    expect c {;}
-    return [dict create kind $kind span [list $start [lindex [span c previous] 1]] names $names]
-}
-
-# A list of exact name components can be used at root or at a bounded site.
-proc ::vhdl_index::parser::context_names {state kind {bounded 0}} {
-    upvar 1 $state c
-    set names {}
-    set commas {}
-    while {1} {
-        if {$bounded} {set extent [::vhdl_index::grammar::name_span c]} else {lassign [read_name c] _ extent}
-        set components [list $extent]
-        if {$kind ne "library"} {
-            if {$bounded} {::vhdl_index::grammar::require c . EXPECTED_DOT} else {expect c .}
-            while {1} {
-                set suffix [peek c]
-                if {$kind eq "use" && $suffix in {all character string}} {
-                    set selected [take c]
-                    if {$bounded && $suffix eq "string"} {::vhdl_index::grammar::validate_operator c $selected}
-                    lappend components $selected
-                    break
-                }
-                if {$bounded} {set part [::vhdl_index::grammar::name_span c]} else {lassign [read_name c] _ part}
-                lappend components $part
-                if {![accept c .]} {break}
-            }
+    set c(grammarFence) [llength $c(significant)]
+    set c(grammarDomain) CONTEXT
+    set issues {}
+    set status [catch {::vhdl_index::grammar::context_names c $kind issues} names options]
+    if {$status} {
+        if {[dict get $options -errorcode] ne {VHDL_INDEX CONTEXT}} {
+            return -options $options $names
         }
-        set selection [list [lindex $extent 0] [lindex $components end 1]]
-        lappend names [dict create span $selection components $components]
-        if {[peek c] ne ","} {break}
-        lappend commas [take c]
+        if {$kind eq "use" && [peek c] eq ";"} {
+            lappend issues $names
+            set names {{} {}}
+        } elseif {[dict get $names code] eq "CONTEXT_EXPECTED_NAME"} {
+            fail c EXPECTED_NAME [list found [peek c]]
+        } else {
+            expect c .
+        }
     }
-    if {$bounded} {return [list $names $commas]}
-    return $names
+    expect c {;}
+    set row [dict create kind $kind span [list $start [lindex [span c previous] 1]] names [lindex $names 0]]
+    if {$issues ne {}} {
+        dict set row status malformed
+        dict set row diagnostics $issues
+    }
+    return $row
 }
 
 proc ::vhdl_index::parser::is_context_item {state} {
