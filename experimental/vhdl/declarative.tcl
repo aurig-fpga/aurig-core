@@ -404,7 +404,14 @@ proc ::vhdl_index::declarative::component {state depth owner ownerKind} {
         terminator_span $tail clauses {} status parsed diagnostics {}]
     if {[llength $c(diagnostics)] != $before} {
         set cause [lindex $c(diagnostics) end]
-        ::vhdl_index::ownership::withdraw_component c $region $cause $owner
+        set mapLoss 0
+        if {$c(edition) == 2008 && $sites ne {}} {
+            # Check the bounded interface for established or indeterminate
+            # maps. The withdrawn clauses never enter the retained index.
+            set interface [::vhdl_index::interface::index_owner c $row $sites componentLexicalAt]
+            set mapLoss [expr {[::vhdl_index::interface_maps [dict get $interface clauses]] ne {}}]
+        }
+        ::vhdl_index::ownership::withdraw_component c $region $cause $owner $mapLoss
         dict set row diagnostics [list [::vhdl_index::ownership::unproven_scope COMPONENT $region $cause]]
         dict set row status unrecognized
     } else {

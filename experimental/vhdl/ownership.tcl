@@ -80,9 +80,13 @@ proc ::vhdl_index::ownership::empty {state owner span} {
     lappend c(emptyRegions) $owner $span
 }
 
-proc ::vhdl_index::ownership::withdraw_component {state span cause owner} {
+proc ::vhdl_index::ownership::withdraw_component {state span cause owner mapLoss} {
     upvar 1 $state c
     lappend c(withdrawnScopes) [withdrawal component $span $cause $owner]
+    if {$mapLoss} {
+        # Component maps belong to the enclosing declarative owner.
+        gap c component_interface_loss $span unrecognized {map_associations} $owner [list $cause]
+    }
 }
 
 proc ::vhdl_index::ownership::rollback {state checkpoint kind region cause parent {declarations {}}} {
