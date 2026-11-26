@@ -270,7 +270,7 @@ proc ::vhdl_index::regions::coverage_rows {view role capability payload} {
                         if {[llength $entry] > 2} {lappend rows [lindex $entry 2]}
                     }
                 }
-                package_interfaces {
+                package_interfaces - block_interfaces {
                     if {[dict exists $payload syntax interfaces]} {return [dict get $payload syntax interfaces]}
                 }
                 type_declarations {set rows [dict get $payload types]}

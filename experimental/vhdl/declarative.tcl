@@ -230,7 +230,7 @@ proc ::vhdl_index::declarative::disconnect {state ownerKind recordVar} {
     dict set item guarded_signal_span [extent c $start]
     dict set item after_span [require c after EXPECTED_AFTER]
     dict set item time_span [payload c {eof}]
-    if {$ownerKind ni {architecture entity package}} {reject c OUT_OF_CONTEXT}
+    if {$ownerKind ni {architecture entity package block generate}} {reject c OUT_OF_CONTEXT}
     return $status
 }
 
@@ -275,7 +275,7 @@ proc ::vhdl_index::declarative::component_specification {state ownerKind recordV
     }
     if {$c(i) != $first} {dict set binding span [extent c $start]}
     dict set item binding $binding
-    if {$ownerKind ne "architecture"} {reject c OUT_OF_CONTEXT}
+    if {$ownerKind ni {architecture block generate}} {reject c OUT_OF_CONTEXT}
 }
 
 # The structural walk owns the fence. Grammar recovery cannot consume a sibling.
@@ -415,7 +415,7 @@ proc ::vhdl_index::declarative::component {state depth owner ownerKind} {
         dict lappend row diagnostics [diagnostic c COMPONENT_MISSING_SEMICOLON {}]
         dict set row status [combine [dict get $row status] malformed]
     }
-    if {$ownerKind ni {architecture package}} {
+    if {$ownerKind ni {architecture package block generate}} {
         dict lappend row diagnostics [diagnostic c COMPONENT_OUT_OF_CONTEXT [list span $keyword]]
         dict set row status [combine [dict get $row status] malformed]
     }

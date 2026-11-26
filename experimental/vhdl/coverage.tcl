@@ -109,7 +109,7 @@ proc ::vhdl_index::coverage {snapshot tape structure} {
             sequential opaque expressions opaque]]
     set additional {alias_declarations attribute_declarations component_declarations file_objects
         group_templates group_declarations disconnect_specifications local_use_clauses
-        configuration_specifications configuration_blocks package_declarations package_instantiations package_interfaces}
+        configuration_specifications configuration_blocks package_declarations package_instantiations package_interfaces block_interfaces}
     foreach capability $additional {dict set result capabilities $capability parsed}
     # Publish known gaps even when no declaration row was eligible for the scope.
     foreach gap [dict get $structure coverage_gaps] {
@@ -119,10 +119,11 @@ proc ::vhdl_index::coverage {snapshot tape structure} {
         }
     }
     foreach scope [dict get $structure object_declarations] {
-        if {[dict exists $scope syntax interfaces] && [dict get $scope kind] eq "package"} {
+        if {[dict exists $scope syntax interfaces]} {
+            set capability [dict get $scope kind]_interfaces
             foreach clause [dict get $scope syntax interfaces] {
-                dict set result capabilities package_interfaces [::vhdl_index::grammar::combine \
-                    [dict get $result capabilities package_interfaces] [dict get $clause status]]
+                dict set result capabilities $capability [::vhdl_index::grammar::combine \
+                    [dict get $result capabilities $capability] [dict get $clause status]]
             }
         }
         if {![dict exists $scope declarations]} {continue}

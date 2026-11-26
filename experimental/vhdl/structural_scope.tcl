@@ -91,3 +91,61 @@ proc ::vhdl_index::parser::scope_closing {state tail begin} {
     if {$begin ne {}} {set concurrent [list [lindex $begin 1] [lindex $tail 0]]}
     return [dict create terminator_span $tail end_name_span $name begin_span $begin concurrent_span $concurrent]
 }
+
+proc ::vhdl_index::parser::block_statement {state depth owner ownerKind label} {
+    upvar 1 $state c
+    if {$label eq {}} {fail c MISSING_BLOCK_LABEL}
+    if {$ownerKind eq "entity"} {fail c BLOCK_OUT_OF_CONTEXT}
+    set opening [lindex $label 1 0]
+    set colon [span c previous]
+    set keyword [take c]
+    set guard {}
+    set guardGroup {}
+    if {[peek c] eq "("} {
+        set open [span c]
+        if {[peek c 1] eq ")"} {fail c EMPTY_BLOCK_GUARD}
+        consume_group c
+        set close [span c previous]
+        set guard [list [lindex $open 1] [lindex $close 0]]
+        set guardGroup [list [lindex $open 0] [lindex $close 1]]
+    }
+    set connector {}
+    if {[peek c] eq "is"} {set connector [take c]}
+    set sites {}
+    set maps {}
+    foreach form {generic port} {
+        if {[peek c] ne $form} {continue}
+        if {[peek c 1] eq "map"} {fail c BLOCK_MAP_WITHOUT_CLAUSE}
+        lappend sites [formal_site c]
+        if {[peek c] eq $form && [peek c 1] eq "map"} {
+            set map [map_aspect c $form]
+            dict set map terminator_span [take_semicolon c]
+            lappend maps $map
+        }
+    }
+    if {[peek c] in {generic port}} {fail c BLOCK_INTERFACE_ORDER}
+    set head [list $opening [lindex [span c previous] 1]]
+    set interfaceOwner [dict create name_span [lindex $label 1] span $head]
+    set clauses [dict get [::vhdl_index::interface::index_owner c $interfaceOwner $sites scopeLexicalAt] clauses]
+    set syntax [dict create label [lindex $label 0] label_span [lindex $label 1] colon_span $colon \
+        block_span $keyword header_span $head guard_span $guard guard_group_span $guardGroup \
+        guard_status [expr {$guard eq {} ? "absent" : "opaque"}] is_span $connector interfaces $clauses maps $maps]
+    set child {}
+    if {$owner ne {}} {set child [list $opening $owner]}
+    scope c block $label [descend c $depth] require $child {} {} $syntax
+}
+
+# Structural starters cannot occur at top level inside an opaque concurrent
+# expression. A missing separator must not hide a local declaration owner.
+proc ::vhdl_index::parser::opaque_concurrent {state ownerKind} {
+    upvar 1 $state c
+    set marker [boundary c {{;} end begin block process generate elsif =>}]
+    if {$marker eq ";"} {
+        incr c(i)
+    } elseif {$marker eq "end" && $ownerKind ni {block generate}} {
+        # Preserve the preexisting end-boundary diagnostic on other bodies.
+        lappend c(diagnostics) [diagnostic c MISSING_SEMICOLON {}]
+    } else {
+        fail c UNPROVEN_CONCURRENT_BOUNDARY [list found $marker]
+    }
+}

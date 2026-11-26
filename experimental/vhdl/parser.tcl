@@ -603,7 +603,7 @@ proc ::vhdl_index::parser::branch_header {state marker} {
     incr c(i)
 }
 
-proc ::vhdl_index::parser::statement {state depth phase {owner {}}} {
+proc ::vhdl_index::parser::statement {state depth phase {owner {}} {ownerKind {}}} {
     upvar 1 $state c
     if {$owner ne {}} {set opening [lindex [span c] 0]}
     set label [optional_label c]
@@ -613,7 +613,11 @@ proc ::vhdl_index::parser::statement {state depth phase {owner {}}} {
         set first process
     }
     switch -- $first {
-        process - block {
+        block {
+            if {$phase ne "concurrent"} {fail c UNEXPECTED_CONCURRENT_SCOPE}
+            block_statement c $depth $owner $ownerKind $label
+        }
+        process {
             if {$phase ne "concurrent"} {fail c UNEXPECTED_CONCURRENT_SCOPE}
             incr c(i)
             # Headers can have a delimiter group and an optional IS. The
@@ -621,9 +625,8 @@ proc ::vhdl_index::parser::statement {state depth phase {owner {}}} {
             if {[peek c] eq "("} {consume_group c}
             accept c is
             set child {}
-            if {$owner ne {} && $first eq "process"} {set child [list $opening $owner]}
-            scope c $first $label [descend c $depth] require $child
-            if {$first eq "block"} {return block}
+            if {$owner ne {}} {set child [list $opening $owner]}
+            scope c process $label [descend c $depth] require $child
         }
         if - case - for - while - loop {
             incr c(i)
@@ -656,11 +659,17 @@ proc ::vhdl_index::parser::statement {state depth phase {owner {}}} {
         }
         entity - component - configuration {
             if {$phase ne "concurrent" || $label eq {}} {fail c UNSAFE_UNIT_BOUNDARY [list found $first]}
-            opaque_item c
+            opaque_concurrent c $ownerKind
         }
         architecture - package - context {fail c UNSAFE_UNIT_BOUNDARY [list found $first]}
         else - elsif - when {fail c UNEXPECTED_ALTERNATIVE [list found $first]}
-        default {opaque_item c}
+        default {
+            if {$phase eq "concurrent"} {
+                opaque_concurrent c $ownerKind
+            } else {
+                opaque_item c
+            }
+        }
     }
     return {}
 }
@@ -962,7 +971,7 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
             }
         } else {
             if {$owner ne {}} {set start [lindex [span c] 0]}
-            set category [statement c $depth $phase $owner]
+            set category [statement c $depth $phase $owner $kind]
             if {$owner ne {} && $category ne {}} {
                 scope_gap c gaps $owner $kind $category [list $start [lindex [span c previous] 1]] \
                     recognized-but-unsupported

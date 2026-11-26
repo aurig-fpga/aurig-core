@@ -1,0 +1,21 @@
+entity e is end;
+architecture rtl of e is
+    signal bus_in : bit;
+begin
+    outer: block (bus_in = '1') is
+        generic (limit : positive := 2);
+        generic map (limit => 3);
+        port (input : in bit);
+        port map (input => bus_in);
+        signal local : bit;
+        component child port (p : in bit); end component;
+        function twice (n : integer) return integer is
+        begin return 2*n; end;
+        package pkg is type t is (a, b); end package;
+    begin
+        inner: block begin
+            p: process variable state : bit; begin wait; end process;
+        end block inner;
+        assert input = '1' report "begin end block";
+    end block outer;
+end architecture;
