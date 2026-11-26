@@ -41,9 +41,9 @@ foreach scope $scopes {
 }
 check direct_complete [dict get [::vhdl_index::query::direct $v $p component_declarations] completeness] complete
 set r [::vhdl_index::query::subtree $v $p component_declarations]
-check subtree_incomplete [dict get $r completeness] partial
-check subtree_visible_count [llength [dict get $r rows]] 1
-check subtree_proof_count [llength [dict get $r evidence]] 1
+check subtree_complete [dict get $r completeness] complete
+check subtree_visible_count [llength [dict get $r rows]] 2
+check subtree_proof_count [llength [dict get $r evidence]] 0
 check direct_groups [dict get [::vhdl_index::query::direct $v $p group_templates] completeness] partial
 check group_records [llength [dict get [::vhdl_index::query::direct $v $p group_templates] rows]] 2
 set proof [lindex [dict get [::vhdl_index::query::direct $v $p group_templates] evidence] 0]
@@ -69,7 +69,12 @@ foreach scope $scopes {
     set key [dict get $scope id]
     switch -- [dict get $scope kind] {
         component {
-            set item [lindex [dict get [::vhdl_index::query::direct $v $key component_interfaces] rows] 0]
+            set clauses [dict get [::vhdl_index::query::direct $v $key component_interfaces] rows]
+            if {[string match {component c *} [::vhdl_index::query::text $v [dict get $v source_id] [dict get $scope span]]]} {
+                check nested_component_empty {} $clauses
+                continue
+            }
+            set item [lindex $clauses 0]
             check component_names [llength [dict get [lindex [dict get $item items] 0] names]] 2
         }
         record {

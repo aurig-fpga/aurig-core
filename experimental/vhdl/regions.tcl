@@ -139,7 +139,11 @@ proc ::vhdl_index::regions::region {view id} {
     set key [address $view $id]
     if {![dict exists $view rows $key]} {return [dict create id $id availability absent]}
     lassign [dict get $view rows $key] kind span inventory parent availability payload
-    return [dict create id $id kind $kind span $span inventory_span $inventory         parent_id [identity $view $parent] availability $availability]
+    set result [dict create id $id kind $kind span $span inventory_span $inventory         parent_id [identity $view $parent] availability $availability]
+    if {$availability eq "proved" && [dict exists $payload syntax]} {
+        dict set result syntax [dict get $payload syntax]
+    }
+    return $result
 }
 
 # Applicable profile for direct queries. A scope that fences an opaque child
@@ -265,6 +269,9 @@ proc ::vhdl_index::regions::coverage_rows {view role capability payload} {
                     foreach entry [dict get $payload entries] {
                         if {[llength $entry] > 2} {lappend rows [lindex $entry 2]}
                     }
+                }
+                package_interfaces {
+                    if {[dict exists $payload syntax interfaces]} {return [dict get $payload syntax interfaces]}
                 }
                 type_declarations {set rows [dict get $payload types]}
                 subprogram_specifications - subprogram_bodies {

@@ -31,7 +31,13 @@ proc rows {r} {
 }
 proc gap_kinds {row} {
     set kinds {}
-    foreach gap [get $row contributors] {lappend kinds [dict get $gap kind]}
+    foreach gap [get $row contributors] {
+        if {[dict exists $gap scope_kind]} {
+            lappend kinds [dict get $gap scope_kind]
+        } else {
+            lappend kinds [dict get $gap kind]
+        }
+    }
     return [lsort -unique $kinds]
 }
 proc surface {r extent} {::vhdl_index::slice [dict get $r snapshot] $extent}
@@ -48,14 +54,14 @@ proc verify_source {r} {
 }
 
 set control [fixture composition-control 2008]
-check control-component recognized-but-unsupported [cap $control component_declarations]
+check control-component parsed [cap $control component_declarations]
 set failed [fixture composition-withdrawn 2008]
 check mismatch MISMATCHED_END_NAME [dict get [lindex [dict get $failed structural_diagnostics] 0] code]
 check withdrawn-nested-component unrecognized [cap $failed component_declarations]
 check component-records-absent {} [rows $failed]
 check unrelated-interface parsed [cap $failed entity_interfaces]
 set lost [lindex [dict get $failed withdrawn_scopes] 0]
-check inherited-gap package [gap_kinds $lost]
+check withdrawn-package package [gap_kinds $lost]
 verify_source $failed
 
 foreach edition {1993 2002 2008} {

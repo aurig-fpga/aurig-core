@@ -107,16 +107,28 @@ proc ::vhdl_index::parser::header {state} {
 
 # Recognize the package instantiation name and the generic map envelope.
 # The actual associations remain deliberately opaque.
-proc ::vhdl_index::parser::instantiation {state} {
+proc ::vhdl_index::parser::instantiation {state detailsVar} {
     upvar 1 $state c
     if {$c(edition) < 2008} {fail c EDITION_PACKAGE_INSTANTIATION}
-    expect c new
-    read_name c
-    while {[accept c .]} {read_name c}
-    if {[accept c generic]} {
-        expect c map
-        consume_group c
+    upvar 1 $detailsVar details
+    set new [take c]
+    set start [lindex [span c] 0]
+    set nameStatus parsed
+    if {[is_name [peek c] 0]} {
+        read_name c
+        while {[accept c .]} {read_name c}
+    } elseif {[peek c] ne "<<"} {
+        fail c EXPECTED_NAME
     }
+    if {[peek c] in {( ' <<}} {
+        set nameStatus opaque
+        boundary c {generic {;} end begin} indexed_item
+    }
+    set reference [list $start [lindex [span c previous] 1]]
+    set map {}
+    if {[peek c] eq "generic"} {set map [map_aspect c generic]}
+    set details [dict create new_span $new referenced_name_span $reference \
+        referenced_name_status $nameStatus generic_map $map]
     return [take_semicolon c]
 }
 
@@ -359,7 +371,7 @@ proc ::vhdl_index::parser::declaration {state depth {owner {}} {recordVar {}} {o
             if {$c(edition) < 2008} {fail c EDITION_NESTED_PACKAGE}
             lassign [header c] kind name
             if {$kind eq "package" && [peek c] eq "new"} {
-                instantiation c
+                instantiation c ignored
             } else {
                 scope c $kind $name [descend c $depth] forbid
             }
@@ -687,13 +699,14 @@ proc ::vhdl_index::parser::consume_group {state} {
     expect c )
 }
 
-proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {}} {shapeVar {}} {formals {}}} {
+proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {}} {shapeVar {}} {formals {}} {syntax {}}} {
     upvar 1 $state c
     if {$shapeVar ne {}} {
         upvar 1 $shapeVar shape
         set shape {}
         set begin {}
     }
+    if {$syntax ne {}} {set structuralBegin {}}
     set protectedScope [expr {$kind in {protected protected_body}}]
     set memberIssues {}
     set phase declare
@@ -725,6 +738,9 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
             set before [llength $c(diagnostics)]
             set endOrdinal $c(i)
             set tail [terminator c $kind $name]
+            if {$syntax ne {}} {
+                set syntax [dict merge $syntax [scope_closing c $tail $structuralBegin]]
+            }
             if {$shapeVar ne {} && $protectedScope} {
                 set closeName {}
                 set endKeywords [expr {$kind eq "protected_body" ? 3 : 2}]
@@ -780,16 +796,17 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                 set opaque {}
                 set gaps {}
             }
-            if {$shapeVar ne {} && [llength $c(diagnostics)] != $before} {
+            if {($shapeVar ne {} || $syntax ne {}) && [llength $c(diagnostics)] != $before} {
                 return $tail
             }
-            if {$kind eq "configuration" || $parent ne {} || $objectStatus ne "parsed" || $entries ne {} || $opaque ne {} ||
+            if {$kind eq "configuration" || $parent ne {} || $syntax ne {} || $objectStatus ne "parsed" || $entries ne {} || $opaque ne {} ||
                 $types ne {} || $subprograms ne {} || $declarations ne {} || $typeStatus ne "parsed" || $gaps ne {} ||
                 [llength $c(declarationScopes)] != $firstScope} {
                 set record [dict create id $owner parent_id $parent kind $kind \
                     name_span [lindex $name 1] span [list $owner [lindex $tail 1]] \
                     declarative_span [list $declarationStart $declarationEnd] entries $entries \
                     opaque $opaque gaps $gaps status $objectStatus types $types type_status $typeStatus]
+                if {$syntax ne {}} {dict set record syntax $syntax}
                 if {$subprograms ne {}} {dict set record subprograms $subprograms}
                 if {$declarations ne {}} {dict set record declarations $declarations}
                 if {$formals ne {}} {dict set record formal_parameters $formals}
@@ -810,6 +827,7 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
             if {$beginPolicy eq "forbid" || $phase ne "declare"} {fail c UNEXPECTED_BEGIN}
             if {$owner ne {}} {set declarationEnd [lindex [span c] 0]}
             if {$shapeVar ne {}} {set begin [span c]}
+            if {$syntax ne {}} {set structuralBegin [span c]}
             incr c(i)
             if {$kind in {process procedure function}} {
                 set phase sequential
@@ -857,6 +875,10 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                     lappend memberIssues [::vhdl_index::type_declaration::at TYPE_PROTECTED_MEMBER_OUT_OF_CONTEXT $region]
                     set objectStatus [::vhdl_index::grammar::combine $objectStatus malformed]
                     set typeStatus [::vhdl_index::grammar::combine $typeStatus malformed]
+                } elseif {$next eq "package"} {
+                    set row {}
+                    nested_package c $depth $owner $kind row
+                    if {$row ne {}} {lappend declarations $row}
                 } elseif {$family eq "component"} {
                     set started [clock microseconds]
                     set row [::vhdl_index::declarative::component c $depth $owner $kind]
@@ -958,17 +980,22 @@ proc ::vhdl_index::parser::unit {state pending} {
     set internal {}
     set status parsed
     set opaque {}
+    set packageDetails {}
     if {$kind eq "entity"} {set c(interfaceSites) {}}
     if {$kind eq "package" && [peek c] eq "new"} {
         set kind package_instantiation
-        set tail [instantiation c]
+        set tail [instantiation c packageDetails]
         set status recognized-but-unsupported
     } elseif {$kind eq "context"} {
         while {[is_context_item c]} {lappend internal [context_item c]}
         set tail [terminator c $kind $name]
     } else {
         set policy [dict get {architecture require entity allow package forbid package_body forbid configuration forbid} $kind]
-        set tail [scope c $kind $name 1 $policy [list [lindex $head 0] {}]]
+        set syntax {}
+        if {$kind eq "package" && [peek c] eq "generic"} {
+            set syntax [package_header c $name $head]
+        }
+        set tail [scope c $kind $name 1 $policy [list [lindex $head 0] {}] {} {} $syntax]
     }
     if {$kind ne "context" && [lindex $head 1] < [lindex $tail 0]} {
         set opaque [list [lindex $head 1] [lindex $tail 0]]
@@ -978,6 +1005,7 @@ proc ::vhdl_index::parser::unit {state pending} {
     set result [dict create kind $kind name $spelling name_span $extent \
         span [list [lindex $head 0] [lindex $tail 1]] header_span $head terminator_span $tail \
         status $status context $pending context_items $internal opaque $opaque]
+    if {$packageDetails ne {}} {dict set result syntax $packageDetails}
     if {$target ne {}} {
         dict set result target [lindex $target 0]
         dict set result target_span [lindex $target 1]
@@ -1033,7 +1061,7 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
         lappend c(closers) $closer
     }
 
-    array set c [list interfaces {} interfaceDiagnostics {} interfaceStatus parsed interfaceTime 0         interfacePending {} interfaceLexical [dict get $tape diagnostics] interfaceLexicalAt 0 componentLexicalAt 0]
+    array set c [list interfaces {} interfaceDiagnostics {} interfaceStatus parsed interfaceTime 0         interfacePending {} interfaceLexical [dict get $tape diagnostics] interfaceLexicalAt 0 componentLexicalAt 0 scopeLexicalAt 0]
     array set c [list declarationScopes {} emptyRegions {} withdrawnScopes {} coverageGaps {} withdrawalTime 0 objectDiagnostics {} objectTime 0 \
         declarationLexical [dict get $tape diagnostics] objectLexicalAt 0 \
         typeDiagnostics {} typeTime 0 typeLexicalAt 0 subprogramLexicalAt 0 subprogramTime 0 bodyBoundaryTime 0 protectedTime 0 declarativeTime 0 declarativeLexicalAt 0]

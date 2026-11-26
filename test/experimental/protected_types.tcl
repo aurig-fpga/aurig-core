@@ -77,12 +77,18 @@ analyze protected-types 1993
 check old-edition unrecognized [dict get $result capabilities type_declarations]
 check old-edition-scopes {} $scopes
 analyze protected-nested-opaque 2008
-check nested-gap recognized-but-unsupported [dict get $result capabilities type_declarations]
+check nested-coverage parsed [dict get $result capabilities type_declarations]
 set local [lindex $types 1]
 set implementation [dict get $scopes [dict get $local member_scope_id]]
-check nested-package-gap package [lindex [lindex [dict get $implementation gaps] 0] 0]
-check no-nested-package-routine {run run} $subprograms
-check no-nested-package-type 2 [llength $types]
+set nested [lindex [dict get $implementation declarations] 0]
+check nested-package package [dict get $nested kind]
+set packageScope [dict get $scopes [lindex [dict get $nested span] 0]]
+check nested-package-parent [dict get $implementation id] [dict get $packageScope parent_id]
+check no-promoted-package-type {} [dict get $implementation types]
+check nested-package-routine unstated [routines $packageScope]
+check nested-package-type internal_t [surface [lindex [dict get $packageScope types] 0] name_span]
+check file-routines {run run unstated} $subprograms
+check file-types 3 [llength $types]
 analyze protected-nested-opaque 2002
 check older-nested-package-rejected EDITION_NESTED_PACKAGE [dict get [lindex [dict get $result structural_diagnostics] 0] code]
 analyze protected-recovery 2008

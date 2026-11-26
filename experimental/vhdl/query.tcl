@@ -97,7 +97,8 @@ proc ::vhdl_index::query::direct {view id capability} {
             region {
                 switch -- $capability {
                     subprogram_specifications {set occurrenceRole specification}
-                    subprogram_bodies {set occurrenceRole region}
+                    subprogram_bodies - package_declarations {set occurrenceRole region}
+                    package_interfaces {set occurrenceRole interface_clause}
                 }
             }
         }
@@ -123,7 +124,7 @@ proc ::vhdl_index::query::direct {view id capability} {
 proc ::vhdl_index::query::subtree {view id capability} {
     set root [::vhdl_index::regions::address $view $id]
     if {[lindex $root 0] ni {region unit gap recovery} || $capability ni [::vhdl_index::ownership::profile root] ||
-        $capability eq "entity_interfaces"} {
+        $capability in {entity_interfaces package_interfaces}} {
         return -code error -errorcode {VHDL_INDEX SUBTREE} "Expected a declarative owner and declaration capability"
     }
     if {![dict exists $view rows $root]} {return [direct $view $id $capability]}

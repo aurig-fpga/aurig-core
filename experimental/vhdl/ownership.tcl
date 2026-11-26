@@ -16,7 +16,7 @@ proc ::vhdl_index::ownership::profile {kind} {
             return {object_declarations type_declarations subprogram_specifications subprogram_bodies
                 alias_declarations attribute_declarations file_objects component_declarations entity_interfaces
                 group_templates group_declarations disconnect_specifications local_use_clauses
-                configuration_specifications configuration_blocks}
+                configuration_specifications configuration_blocks package_declarations package_instantiations package_interfaces}
         }
         component {return {component_declarations}}
         protected {return {subprogram_specifications attribute_declarations local_use_clauses}}
@@ -27,6 +27,10 @@ proc ::vhdl_index::ownership::profile {kind} {
     if {$kind in {architecture package block generate}} {lappend result component_declarations}
     if {$kind in {architecture entity package block generate}} {lappend result disconnect_specifications}
     if {$kind in {architecture block generate}} {lappend result configuration_specifications}
+    if {$kind in {architecture entity package package_body process function procedure protected_body block generate}} {
+        lappend result package_declarations package_instantiations
+    }
+    if {$kind eq "package"} {lappend result package_interfaces}
     if {$kind eq "entity"} {lappend result entity_interfaces}
     return $result
 }

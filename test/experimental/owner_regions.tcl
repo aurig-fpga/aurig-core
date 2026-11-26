@@ -77,13 +77,12 @@ set original $v
 set r [input {package p is package nested is component c end component; end package; end;}]
 set v [::vhdl_index::regions::view $r]
 set p [design_region $v p]
-check nested_summary [dict get $r capabilities component_declarations] recognized-but-unsupported
+check nested_summary [dict get $r capabilities component_declarations] parsed
 check direct_independent [status $v $p component_declarations] complete
-set gap [lindex [dict get $r coverage_gaps] 0]
-set g [id $v gap [lindex [dict get $gap span] 0]]
-check gap_availability [dict get [::vhdl_index::regions::region $v $g] availability] unsupported
-check gap_unavailable [status $v $g component_declarations] unavailable
-check gap_parent [dict get [::vhdl_index::regions::region $v $g] parent_id] $p
+set nested [dict get [lindex [dict get [::vhdl_index::query::direct $v $p package_declarations] rows] 0] occurrence_id]
+check nested_availability [dict get [::vhdl_index::regions::region $v $nested] availability] proved
+check nested_components [status $v $nested component_declarations] complete
+check nested_parent [dict get [::vhdl_index::regions::region $v $nested] parent_id] $p
 check foreign_snapshot [catch {status $original $p component_declarations} msg options] 1
 check identity_diagnostic [dict get $options -errorcode] {VHDL_INDEX REGION_ID}
 

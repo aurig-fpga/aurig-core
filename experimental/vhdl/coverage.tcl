@@ -11,6 +11,8 @@ proc ::vhdl_index::cover_through {ledgerVar offsetVar state extent} {
 
 proc ::vhdl_index::declaration_capability {kind} {
     switch -- $kind {
+        package - package_body {return package_declarations}
+        package_instantiation {return package_instantiations}
         alias {return alias_declarations}
         component {return component_declarations}
         file_object {return file_objects}
@@ -107,7 +109,7 @@ proc ::vhdl_index::coverage {snapshot tape structure} {
             sequential opaque expressions opaque]]
     set additional {alias_declarations attribute_declarations component_declarations file_objects
         group_templates group_declarations disconnect_specifications local_use_clauses
-        configuration_specifications configuration_blocks}
+        configuration_specifications configuration_blocks package_declarations package_instantiations package_interfaces}
     foreach capability $additional {dict set result capabilities $capability parsed}
     # Publish known gaps even when no declaration row was eligible for the scope.
     foreach gap [dict get $structure coverage_gaps] {
@@ -117,6 +119,12 @@ proc ::vhdl_index::coverage {snapshot tape structure} {
         }
     }
     foreach scope [dict get $structure object_declarations] {
+        if {[dict exists $scope syntax interfaces] && [dict get $scope kind] eq "package"} {
+            foreach clause [dict get $scope syntax interfaces] {
+                dict set result capabilities package_interfaces [::vhdl_index::grammar::combine \
+                    [dict get $result capabilities package_interfaces] [dict get $clause status]]
+            }
+        }
         if {![dict exists $scope declarations]} {continue}
         foreach row [dict get $scope declarations] {
             foreach capability [declaration_capabilities $row] {
