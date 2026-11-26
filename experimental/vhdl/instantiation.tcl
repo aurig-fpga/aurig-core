@@ -1,102 +1,34 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2024-2026 LogiMentor S.r.l.
 
-proc ::vhdl_index::parser::concurrent_candidate {state owner start status issue forms capabilities} {
+proc ::vhdl_index::parser::parse_instance {state owner ownerKind opening label colon category starter target components targetIssue postponed} {
     upvar 1 $state c
-    set end [lindex [span c previous] 1]
-    if {$owner ne {} && $end >= $start} {
-        ::vhdl_index::ownership::gap c concurrent_candidates [list $start $end] \
-            $status $capabilities $owner [list $issue] $forms
-    }
-}
-
-# Only a selected target followed by a map, or an explicit category keyword,
-# selects the instantiation production. A bare labeled name has two readings.
-proc ::vhdl_index::parser::instance_leaf {state owner ownerKind opening label head first} {
-    upvar 1 $state c
-    set starter [peek c]
-    set category {}
-    set next $starter
-    set target {}
-    set components {}
-    set targetIssue {}
-    set colon [dict get $head colon_span]
-    set postponed [dict get $head postponed_span]
-    set c(grammarFence) [llength $c(significant)]
-    set c(grammarDomain) INSTANTIATION
-    if {$starter in {component entity configuration}} {
-        if {$label eq {} && [is_name [peek c 1] 0] &&
-            (($starter eq "entity" && [peek c 2] eq "is") ||
-             ($starter eq "configuration" && [peek c 2] eq "of"))} {
-            fail c UNSAFE_UNIT_BOUNDARY [list found $starter]
-        }
-        set category $starter
-    } elseif {[is_name $starter 0]} {
-        if {[catch {::vhdl_index::grammar::selected_name c 0 0 components} target options]} {
-            if {[dict get $options -errorcode] ne {VHDL_INDEX INSTANTIATION}} {
-                return -options $options $target
+    set code [catch {
+        instance_statement c $ownerKind $opening $label $colon $category $starter $target $components $targetIssue $postponed
+    } row options]
+    if {$code} {
+        if {[dict get $options -errorcode] ni {{VHDL_INDEX STRUCTURE} {VHDL_INDEX INSTANTIATION}} ||
+            [string match *LIMIT [dict get $row code]]} {
+            if {[dict get $options -errorcode] eq {VHDL_INDEX INSTANTIATION}} {
+                return -code error -errorcode {VHDL_INDEX STRUCTURE} $row
             }
-            set targetIssue $target
-            set target {}
+            return -options $options $row
         }
-        set next [peek c]
-        if {$next in {generic port}} {set category component}
-    }
-    if {$category ne {}} {
-        set code [catch {
-            instance_statement c $ownerKind $opening $label $colon $category $starter $target $components $targetIssue $postponed
-        } row options]
-        if {$code} {
-            if {[dict get $options -errorcode] ni {{VHDL_INDEX STRUCTURE} {VHDL_INDEX INSTANTIATION}} ||
-                [string match *LIMIT [dict get $row code]]} {
-                if {[dict get $options -errorcode] eq {VHDL_INDEX INSTANTIATION}} {
-                    return -code error -errorcode {VHDL_INDEX STRUCTURE} $row
-                }
-                return -options $options $row
-            }
-            # A following label or structural ending fences this failure.
-            # The opaque walker refuses to skip a possible nested owner.
-            set marker [peek c]
-            if {$marker ni {end elsif else when process assert} &&
-                !($marker eq "postponed" && [peek c 1] eq "process") && ![statement_label c]} {
-                opaque_concurrent c $ownerKind
-            }
-            concurrent_candidate c $owner $opening malformed $row [list ${category}_instantiation] \
-                {instantiations map_associations}
-        } elseif {[dict get $row status] eq "malformed"} {
-            concurrent_candidate c $owner $opening malformed [lindex [dict get $row diagnostics] 0] \
-                [list ${category}_instantiation] {instantiations map_associations}
-        } else {
-            dict set row owner_id $owner
-            lappend c(instantiations) $row
+        # A following label or structural ending fences this failure.
+        # The opaque walker refuses to skip a possible nested owner.
+        set marker [peek c]
+        if {$marker ni {end elsif else when process assert} &&
+            $marker ni {postponed with block} && ![statement_label c]} {
+            opaque_concurrent c $ownerKind
         }
-        return
-    }
-    if {$label ne {} && $postponed eq {} && $target ne {} && $next eq ";" && $ownerKind ne "entity"} {
-        incr c(i)
-        set issue [dict create code AMBIGUOUS_CONCURRENT_NAME severity info span $target]
-        concurrent_candidate c $owner $opening recognized-but-unsupported $issue \
-            {component_instantiation concurrent_procedure_call} {instantiations concurrent_procedure_calls}
-        return
-    }
-    if {($target ne {} && $next in {( {;}}) || ($target eq {} && $starter eq "(" && $label ne {})} {
-        if {[parse_call_candidate c $owner $ownerKind $opening $head $target $components]} {return}
-    }
-    set c(i) $first
-    set excluded [expr {$starter in {assert postponed with (} ||
-        ($target ne {} && ($next in {( <=} || ($label eq {} && $next eq ";")))}]
-    opaque_concurrent c $ownerKind
-    if {!$excluded || $postponed ne {}} {
-        if {$targetIssue eq {}} {
-            set targetIssue [dict create code UNRESOLVED_CONCURRENT_FORM severity info span [list $opening [lindex [span c previous] 1]]]
-        }
-        set forms {concurrent_procedure_call other_concurrent_statement}
-        set capabilities [::vhdl_index::ownership::concurrent_profile $ownerKind]
-        if {$ownerKind ne "entity" && $postponed eq {}} {
-            set forms [linsert $forms 0 component_instantiation]
-            lappend capabilities instantiations map_associations
-        }
-        concurrent_candidate c $owner $opening unrecognized $targetIssue $forms $capabilities
+        concurrent_candidate c $owner $opening malformed $row [list ${category}_instantiation] \
+            {instantiations map_associations}
+    } elseif {[dict get $row status] eq "malformed"} {
+        concurrent_candidate c $owner $opening malformed [lindex [dict get $row diagnostics] 0] \
+            [list ${category}_instantiation] {instantiations map_associations}
+    } else {
+        dict set row owner_id $owner
+        lappend c(instantiations) $row
     }
 }
 

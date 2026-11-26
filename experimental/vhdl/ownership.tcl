@@ -9,8 +9,10 @@ proc ::vhdl_index::ownership::unproven_scope {domain region cause} {
 }
 
 proc ::vhdl_index::ownership::concurrent_profile {kind} {
-    if {$kind in {root architecture entity block generate}} {return {concurrent_assertions concurrent_procedure_calls actual_parameter_associations}}
-    return {}
+    if {$kind ni {root architecture entity block generate}} {return {}}
+    set capabilities {concurrent_assertions concurrent_procedure_calls actual_parameter_associations}
+    if {$kind ne "entity"} {lappend capabilities concurrent_signal_assignments}
+    return $capabilities
 }
 
 # The direct profile sets the minimum affected coverage. Descendant claims

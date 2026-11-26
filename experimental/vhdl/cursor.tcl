@@ -95,13 +95,13 @@ proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext 
         set externalClose [dict get $c(symbols) >>]
         set concurrentStops {}
         set starters {entity component configuration generic port for if case assert postponed}
-        if {$concurrent == 2} {lappend starters with block process}
+        if {$concurrent == 2} {lappend starters with block process generate}
         foreach word $starters {
             lappend concurrentStops [dict get $c(symbols) $word]
         }
     }
     if {$concurrent == 2} {
-        set atoms {1 2 4 5 6}
+        set atoms {1 2 3 4 5 6}
         foreach word {) null} {lappend atoms [dict get $c(symbols) $word]}
     }
     if {$declarationContext ne {}} {
@@ -151,10 +151,12 @@ proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext 
             return concurrent_candidate
         }
         if {$concurrent == 2 && !$grouped && $stack eq {} && $pos > $scanStart &&
-            ($k in $atoms && [lindex $kinds [lindex $significant [expr {$pos - 1}]]] in $atoms) &&
-            $k != [dict get $c(symbols) )]} {
-            set c(i) $pos
-            return adjacent_payload
+            $k in $atoms && $k != [dict get $c(symbols) )]} {
+            set previous [lindex $kinds [lindex $significant [expr {$pos - 1}]]]
+            if {$previous in $atoms && !($previous == 3 && $k in {1 2})} {
+                set c(i) $pos
+                return adjacent_payload
+            }
         }
         if {[dict exists $pairs $k]} {
             if {[llength $stack] >= $depthLimit} {

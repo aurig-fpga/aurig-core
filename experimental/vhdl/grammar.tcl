@@ -211,7 +211,7 @@ proc ::vhdl_index::grammar::payload {state stops} {
     return [extent c $start]
 }
 
-proc ::vhdl_index::grammar::selected_name {state {operator 0} {attributes 0} {componentsVar {}}} {
+proc ::vhdl_index::grammar::selected_name {state {operator 0} {attributes 0} {componentsVar {}} {dereference 0}} {
     upvar 1 $state c
     set head [name_span c $operator]
     set start [lindex $head 0]
@@ -223,7 +223,11 @@ proc ::vhdl_index::grammar::selected_name {state {operator 0} {attributes 0} {co
         set next [kind c]
         if {$next eq "."} {
             incr c(i)
-            set part [name_span c $operator]
+            if {$dereference && [kind c] eq "all"} {
+                set part [take c]
+            } else {
+                set part [name_span c $operator]
+            }
             if {$componentsVar ne {}} {lappend components $part}
         } elseif {$next eq "'" && ($attributes eq "1" ||
             ($attributes eq "subtype" && [kind c 1] eq "subtype"))} {

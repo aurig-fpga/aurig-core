@@ -1,6 +1,15 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2024-2026 LogiMentor S.r.l.
 
+proc ::vhdl_index::parser::concurrent_candidate {state owner start status issue forms capabilities} {
+    upvar 1 $state c
+    set end [lindex [span c previous] 1]
+    if {$owner ne {} && $end >= $start} {
+        ::vhdl_index::ownership::gap c concurrent_candidates [list $start $end] \
+            $status $capabilities $owner [list $issue] $forms
+    }
+}
+
 proc ::vhdl_index::parser::concurrent_leaf {state owner ownerKind opening label} {
     upvar 1 $state c
     set first $c(i)
@@ -15,12 +24,86 @@ proc ::vhdl_index::parser::concurrent_leaf {state owner ownerKind opening label}
             {concurrent_assertions} ::vhdl_index::grammar::assertion
         return
     }
-    instance_leaf c $owner $ownerKind $opening $label $head $first
+    if {[peek c] in {with <= <<}} {
+        parse_assignment c $owner $ownerKind $opening $head {}
+        return
+    }
+    set starter [peek c]
+    set category {}
+    set next $starter
+    set target {}
+    set components {}
+    set targetIssue {}
+    set c(grammarFence) [llength $c(significant)]
+    set c(grammarDomain) INSTANTIATION
+    if {$starter in {component entity configuration}} {
+        if {$label eq {} && [is_name [peek c 1] 0] &&
+            (($starter eq "entity" && [peek c 2] eq "is") ||
+             ($starter eq "configuration" && [peek c 2] eq "of"))} {
+            fail c UNSAFE_UNIT_BOUNDARY [list found $starter]
+        }
+        set category $starter
+    } elseif {[is_name $starter 0]} {
+        if {[catch {::vhdl_index::grammar::selected_name c 0 0 components 1} target options]} {
+            if {[dict get $options -errorcode] ne {VHDL_INDEX INSTANTIATION}} {
+                return -options $options $target
+            }
+            set targetIssue $target
+            set target {}
+        }
+        set next [peek c]
+        if {$next in {generic port}} {
+            set category component
+            if {[peek c -1] eq "all"} {
+                set targetIssue [diagnostic c INSTANTIATION_EXPECTED_NAME [list span [span c previous]]]
+            }
+        }
+    }
+    if {$category ne {}} {
+        parse_instance c $owner $ownerKind $opening $label $colon $category $starter $target $components $targetIssue $postponed
+        return
+    }
+    if {$label ne {} && $postponed eq {} && $target ne {} && $next eq ";" && $ownerKind ne "entity"} {
+        incr c(i)
+        set issue [dict create code AMBIGUOUS_CONCURRENT_NAME severity info span $target]
+        concurrent_candidate c $owner $opening recognized-but-unsupported $issue \
+            {component_instantiation concurrent_procedure_call} {instantiations concurrent_procedure_calls}
+        return
+    }
+    if {$target ne {}} {
+        if {$next in {<= guarded transport inertial reject}} {
+            parse_assignment c $owner $ownerKind $opening $head [name_target $target $components {}]
+            return
+        }
+        if {$next in {( ' {;}}} {
+            parse_named_concurrent c $owner $ownerKind $opening $head $target $components
+            return
+        }
+    } elseif {$starter eq "("} {
+        aggregate_concurrent c $owner $ownerKind $opening $head
+        return
+    }
+    set c(i) $first
+    opaque_concurrent c $ownerKind
+    if {$targetIssue eq {}} {
+        set targetIssue [dict create code UNRESOLVED_CONCURRENT_FORM severity info span [list $opening [lindex [span c previous] 1]]]
+    }
+    set capabilities [::vhdl_index::ownership::concurrent_profile $ownerKind]
+    set forms {concurrent_assertion concurrent_procedure_call process_statement other_concurrent_statement}
+    if {$ownerKind ne "entity"} {
+        lappend forms concurrent_signal_assignment
+        if {$postponed eq {}} {
+            set forms [linsert $forms 0 component_instantiation]
+            lappend capabilities instantiations map_associations
+        }
+    }
+    concurrent_candidate c $owner $opening unrecognized $targetIssue $forms $capabilities
 }
+
 
 # Index one bounded production. On a local error the same cursor either
 # reaches a proved sibling boundary or lets the enclosing transaction unwind.
-proc ::vhdl_index::parser::parse_concurrent {state owner ownerKind opening head domain form capabilities production args} {
+proc ::vhdl_index::parser::parse_concurrent {state owner ownerKind opening head domain forms capabilities production args} {
     upvar 1 $state c
     set c(grammarFence) [llength $c(significant)]
     set c(grammarDomain) $domain
@@ -36,12 +119,12 @@ proc ::vhdl_index::parser::parse_concurrent {state owner ownerKind opening head 
             return -code error -errorcode {VHDL_INDEX STRUCTURE} $issue
         }
         recover_concurrent c $ownerKind
-        concurrent_candidate c $owner $opening malformed $issue [list $form] $capabilities
+        concurrent_candidate c $owner $opening malformed $issue $forms $capabilities
         return
     }
     set lexical [::vhdl_index::grammar::association_lexical c $region]
     if {$lexical ne {}} {
-        concurrent_candidate c $owner $opening malformed [lindex $lexical 0] [list $form] $capabilities
+        concurrent_candidate c $owner $opening malformed [lindex $lexical 0] $forms $capabilities
         return
     }
     if {[dict exists $row actual_parameters] && [dict get $row actual_parameters] ne {}} {
@@ -61,10 +144,18 @@ proc ::vhdl_index::parser::recover_concurrent {state ownerKind} {
     # Mode 2 stops at a sibling even when recovery starts at its first token.
     set ends {end elsif}
     if {$ownerKind eq "generate"} {lappend ends else when}
-    set marker [scan c [concat {{;} begin =>} $ends] {} {} {begin end} 2]
-    if {$marker eq ";"} {incr c(i); return}
-    if {$marker in $ends || $marker eq "concurrent_candidate"} {return}
-    fail c UNPROVEN_CONCURRENT_BOUNDARY [list found [peek c]]
+    while {1} {
+        set marker [scan c [concat {{;} begin =>} $ends] {} {} {begin end} 2]
+        if {$marker eq ";"} {incr c(i); return}
+        if {$marker in {else when} && $marker in $ends} {
+            if {[::vhdl_index::grammar::generate_alternative_start c]} {return}
+            incr c(i)
+        } elseif {$marker in $ends || ($marker eq "concurrent_candidate" && [peek c] ne "generate")} {
+            return
+        } else {
+            fail c UNPROVEN_CONCURRENT_BOUNDARY [list found [peek c]]
+        }
+    }
 }
 
 # Payload connectors are considered only at depth zero. Delimiter tracking
@@ -141,10 +232,12 @@ proc ::vhdl_index::grammar::concurrent_name_tail {state target components} {
     return [list [extent c $start] $components $suffixes $actuals]
 }
 
-proc ::vhdl_index::parser::parse_call_candidate {state owner ownerKind opening head target components} {
+proc ::vhdl_index::parser::parse_named_concurrent {state owner ownerKind opening head target components} {
     upvar 1 $state c
     set c(grammarDomain) PROCEDURE_CALL
-    if {$target ne {} && [peek c] eq "("} {
+    set forms {concurrent_procedure_call}
+    set capabilities {concurrent_procedure_calls actual_parameter_associations}
+    if {$target ne {} && [peek c] in {( '}} {
         set prefixEnd $c(i)
         set failed [catch {::vhdl_index::grammar::concurrent_name_tail c $target $components} name options]
         if {$failed} {
@@ -158,8 +251,16 @@ proc ::vhdl_index::parser::parse_call_candidate {state owner ownerKind opening h
                 fail c UNCLOSED_DELIMITER
             }
             set c(i) $prefixEnd
+            if {$ownerKind ne "entity"} {
+                lappend forms concurrent_signal_assignment
+                lappend capabilities concurrent_signal_assignments
+            }
         } else {
-            if {[peek c] eq "<="} {return 0}
+            if {[peek c] eq "<="} {
+                lassign $name full components suffixes
+                parse_assignment c $owner $ownerKind $opening $head [name_target $full $components $suffixes]
+                return
+            }
             if {[peek c] ne ";"} {fail c UNPROVEN_CONCURRENT_BOUNDARY [list found [peek c]]}
             lassign $name full componentsFound suffixes actuals
             set target $full
@@ -170,9 +271,8 @@ proc ::vhdl_index::parser::parse_call_candidate {state owner ownerKind opening h
             }
         }
     }
-    parse_concurrent c $owner $ownerKind $opening $head PROCEDURE_CALL concurrent_procedure_call \
-        {concurrent_procedure_calls actual_parameter_associations} ::vhdl_index::grammar::procedure_call $target $components
-    return 1
+    parse_concurrent c $owner $ownerKind $opening $head PROCEDURE_CALL $forms $capabilities \
+        ::vhdl_index::grammar::procedure_call $target $components
 }
 
 proc ::vhdl_index::grammar::procedure_call {state target components} {
@@ -183,4 +283,122 @@ proc ::vhdl_index::grammar::procedure_call {state target components} {
         set parameters [association_list c parameter 1]
     }
     return [dict create called_name_span $target called_name_components $components actual_parameters $parameters]
+}
+
+# The typed generate walker establishes the enclosing alternative. Here
+# only check whether WHEN/ELSE can belong to its next header.
+proc ::vhdl_index::grammar::generate_alternative_start {state} {
+    upvar 1 $state c
+    if {!$c(generateBodies)} {return 0}
+    if {[kind c] eq "else"} {
+        return [expr {[kind c 1] eq "generate" ||
+            ([is_name [kind c 1] 0] && [kind c 2] eq ":" && [kind c 3] eq "generate")}]
+    }
+    if {[kind c] ne "when"} {return 0}
+    set first $c(i)
+    incr c(i)
+    if {[statement_label c]} {incr c(i) 2}
+    set failed [catch {
+        scan c {=> when else elsif end begin {;}} {} {} {end begin} 2
+    } marker options]
+    set c(i) $first
+    if {$failed} {return -options $options $marker}
+    return [expr {$marker eq "=>"}]
+}
+
+proc ::vhdl_index::parser::name_target {target components suffixes} {
+    return [dict create kind name span $target components $components suffixes $suffixes content_status opaque]
+}
+
+proc ::vhdl_index::parser::aggregate_concurrent {state owner ownerKind opening head} {
+    upvar 1 $state c
+    set c(grammarDomain) SIGNAL_ASSIGNMENT
+    set first $c(i)
+    set failed [catch {::vhdl_index::grammar::group c 0 2} group options]
+    if {$failed} {
+        if {[dict get $options -errorcode] eq {VHDL_INDEX SIGNAL_ASSIGNMENT}} {
+            return -code error -errorcode {VHDL_INDEX STRUCTURE} $group
+        }
+        return -options $options $group
+    }
+    if {[peek c] eq "<="} {
+        set target [dict create kind aggregate span $group content_status opaque empty [expr {$c(i) == $first + 2}]]
+        parse_assignment c $owner $ownerKind $opening $head $target
+        return
+    }
+    set issue [diagnostic c PROCEDURE_CALL_EXPECTED_NAME [list span $group]]
+    recover_concurrent c $ownerKind
+    concurrent_candidate c $owner $opening malformed $issue \
+        {concurrent_procedure_call concurrent_signal_assignment} \
+        {concurrent_procedure_calls actual_parameter_associations concurrent_signal_assignments}
+}
+
+proc ::vhdl_index::parser::parse_assignment {state owner ownerKind opening head target} {
+    upvar 1 $state c
+    parse_concurrent c $owner $ownerKind $opening $head SIGNAL_ASSIGNMENT concurrent_signal_assignment \
+        {concurrent_signal_assignments} ::vhdl_index::grammar::concurrent_assignment $ownerKind $target
+}
+
+proc ::vhdl_index::grammar::assignment_target {state} {
+    upvar 1 $state c
+    set first $c(i)
+    if {[kind c] eq "("} {
+        set item [group c 0 2]
+        return [dict create kind aggregate span $item content_status opaque empty [expr {$c(i) == $first + 2}]]
+    }
+    if {[kind c] eq "<<"} {
+        set item [group c 0 2]
+        set components {}
+    } elseif {[is_name [kind c] 0]} {
+        set item [selected_name c 0 0 components 1]
+    } else {
+        reject c MISSING_TARGET
+    }
+    lassign [concurrent_name_tail c $item $components] full parts suffixes
+    return [name_target $full $parts $suffixes]
+}
+
+proc ::vhdl_index::grammar::concurrent_assignment {state ownerKind target} {
+    upvar 1 $state c
+    set with {}
+    set selector {}
+    set select {}
+    set matching {}
+    if {[kind c] eq "with"} {
+        set with [take c]
+        set selector [concurrent_payload c {select , when else} MISSING_SELECTOR]
+        set select [require c select EXPECTED_SELECT]
+        if {[kind c] eq "?" ||
+            ([kind c] eq "invalid" && [::vhdl_index::slice $c(snapshot) [span c]] eq "?")} {
+            set matching [take c]
+            if {$c(edition) < 2008} {reject c EDITION_MATCHING_SELECTION [list span $matching]}
+        }
+        set target [assignment_target c]
+    }
+    if {$target eq {}} {set target [assignment_target c]}
+    if {[dict exists $target empty] && [dict get $target empty]} {
+        reject c EMPTY_TARGET [list span [dict get $target span]]
+    }
+    if {[dict exists $target suffixes]} {
+        foreach suffix [dict get $target suffixes] {
+            if {[dict exists $suffix empty] && [dict get $suffix empty]} {
+                reject c EMPTY_TARGET_SUFFIX [list span [dict get $suffix span]]
+            }
+        }
+    }
+    set op [require c <= EXPECTED_OPERATOR]
+    set guarded {}
+    if {[kind c] eq "guarded"} {set guarded [take c]}
+    set delay [delay_mechanism c]
+    if {[kind c] in {force release}} {reject c CONCURRENT_FORCE_RELEASE}
+    if {$with eq {}} {
+        lassign [conditional_waveforms c] category rows
+    } else {
+        set category selected
+        set rows [selected_waveforms c]
+    }
+    if {$ownerKind eq "entity"} {reject c OUT_OF_CONTEXT [list span $op]}
+    return [dict create category $category target $target target_span [dict get $target span] \
+        operator_span $op guarded_span $guarded delay $delay alternatives $rows \
+        with_span $with selector_span $selector select_span $select matching_span $matching]
 }
