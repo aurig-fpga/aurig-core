@@ -108,4 +108,17 @@ check malformed_type [dict get $r capabilities type_declarations] malformed
 check protected_unrelated [dict get $r capabilities object_declarations] parsed
 check hidden_direct [status $v [design_region $v p] subprogram_specifications] partial
 check protected_safe_sibling [status $v [design_region $v q] subprogram_specifications] complete
+foreach text {
+    {package p is type is protected procedure f; end protected wrong; end; package q is end;}
+    {package body p is type is protected body procedure f is begin null; end; end protected body wrong; end; package q is end;}
+} {
+    set r [input $text]
+    set v [::vhdl_index::regions::view $r]
+    set p [design_region $v p]
+    check hidden_operation_not_complete [dict get $r capabilities subprogram_specifications] unrecognized
+    check mismatch_reported [dict get [lindex [dict get $r structural_diagnostics] 0] code] MISMATCHED_END_NAME
+    check poisoned_owner [status $v $p subprogram_specifications] partial
+    check gap_diagnostic [llength [dict get [lindex [dict get $r coverage_gaps] 0] diagnostics]] 1
+    check safe_sibling [status $v [design_region $v q] subprogram_specifications] complete
+}
 puts "Owner regions passed on Tcl [info patchlevel]"

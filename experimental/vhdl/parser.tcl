@@ -914,13 +914,18 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                         incr c(typeTime) [expr {[clock microseconds] - $started}]
                     }
                     if {[llength $c(diagnostics)] != $prior && $category in {protected protected_body}} {
-                        # The withdrawn member region carries its own capability mask.
+                        # Named members carry their own withdrawal. An
+                        # unnamed enclosure never acquired a member owner.
+                        set lost [lindex $c(withdrawnScopes) end]
+                        if {$lost eq {} || [dict get $lost span] ne $region} {
+                            scope_gap c gaps $owner $kind $category $region unrecognized [dict get $item diagnostics]
+                        }
                     } elseif {[llength $c(diagnostics)] != $prior && $category ne {}} {
                         scope_gap c gaps $owner $kind $category $region unrecognized
                         set objectStatus unrecognized
                         set typeStatus unrecognized
                     } elseif {$category eq "protected" && $typeShape eq {}} {
-                        scope_gap c gaps $owner $kind $category $region unrecognized
+                        scope_gap c gaps $owner $kind $category $region unrecognized [dict get $item diagnostics]
                     } elseif {$category eq "package" || ($category eq "protected_body" && $typeShape eq {})} {
                         scope_gap c gaps $owner $kind $category $region recognized-but-unsupported
                         set objectStatus [::vhdl_index::grammar::combine $objectStatus recognized-but-unsupported]
@@ -988,7 +993,7 @@ proc ::vhdl_index::parser::unit {state pending} {
     return $result
 }
 
-proc ::vhdl_index::parser::scope_gap {state gapsVar owner ownerKind kind region status} {
+proc ::vhdl_index::parser::scope_gap {state gapsVar owner ownerKind kind region status {diagnostics {}}} {
     upvar 1 $state c $gapsVar gaps
     lappend gaps [list $kind $region]
     set profile $ownerKind
@@ -1003,7 +1008,7 @@ proc ::vhdl_index::parser::scope_gap {state gapsVar owner ownerKind kind region 
     }
     # A hidden declarative item cannot take ownership of the separate entity header.
     set capabilities [lsearch -all -inline -not -exact $capabilities entity_interfaces]
-    ::vhdl_index::ownership::gap c $kind $region $status $capabilities $owner
+    ::vhdl_index::ownership::gap c $kind $region $status $capabilities $owner $diagnostics
 }
 
 proc ::vhdl_index::parser::structure {snapshot tape edition limits} {

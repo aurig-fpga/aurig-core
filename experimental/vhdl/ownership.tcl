@@ -31,9 +31,11 @@ proc ::vhdl_index::ownership::profile {kind} {
     return $result
 }
 
-proc ::vhdl_index::ownership::gap {state kind region status capabilities owner} {
+proc ::vhdl_index::ownership::gap {state kind region status capabilities owner {diagnostics {}}} {
     upvar 1 $state c
-    lappend c(coverageGaps) [dict create kind $kind span $region status $status capabilities $capabilities owner_id $owner]
+    set row [dict create kind $kind span $region status $status capabilities $capabilities owner_id $owner]
+    if {$diagnostics ne {}} {dict set row diagnostics $diagnostics}
+    lappend c(coverageGaps) $row
 }
 
 proc ::vhdl_index::ownership::trim_suffix {state key length} {
