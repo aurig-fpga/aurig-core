@@ -92,6 +92,7 @@ proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext 
     if {$concurrent} {
         set scanStart $pos
         set colon [dict get $c(symbols) :]
+        set externalClose [dict get $c(symbols) >>]
         set concurrentStops {}
         foreach word {entity component configuration generic port for if case assert postponed} {
             lappend concurrentStops [dict get $c(symbols) $word]
@@ -134,10 +135,12 @@ proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext 
             if {$k == 8} {fail c UNSUPPORTED_TOKEN}
             return [lindex $c(labels) $k]
         }
-        if {$concurrent && $pos > $scanStart && $stack eq {} &&
-            ($k in $concurrentStops ||
-             ($k in {1 2} && [lindex $kinds [lindex $significant [expr {$pos + 1}]]] == $colon))} {
+        if {$concurrent && $pos > $scanStart &&
+            (($stack eq {} && $k in $concurrentStops) ||
+             ($k in {1 2} && [lindex $kinds [lindex $significant [expr {$pos + 1}]]] == $colon &&
+              $externalClose ni $stack))} {
             set c(i) $pos
+            if {$grouped} {::vhdl_index::grammar::reject c EXPECTED_ASSOCIATION_CLOSE}
             return concurrent_candidate
         }
         if {[dict exists $pairs $k]} {

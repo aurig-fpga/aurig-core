@@ -4,14 +4,14 @@
 proc ::vhdl_index::grammar::map_association {state form site keyword connector {context {}}} {
     upvar 1 $state c
     if {$context eq {}} {set context $form}
-    set details [association_list c $context]
+    set details [association_list c $context [expr {$site eq "concurrent_instantiation"}]]
     return [dict merge [dict create kind $form site $site \
         span [extent c [lindex $keyword 0]] keyword_span $keyword map_span $connector] $details]
 }
 
 # Association callers supply the enclosing grammar fence and diagnostic domain.
 # Expression islands are scanned with the shared delimiter stack.
-proc ::vhdl_index::grammar::association_list {state context} {
+proc ::vhdl_index::grammar::association_list {state context statement} {
     upvar 1 $state c
     set open [require c ( EXPECTED_ASSOCIATION_OPEN]
     set contents [lindex $open 1]
@@ -27,7 +27,7 @@ proc ::vhdl_index::grammar::association_list {state context} {
     } else {
         # The outer parentheses count toward the same budget as a nested group.
         incr c(delimiters) -1
-        set failed [catch {association_elements c $context rows separators issues} result options]
+        set failed [catch {association_elements c $context $statement rows separators issues} result options]
         incr c(delimiters)
         if {$failed} {return -options $options $result}
     }
@@ -41,7 +41,7 @@ proc ::vhdl_index::grammar::association_list {state context} {
         association_diagnostics $issues]
 }
 
-proc ::vhdl_index::grammar::association_elements {state context rowsVar separatorsVar issuesVar} {
+proc ::vhdl_index::grammar::association_elements {state context statement rowsVar separatorsVar issuesVar} {
     upvar 1 $state c $rowsVar rows $separatorsVar separators $issuesVar issues
     set named 0
     while {1} {
@@ -56,7 +56,8 @@ proc ::vhdl_index::grammar::association_elements {state context rowsVar separato
         set issue {}
         while {[set next [kind c]] ni {, )}} {
             if {$next in {eof {;} begin end block process generate elsif when else generic port map entity component configuration} ||
-                ([is_name $next 0] && [kind c 1] eq ":")} {
+                ($statement && (([is_name $next 0] && [kind c 1] eq ":") ||
+                                $next in {assert postponed}))} {
                 reject c EXPECTED_ASSOCIATION_CLOSE [list found $next]
             }
             if {$next eq "=>"} {
@@ -86,7 +87,7 @@ proc ::vhdl_index::grammar::association_elements {state context rowsVar separato
             lappend parts $next
             if {$next in {( [ <<}} {
                 if {$c(delimiters) == 0} {reject c DELIMITER_LIMIT}
-                group c
+                group c 0 $statement
             } else {
                 incr c(i)
             }
@@ -167,6 +168,8 @@ proc ::vhdl_index::grammar::association_token {state next previous context alloc
     if {$next in {invalid unsupported ] >> : := | @ default <>}} {
         return [problem c INVALID_TOKEN [list found $next]]
     }
+    if {$next eq "inertial" && $previous ne {}} {return [problem c INVALID_INERTIAL]}
+    if {$next eq "range" && $previous ne "'" && [kind c 1] in {, )}} {return [problem c INCOMPLETE_ACTUAL]}
     if {$previous eq "=" && $next eq ">"} {return [problem c MALFORMED_ARROW]}
     if {$previous in {number string bit_string character null} && $next in {number string bit_string character null}} {
         return [problem c MISSING_SEPARATOR]

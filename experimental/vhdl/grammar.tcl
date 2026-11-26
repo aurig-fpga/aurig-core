@@ -62,10 +62,10 @@ proc ::vhdl_index::grammar::extent {state start} {
 
 # The caller owns the fence and policy. Scan uses the same delimiter stack
 # as the outer structural walk and returns after the matching close.
-proc ::vhdl_index::grammar::group {state {recover 0}} {
+proc ::vhdl_index::grammar::group {state {recover 0} {concurrent 0}} {
     upvar 1 $state c
     set start [lindex [span c] 0]
-    scan c {} [expr {$recover ? "recover" : "strict"}]
+    scan c {} [expr {$recover ? "recover" : "strict"}] {} {} $concurrent
     return [extent c $start]
 }
 

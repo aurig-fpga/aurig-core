@@ -57,7 +57,9 @@ proc ::vhdl_index::parser::concurrent_leaf {state owner ownerKind opening label}
             }
             # A following label or structural ending fences this failure.
             # The opaque walker refuses to skip a possible nested owner.
-            if {[peek c] ni {end elsif else when} && ![statement_label c]} {
+            set marker [peek c]
+            if {$marker ni {end elsif else when process assert} &&
+                !($marker eq "postponed" && [peek c 1] eq "process") && ![statement_label c]} {
                 opaque_concurrent c $ownerKind
             }
             concurrent_candidate c $owner $opening malformed $row [list ${category}_instantiation] \

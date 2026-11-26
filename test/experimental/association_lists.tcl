@@ -35,6 +35,7 @@ foreach {payload code count} {
     {1 2, b => 3} ASSOCIATION_MISSING_SEPARATOR 1
     {a = > 1, b => 3} ASSOCIATION_MALFORMED_ARROW 1
     {(a + b) => 1, b => 3} ASSOCIATION_EXPECTED_NAME 1
+    {a + inertial b, b => 3} ASSOCIATION_INVALID_INERTIAL 1
     {inertial f(a), b => 3} ASSOCIATION_INERTIAL_CONTEXT 1
     {open, b => open} {} 2
     {conv(p(7 downto 0)) => work.f(1), b.q(3) => 'x'} {} 2
@@ -50,4 +51,13 @@ foreach {payload code count} {
         check "$edition $payload survivors" $count [llength [dict get $map associations]]
     }
 }
+set r [scope_input {entity e is end; architecture a of e is begin
+    u: c generic map (t => integer range, keep => 1);
+end;}]
+set v [::vhdl_index::regions::view $r]
+set a [scope_find $v architecture {architecture a}]
+check incomplete_constraint partial [scope_complete $v $a map_associations]
+set proof [lindex [dict get [::vhdl_index::query::direct $v $a map_associations] evidence] 0]
+check incomplete_constraint_diagnostic ASSOCIATION_INCOMPLETE_ACTUAL \
+    [dict get [lindex [dict get $proof diagnostics] 0] code]
 puts "Bounded association list assertions passed"

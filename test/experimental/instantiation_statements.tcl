@@ -108,6 +108,8 @@ foreach {body code} {
     {u: component c keep: component q;} EXPECTED_INSTANTIATION_SEMICOLON
     {u: component c b: block begin end block; keep: component q;} EXPECTED_INSTANTIATION_SEMICOLON
     {u: component c p: process begin wait; end process; keep: component q;} EXPECTED_INSTANTIATION_SEMICOLON
+    {u: component c process begin wait; end process; keep: component q;} EXPECTED_INSTANTIATION_SEMICOLON
+    {u: component c generic map (f(a keep: component q;} ASSOCIATION_EXPECTED_ASSOCIATION_CLOSE
     {u: component c g: for i in 0 to 0 generate end generate; keep: component q;} EXPECTED_INSTANTIATION_SEMICOLON
 } {
     set r [scope_input "entity e is end; architecture a of e is begin $body end;"]
