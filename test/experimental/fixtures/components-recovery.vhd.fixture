@@ -1,0 +1,13 @@
+package rough is
+    component reversed is
+        port (a : in bit);
+        generic (n : natural)
+        generic (m : natural);
+    end component;
+    component wrong_end
+        generic (discarded : natural := 3);
+    end component different;
+    component omitted_end_semicolon is port (a : bit); end component
+    constant retained : natural := 3;
+    component good port (a : bit); end component;
+end package;

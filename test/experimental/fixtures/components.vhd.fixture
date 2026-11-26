@@ -1,0 +1,13 @@
+entity owner is generic (entity_size : natural := 2); port (a : in bit); end entity;
+architecture rtl of owner is
+    component small port (value : in bit); end component SMALL;
+    component \grouped; c\ is
+        generic (size, offset : natural := 4);
+        port (a, b : in bit_vector(size - 1 downto 0); q : out bit);
+    end component \grouped; c\;
+    signal saved : bit;
+begin
+end architecture;
+package components is
+    component empty is end component;
+end package;

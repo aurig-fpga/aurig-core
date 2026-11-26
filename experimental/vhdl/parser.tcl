@@ -773,6 +773,12 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                     lappend memberIssues [::vhdl_index::type_declaration::at TYPE_PROTECTED_MEMBER_OUT_OF_CONTEXT $region]
                     set objectStatus [::vhdl_index::grammar::combine $objectStatus malformed]
                     set typeStatus [::vhdl_index::grammar::combine $typeStatus malformed]
+                } elseif {$family eq "component"} {
+                    set started [clock microseconds]
+                    set row [::vhdl_index::declarative::component c $depth $owner $kind]
+                    incr c(declarativeTime) [expr {[clock microseconds] - $started}]
+                    lappend declarations $row
+                    lappend opaque [list component [dict get $row span]]
                 } elseif {$family in {alias attribute}} {
                     set row [indexed_declaration c $owner $kind $family]
                     lappend declarations $row
@@ -887,7 +893,7 @@ proc ::vhdl_index::parser::unit {state pending} {
     }
     if {$kind eq "entity" && $c(interfaceSites) ne {}} {
         set started [clock microseconds]
-        set owner [::vhdl_index::interface::index_entity c $result $c(interfaceSites)]
+        set owner [::vhdl_index::interface::index_owner c $result $c(interfaceSites)]
         incr c(interfaceTime) [expr {[clock microseconds] - $started}]
         lappend c(interfaces) $owner
         lappend c(interfaceDiagnostics) {*}[dict get $owner diagnostics]
@@ -908,6 +914,8 @@ proc ::vhdl_index::parser::withdrawal {kind region cause} {
     lappend capabilities alias_declarations attribute_declarations
     if {$kind eq "protected"} {set capabilities {subprogram_specifications attribute_declarations}}
     if {$kind in {entity root}} {lappend capabilities entity_interfaces}
+    if {$kind in {architecture package root}} {lappend capabilities component_declarations}
+    if {$kind eq "component"} {set capabilities {component_declarations}}
     return [dict create scope_kind $kind span $region capabilities $capabilities diagnostic $cause]
 }
 
@@ -933,7 +941,7 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
         lappend c(closers) $closer
     }
 
-    array set c [list interfaces {} interfaceDiagnostics {} interfaceStatus parsed interfaceTime 0         interfacePending {} interfaceLexical [dict get $tape diagnostics] interfaceLexicalAt 0]
+    array set c [list interfaces {} interfaceDiagnostics {} interfaceStatus parsed interfaceTime 0         interfacePending {} interfaceLexical [dict get $tape diagnostics] interfaceLexicalAt 0 componentLexicalAt 0]
     array set c [list declarationScopes {} withdrawnScopes {} objectDiagnostics {} objectTime 0 \
         declarationLexical [dict get $tape diagnostics] objectLexicalAt 0 \
         typeDiagnostics {} typeTime 0 typeLexicalAt 0 subprogramLexicalAt 0 subprogramTime 0 bodyBoundaryTime 0 protectedTime 0 declarativeTime 0 declarativeLexicalAt 0]

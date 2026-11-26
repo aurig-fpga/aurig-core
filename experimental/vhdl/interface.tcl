@@ -243,7 +243,7 @@ proc ::vhdl_index::interface::split_keyword {state} {
     return {}
 }
 
-proc ::vhdl_index::interface::index_entity {state owner sites} {
+proc ::vhdl_index::interface::index_owner {state owner sites {lexicalCursor interfaceLexicalAt}} {
     upvar 1 $state c
     variable classes
     variable genericKinds
@@ -291,7 +291,7 @@ proc ::vhdl_index::interface::index_entity {state owner sites} {
                 dict set record status malformed
             }
             lappend seen $form
-            set record [account_lexical c $record]
+            set record [account_lexical c $record $lexicalCursor]
             set status [combine $status [dict get $record status]]
             lappend diagnostics {*}[dict get $record diagnostics]
             lappend clauses $record
@@ -305,10 +305,10 @@ proc ::vhdl_index::interface::index_entity {state owner sites} {
 
 # Rare lexical diagnostics with otherwise recognizable tokens still invalidate
 # their containing clause. Lexical causes keep their original span and code.
-proc ::vhdl_index::interface::account_lexical {state record} {
+proc ::vhdl_index::interface::account_lexical {state record lexicalCursor} {
     upvar 1 $state c
     lassign [dict get $record span] start end
-    set at $c(interfaceLexicalAt)
+    set at $c($lexicalCursor)
     while {$at < [llength $c(interfaceLexical)]} {
         set diagnostic [lindex $c(interfaceLexical) $at]
         set where [lindex [dict get $diagnostic span] 0]
@@ -319,7 +319,7 @@ proc ::vhdl_index::interface::account_lexical {state record} {
             set record [annotate_lexical $record $diagnostic $where]
         }
     }
-    set c(interfaceLexicalAt) $at
+    set c($lexicalCursor) $at
     return $record
 }
 

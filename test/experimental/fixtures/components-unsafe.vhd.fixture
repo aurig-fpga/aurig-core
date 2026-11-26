@@ -1,0 +1,5 @@
+package prior is component retained end component; end package;
+package broken is
+    component c is port (value : bit);
+    constant not_proved : bit := '0';
+end package;

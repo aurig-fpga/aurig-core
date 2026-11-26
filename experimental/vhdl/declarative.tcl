@@ -176,3 +176,71 @@ proc ::vhdl_index::declarative::index {state owner ownerKind family first fence 
     dict set item status $status
     return $item
 }
+
+# Collect local interface sites with the structural cursor. The interface
+# grammar owns clause syntax and never gets an entity's site accumulator.
+proc ::vhdl_index::declarative::component {state depth owner ownerKind} {
+    upvar 1 $state c
+    set keyword [take c]
+    set start [lindex $keyword 0]
+    set name {}
+    if {[is_name [peek c] 0]} {set name [read_name c]}
+    set is {}
+    if {[peek c] eq "is"} {set is [take c]}
+    descend c $depth
+    set sites {}
+    while {[peek c] ne "end"} {
+        set first $c(i)
+        set form [peek c]
+        if {$form in {generic port}} {
+            incr c(i)
+        } elseif {[::vhdl_index::grammar::declaration_family $form] ne {}} {
+            fail c UNPROVEN_COMPONENT_END [list found $form]
+        }
+        set marker [boundary c {{;} generic port end begin} indexed_item]
+        if {$marker in {begin declaration} || $c(opaqueBoundary) ne {}} {
+            fail c UNPROVEN_COMPONENT_END [list found [peek c]]
+        }
+        if {$marker eq ";"} {incr c(i)}
+        if {$c(i) <= $first} {fail c UNPROVEN_COMPONENT_END}
+        lappend sites [list $first $c(i) 1 {}]
+    }
+    set endOrdinal $c(i)
+    set before [llength $c(diagnostics)]
+    set close [terminator c component $name 1 0 1]
+    set region [list $start [lindex $close 1]]
+    set tail {}
+    if {[peek c -1] eq ";"} {set tail [span c previous]}
+    set closingName {}
+    if {$c(i) - $endOrdinal > 2 + ($tail ne {})} {
+        set saved $c(i)
+        set c(i) [expr {$endOrdinal + 2}]
+        set closingName [span c]
+        set c(i) $saved
+    }
+    set row [dict create owner_id $owner kind component keyword_span $keyword name_span [lindex $name 1] \
+        is_span $is span $region component_terminator_span $close end_name_span $closingName \
+        terminator_span $tail clauses {} status parsed diagnostics {}]
+    if {[llength $c(diagnostics)] != $before} {
+        set cause [lindex $c(diagnostics) end]
+        lappend c(withdrawnScopes) [withdrawal component $region $cause]
+        dict set row diagnostics [list [unproven_scope COMPONENT $region $cause]]
+        dict set row status unrecognized
+    } else {
+        set result [::vhdl_index::interface::index_owner c $row $sites componentLexicalAt]
+        foreach key {clauses status diagnostics} {dict set row $key [dict get $result $key]}
+    }
+    if {$name eq {}} {
+        dict lappend row diagnostics [diagnostic c COMPONENT_EXPECTED_NAME [list span $keyword]]
+        dict set row status [combine [dict get $row status] malformed]
+    }
+    if {$tail eq {}} {
+        dict lappend row diagnostics [diagnostic c COMPONENT_MISSING_SEMICOLON {}]
+        dict set row status [combine [dict get $row status] malformed]
+    }
+    if {$ownerKind ni {architecture package}} {
+        dict lappend row diagnostics [diagnostic c COMPONENT_OUT_OF_CONTEXT [list span $keyword]]
+        dict set row status [combine [dict get $row status] malformed]
+    }
+    return $row
+}

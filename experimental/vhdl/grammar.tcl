@@ -72,7 +72,7 @@ namespace eval ::vhdl_index::grammar {
         constant object signal object variable object shared object
         type type subtype type file opaque alias alias attribute attribute
         function subprogram procedure subprogram pure subprogram impure subprogram
-        component opaque package opaque group opaque disconnect opaque use opaque for opaque
+        component component package opaque group opaque disconnect opaque use opaque for opaque
     }
 }
 
