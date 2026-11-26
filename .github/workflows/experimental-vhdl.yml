@@ -1,0 +1,92 @@
+# Proposal for .github/workflows/experimental-vhdl.yml on the experimental branch.
+name: Experimental VHDL frontend
+
+'on':
+  push:
+    branches: [experimental/vhdl-frontend]
+  pull_request:
+    branches: [experimental/vhdl-frontend]
+
+permissions:
+  contents: read
+
+env:
+  EXPERIMENTAL_TESTS: >-
+    objects declaration_recovery types arrays records physical_types access_file_types
+    subprogram_specifications subprogram_bodies protected_types coverage_corrections
+    aliases_attributes components file_objects coverage_composition groups specifications
+    candidate_families selected_name_policy owner_regions private_queries
+
+jobs:
+  linux-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - patch: 8.5.19
+            tag: core-8-5-19
+            sha256: 6516d9b06b875354104317cc34c3f5aa30ac73c4c54b05cefe8f721fabcee28f
+          - patch: 8.6.14
+            tag: core-8-6-14
+            sha256: 186a75c524ad20ef0cbcf159253bfcb0510b3b2e605c05d2d7abe93351fa5636
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          fetch-tags: false
+          persist-credentials: false
+      - name: Verify fixture isolation against the production baseline
+        shell: bash
+        run: |
+          base=c6cd8bb44fea31b4d838452de38395c7772a3f56
+          vhdl_paths() { git ls-tree -r --name-only "$1" | awk 'tolower($0) ~ /\.(vhd|vhdl)$/'; }
+          production_paths="$RUNNER_TEMP/production-vhdl-paths.txt"
+          checked_paths="$RUNNER_TEMP/checked-vhdl-paths.txt"
+          vhdl_paths "$base" > "$production_paths"
+          vhdl_paths HEAD > "$checked_paths"
+          diff -u "$production_paths" "$checked_paths"
+          production_count=$(wc -l < "$checked_paths")
+          fixture_count=$(git ls-files test/experimental/fixtures | awk '/\.vhd\.fixture$/ {n++} END {print n+0}')
+          test "$production_count" -eq 130
+          test "$fixture_count" -eq 75
+          printf 'Production VHDL paths %s, isolated fixtures %s\n' "$production_count" "$fixture_count"
+      - name: Build the pinned Tcl from upstream source
+        shell: bash
+        env:
+          TCL_TAG: ${{ matrix.tag }}
+          TCL_SOURCE_SHA256: ${{ matrix.sha256 }}
+        run: |
+          kit="$RUNNER_TEMP/tcl"
+          mkdir -p "$kit/build"
+          url="https://codeload.github.com/tcltk/tcl/tar.gz/refs/tags/$TCL_TAG"
+          curl --proto '=https' --proto-redir '=https' --fail --location --retry 2 "$url" --output "$kit/source.tar.gz"
+          printf '%s  %s\n' "$TCL_SOURCE_SHA256" "$kit/source.tar.gz" | sha256sum --check
+          tar -xzf "$kit/source.tar.gz" -C "$kit"
+          (
+            cd "$kit/build"
+            "$kit/tcl-$TCL_TAG/unix/configure" --prefix="$kit/install"
+            make -j2
+            make install
+          )
+          printf 'TCL_BIN=%s\n' "$kit/install/bin" >> "$GITHUB_ENV"
+      - name: Run repository-contained experimental assertions
+        shell: bash
+        env:
+          TCL_PATCH: ${{ matrix.patch }}
+        run: |
+          series=$(printf '%s' "$TCL_PATCH" | cut -d. -f1,2)
+          runtime="$TCL_BIN/tclsh$series"
+          observed=$(printf 'puts [info patchlevel]\n' | "$runtime")
+          test "$observed" = "$TCL_PATCH"
+          printf '%s %s\n' "$runtime" "$observed"
+          sha256sum "$runtime"
+          printf 'Checked commit %s\n' "$(git rev-parse HEAD)"
+          unset AURIG_EXPERIMENTAL_FRONTEND TCL_LIBRARY TCLLIBPATH
+          read -r -a tests <<< "$EXPERIMENTAL_TESTS"
+          for name in "${tests[@]}"; do
+              AURIG_EXPERIMENTAL_SCRATCH="$RUNNER_TEMP/smoke/$name" "$runtime" "test/experimental/$name.tcl"
+          done
+          printf 'Passed %s experimental entry points\n' "${#tests[@]}"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
