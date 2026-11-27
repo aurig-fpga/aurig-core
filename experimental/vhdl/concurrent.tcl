@@ -198,7 +198,10 @@ proc ::vhdl_index::grammar::concurrent_payload {state stops missing} {
     upvar 1 $state c
     set first $c(i)
     set start [lindex [span c] 0]
-    set marker [scan c [concat $stops {{;} end begin elsif => := :}] {} {} {begin end} 2]
+    set mode 2
+    set fenced [info exists c(sequentialGrammar)]
+    if {$fenced} {set mode 0}
+    set marker [scan c [concat $stops {{;} end begin elsif => := :}] {} {} {begin end} $mode $fenced]
     if {$marker eq "adjacent_payload"} {fail c UNPROVEN_CONCURRENT_BOUNDARY [list found [peek c]]}
     if {$c(i) == $first} {reject c $missing}
     if {[peek c -1] in {+ - * / ** & = /= < <= > >= => , to downto and or nand nor xor xnor not}} {

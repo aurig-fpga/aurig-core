@@ -15,9 +15,25 @@ proc ::vhdl_index::ownership::concurrent_profile {kind} {
     return $capabilities
 }
 
+namespace eval ::vhdl_index::ownership {
+    variable sequentialCapabilities {
+        sequential_assertions report_statements null_statements wait_statements control_flow_envelopes
+    }
+}
+
+proc ::vhdl_index::ownership::sequential_profile {kind} {
+    variable sequentialCapabilities
+    if {$kind in {root process function procedure}} {return $sequentialCapabilities}
+    return {}
+}
+
+proc ::vhdl_index::ownership::profile {kind} {
+    return [concat [declaration_profile $kind] [sequential_profile $kind]]
+}
+
 # The direct profile sets the minimum affected coverage. Descendant claims
 # and region gaps contribute their own capabilities independently.
-proc ::vhdl_index::ownership::profile {kind} {
+proc ::vhdl_index::ownership::declaration_profile {kind} {
     switch -- $kind {
         root {
             return [concat [concurrent_profile root] {object_declarations type_declarations subprogram_specifications subprogram_bodies
@@ -27,8 +43,8 @@ proc ::vhdl_index::ownership::profile {kind} {
                 instantiations map_associations}]
         }
         if_generate - case_generate {return {}}
-        for_generate {return [linsert [profile generate] end generate_parameters]}
-        generate_alternative {return [profile generate]}
+        for_generate {return [linsert [declaration_profile generate] end generate_parameters]}
+        generate_alternative {return [declaration_profile generate]}
         component {return {component_declarations}}
         protected {return {subprogram_specifications attribute_declarations local_use_clauses map_associations}}
         configuration {return {attribute_declarations group_declarations local_use_clauses configuration_blocks map_associations}}

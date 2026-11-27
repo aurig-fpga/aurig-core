@@ -536,7 +536,7 @@ proc ::vhdl_index::parser::branch_header {state marker} {
     incr c(i)
 }
 
-proc ::vhdl_index::parser::statement {state depth phase {owner {}} {ownerKind {}}} {
+proc ::vhdl_index::parser::statement {state depth owner ownerKind} {
     upvar 1 $state c
     set opening [lindex [span c] 0]
     set label [optional_label c]
@@ -549,85 +549,32 @@ proc ::vhdl_index::parser::statement {state depth phase {owner {}} {ownerKind {}
         set first process
     }
     switch -- $first {
-        block {
-            if {$phase ne "concurrent"} {fail c UNEXPECTED_CONCURRENT_SCOPE}
-            block_statement c $depth $owner $ownerKind $label
-        }
-        process {
-            if {$phase ne "concurrent"} {fail c UNEXPECTED_CONCURRENT_SCOPE}
-            process_statement c [descend c $depth] $owner $opening $label $colon $postponed
-        }
-        if - case - for - while - loop {
-            if {$phase eq "concurrent" && $first in {if case for}} {
-                generate_statement c $depth $owner $ownerKind $label
-                return {}
-            }
+        block {block_statement c $depth $owner $ownerKind $label}
+        process {process_statement c [descend c $depth] $owner $opening $label $colon $postponed}
+        if - case - for {generate_statement c $depth $owner $ownerKind $label}
+        while - loop {
             incr c(i)
-            set matching 0
-            if {$first eq "case" && $phase eq "sequential"} {set matching [accept c ?]}
-            if {$first eq "loop"} {
-                set marker loop
-            } else {
+            set marker loop
+            if {$first eq "while"} {
                 set headerStart $c(i)
                 set marker [boundary c {generate then loop is {;} end begin}]
                 if {$headerStart == $c(i)} {fail c INCOMPLETE_STATEMENT_HEADER}
                 incr c(i)
             }
-            if {$phase eq "sequential" &&
-                [dict exists {if then case is for loop while loop loop loop} $first] &&
-                [dict get {if then case is for loop while loop loop loop} $first] eq $marker} {
-                set kind $first
-                if {$marker eq "loop"} {set kind loop}
-                sequential_control c [descend c $depth] $kind $label $matching
-            } else {
-                fail c UNEXPECTED_STATEMENT_HEADER [list found $marker opener $first]
-            }
+            fail c UNEXPECTED_STATEMENT_HEADER [list found $marker opener $first]
         }
-        entity - component - configuration {
-            if {$phase ne "concurrent"} {fail c UNSAFE_UNIT_BOUNDARY [list found $first]}
-            concurrent_leaf c $owner $ownerKind $opening $label
-        }
+        entity - component - configuration {concurrent_leaf c $owner $ownerKind $opening $label}
         architecture - package - context {fail c UNSAFE_UNIT_BOUNDARY [list found $first]}
         else - elsif - when {fail c UNEXPECTED_ALTERNATIVE [list found $first]}
         default {
-            if {$phase eq "concurrent"} {
-                if {$ownerKind in {block generate} &&
-                    ($first in {generic port} || [::vhdl_index::grammar::declaration_family $first] ne {})} {
-                    fail c DECLARATION_IN_CONCURRENT_BODY [list found $first]
-                }
-                concurrent_leaf c $owner $ownerKind $opening $label
-            } else {
-                opaque_item c
+            if {$ownerKind in {block generate} &&
+                ($first in {generic port} || [::vhdl_index::grammar::declaration_family $first] ne {})} {
+                fail c DECLARATION_IN_CONCURRENT_BODY [list found $first]
             }
+            concurrent_leaf c $owner $ownerKind $opening $label
         }
     }
     return {}
-}
-
-proc ::vhdl_index::parser::sequential_control {state depth kind name matching} {
-    upvar 1 $state c
-    if {$kind eq "case"} {
-        expect c when
-        branch_header c =>
-    }
-    set sawElse 0
-    while {1} {
-        set next [peek c]
-        if {$next eq "end"} {break}
-        if {$kind eq "if" && $next in {elsif else} && !$sawElse} {
-            incr c(i)
-            if {$next eq "elsif"} {
-                branch_header c then
-            } else {
-                set sawElse 1
-            }
-        } elseif {$kind eq "case" && [accept c when]} {
-            branch_header c =>
-        } else {
-            statement c $depth sequential
-        }
-    }
-    return [terminator c $kind $name 1 $matching]
 }
 
 proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {}} {shapeVar {}} {formals {}} {syntax {}} {scopeIssue {}}} {
@@ -654,6 +601,8 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
     set entityScope [expr {$kind eq "entity"}]
     set entityHeader $entityScope
     set owner {}
+    set sequential {}
+    set sequentialStart {}
     if {$ownership ne {}} {
         lassign $ownership owner parent
         set declarationStart [lindex [span c previous] 1]
@@ -788,6 +737,10 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
                     name_span [lindex $name 1] span [list $owner $endOffset] \
                     declarative_span [list $declarationStart $declarationEnd] entries $entries \
                     opaque $opaque gaps $gaps status $objectStatus types $types type_status $typeStatus]
+                if {$sequentialStart ne {}} {
+                    dict set record sequential_span [list $sequentialStart [lindex $tail 0]]
+                    if {$sequential ne {}} {dict set record sequential $sequential}
+                }
                 if {$syntax ne {}} {dict set record syntax $syntax}
                 if {$subprograms ne {}} {dict set record subprograms $subprograms}
                 if {$declarations ne {}} {dict set record declarations $declarations}
@@ -814,6 +767,7 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
             incr c(i)
             if {$kind in {process procedure function}} {
                 set phase sequential
+                set sequentialStart [lindex [span c previous] 1]
             } else {
                 set phase concurrent
             }
@@ -945,7 +899,11 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
             }
         } else {
             if {$owner ne {}} {set start [lindex [span c] 0]}
-            set category [statement c $depth $phase $owner $kind]
+            if {$phase eq "sequential"} {
+                sequential_statement c $depth $owner $kind sequential
+                continue
+            }
+            set category [statement c $depth $owner $kind]
             if {$owner ne {} && $category ne {}} {
                 scope_gap c gaps $owner $kind $category [list $start [lindex [span c previous] 1]] \
                     recognized-but-unsupported
@@ -1009,7 +967,11 @@ proc ::vhdl_index::parser::scope_gap {state gapsVar owner ownerKind kind region 
     lappend gaps [list $kind $region]
     set profile $ownerKind
     if {$kind in {package block generate protected protected_body}} {set profile $kind}
-    set capabilities [::vhdl_index::ownership::profile $profile]
+    set capabilities [::vhdl_index::ownership::declaration_profile $profile]
+    if {$kind in {uncertain_opaque_item package protected_body block generate}} {
+        ::vhdl_index::ownership::gap c sequential_subtree $region $status \
+            [::vhdl_index::ownership::sequential_profile root] $owner $diagnostics
+    }
     if {$c(edition) >= 2008 &&
         ($kind eq "protected_body" || ($kind eq "uncertain_opaque_item" &&
          $ownerKind in {entity architecture package package_body process function procedure protected_body})) &&

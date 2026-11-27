@@ -222,7 +222,7 @@ proc ::vhdl_index::coverage {snapshot tape structure} {
         group_templates group_declarations disconnect_specifications local_use_clauses
         configuration_specifications configuration_blocks package_declarations package_instantiations package_interfaces block_interfaces generate_parameters
         instantiations map_associations}
-    foreach capability [concat $additional [::vhdl_index::ownership::concurrent_profile root]] {
+    foreach capability [concat $additional [::vhdl_index::ownership::concurrent_profile root] [::vhdl_index::ownership::sequential_profile root]] {
         dict set result capabilities $capability parsed
     }
     # Publish known gaps even when no declaration row was eligible for the scope.
@@ -249,6 +249,15 @@ proc ::vhdl_index::coverage {snapshot tape structure} {
         if {[dict exists $scope syntax parameter]} {
             dict set result capabilities generate_parameters [::vhdl_index::grammar::combine \
                 [dict get $result capabilities generate_parameters] [dict get $scope syntax parameter status]]
+        }
+        if {[dict exists $scope sequential]} {
+            dict for {capability rows} [dict get $scope sequential] {
+                foreach row $rows {
+                    if {[dict get $row status] eq "parsed"} {continue}
+                    dict set result capabilities $capability [::vhdl_index::grammar::combine \
+                        [dict get $result capabilities $capability] [dict get $row status]]
+                }
+            }
         }
         if {![dict exists $scope declarations]} {continue}
         foreach row [dict get $scope declarations] {

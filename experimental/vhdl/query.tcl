@@ -172,6 +172,7 @@ proc ::vhdl_index::query::direct {view id capability} {
         }
         foreach row [items $view $address $capability $payload] {
             if {$occurrenceRole eq "specification"} {dict set row span [dict get $row specification_span]}
+            if {[dict exists $row sequential_kind]} {set occurrenceRole [dict get $row sequential_kind]}
             set at [lindex [dict get $row span] 0]
             set identity [::vhdl_index::regions::identity $view [list $occurrenceRole $at]]
             lappend materialized [dict merge $row [dict create occurrence_id $identity owner_occurrence_id $owner]]
@@ -185,7 +186,8 @@ proc ::vhdl_index::query::direct {view id capability} {
 # Member and interface records use their dedicated direct owners.
 proc ::vhdl_index::query::subtree {view id capability} {
     set root [::vhdl_index::regions::address $view $id]
-    if {[lindex $root 0] ni {region unit gap recovery} || $capability ni [::vhdl_index::ownership::profile root] ||
+    if {[lindex $root 0] ni {region unit gap recovery} ||
+        ![dict exists $::vhdl_index::regions::ownerCapabilities root $capability] ||
         $capability in {entity_interfaces package_interfaces block_interfaces}} {
         return -code error -errorcode {VHDL_INDEX SUBTREE} "Expected an owner and subtree inventory capability"
     }

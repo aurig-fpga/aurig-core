@@ -17,6 +17,10 @@ namespace eval ::vhdl_index::regions {
     foreach capability [::vhdl_index::ownership::concurrent_profile root] {
         dict set concurrentCapabilities $capability 1
     }
+    variable sequentialCapabilities {}
+    foreach capability [::vhdl_index::ownership::sequential_profile root] {
+        dict set sequentialCapabilities $capability 1
+    }
     unset kind capability capabilities
 }
 
@@ -160,6 +164,9 @@ proc ::vhdl_index::regions::region {view id} {
     if {![dict exists $view rows $key]} {return [dict create id $id availability absent]}
     lassign [dict get $view rows $key] kind span inventory parent availability payload
     set result [dict create id $id kind $kind span $span inventory_span $inventory         parent_id [identity $view $parent] availability $availability]
+    if {$availability eq "proved" && [dict exists $payload sequential_span]} {
+        dict set result sequential_span [dict get $payload sequential_span]
+    }
     if {$availability eq "proved" && [dict exists $payload syntax]} {
         dict set result syntax [dict get $payload syntax]
     }
@@ -237,7 +244,7 @@ proc ::vhdl_index::regions::coverage {view id capability} {
         if {[dict exists $view gaps $key]} {
             foreach address [dict get $view gaps $key] {
                 lassign [dict get $view rows $address] gapKind gapSpan _ _ boundary gap
-                if {$capability ni [dict get $gap capabilities] ||
+                if {$gapKind in {sequential_control sequential_subtree} || $capability ni [dict get $gap capabilities] ||
                     ($boundary eq "unsupported" && $gapKind in {package block generate configuration_block configuration_block_item}
                      && $capability ne "configuration_blocks")} {continue}
                 set validation [::vhdl_index::grammar::combine $validation [dict get $gap status]]
@@ -308,6 +315,12 @@ proc ::vhdl_index::regions::coverage_rows {view role capability payload} {
         }
         specification - component - type_members {lappend rows $payload}
         region {
+            if {[dict exists $::vhdl_index::regions::sequentialCapabilities $capability]} {
+                if {[dict exists $payload sequential $capability]} {
+                    return [dict get $payload sequential $capability]
+                }
+                return {}
+            }
             switch -- $capability {
                 object_declarations {
                     foreach entry [dict get $payload entries] {

@@ -90,7 +90,7 @@ proc ::vhdl_index::grammar::process_sensitivity {state} {
         }
         if {[kind c] ne "eof"} {lappend issues [problem c INVALID_ALL]}
     } else {
-        process_sensitivity_names c names commas issues
+        sensitivity_names c names commas issues
     }
     set c(i) $after
     set c(grammarFence) $fence
@@ -100,12 +100,12 @@ proc ::vhdl_index::grammar::process_sensitivity {state} {
         separator_spans $commas status [expr {$issues eq {} ? "parsed" : "malformed"}] diagnostics $issues]
 }
 
-proc ::vhdl_index::grammar::process_sensitivity_names {state namesVar commasVar issuesVar} {
+proc ::vhdl_index::grammar::sensitivity_names {state namesVar commasVar issuesVar} {
     upvar 1 $state c $namesVar names $commasVar commas $issuesVar issues
     set fence $c(grammarFence)
     while {1} {
         set first $c(i)
-        set marker [scan c {, )}]
+        set marker [scan c {, )} {} {} {} 0 1]
         set last $c(i)
         set c(i) $first
         set c(grammarFence) $last
@@ -122,7 +122,7 @@ proc ::vhdl_index::grammar::process_sensitivity_names {state namesVar commasVar 
         set c(i) $last
         set c(grammarFence) $fence
         if {$failed} {
-            if {[dict get $options -errorcode] ne {VHDL_INDEX PROCESS_SENSITIVITY}} {
+            if {[dict get $options -errorcode] ne [list VHDL_INDEX $c(grammarDomain)]} {
                 return -options $options $item
             }
             lappend issues $item

@@ -1,4 +1,10 @@
-namespace eval ::vhdl_index::parser {}
+namespace eval ::vhdl_index::parser {
+    variable sequentialStarters {}
+    foreach word {assert report wait return next exit if case loop while with postponed} {
+        lappend sequentialStarters [dict get $::vhdl_index::lexer::symbols $word]
+    }
+    unset word
+}
 
 # The cursor is a significant-token ordinal. Only this module accesses the tape
 # layout, including the hot delimiter scan through opaque regions.
@@ -73,7 +79,7 @@ proc ::vhdl_index::parser::read_name {state {designator 0}} {
 
 # Advance to a stop at delimiter depth zero. Absolute character positions are
 # obtained only on a diagnostic or when materializing a completed record.
-proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext {}} {hardStops {}} {concurrent 0}} {
+proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext {}} {hardStops {}} {concurrent 0} {fenced 0} {sequential {}}} {
     upvar 1 $state c
     set stopIds {0 8}
     foreach stop $stops {lappend stopIds [dict get $c(symbols) $stop]}
@@ -110,6 +116,19 @@ proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext 
         set firstCandidate [expr {$pos + ($declarationContext ni {opaque_tail subprogram_header})}]
     }
     set grouped [expr {$groupMode ne {}}]
+    if {$fenced} {set fence $c(grammarFence)}
+    if {$sequential ne {}} {
+        variable sequentialStarters
+        set scanStart $pos
+        set colon [dict get $c(symbols) :]
+        set forId [dict get $c(symbols) for]
+        set inId [dict get $c(symbols) in]
+        set report [dict get $c(symbols) report]
+        set null [dict get $c(symbols) null]
+        set atoms [list 1 2 3 4 5 6 $null [dict get $c(symbols) )] \
+            [dict get $c(symbols) >>] [dict get $c(symbols) unaffected]]
+        set variableOperator [dict get $c(symbols) :=]
+    }
     if {$grouped} {
         set k [lindex $kinds [lindex $significant $pos]]
         set stack [list [dict get $pairs $k]]
@@ -135,6 +154,10 @@ proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext 
                 set c(i) $pos
                 ::vhdl_index::grammar::reject c INVALID_GROUP_TOKEN [list found [lindex $c(labels) $k]]
             }
+        } elseif {$fenced && $pos >= $fence} {
+            set c(i) $pos
+            if {$stack ne {}} {fail c UNCLOSED_DELIMITER}
+            return eof
         } elseif {$k == 0 || $k == 8 || ($stack eq {} && $k in $stopIds) || $k in $hardIds} {
             set c(i) $pos
             if {$stack ne {}} {fail c UNCLOSED_DELIMITER}
@@ -156,6 +179,18 @@ proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext 
             if {$previous in $atoms && !($previous == 3 && $k in {1 2})} {
                 set c(i) $pos
                 return adjacent_payload
+            }
+        }
+        if {$sequential ne {} && $stack eq {} && $pos > $scanStart} {
+            set next [lindex $kinds [lindex $significant [expr {$pos + 1}]]]
+            if {($k in $sequentialStarters && !($k == $report && $sequential eq "assert")) ||
+                ($k == $forId && $next in {1 2} &&
+                    [lindex $kinds [lindex $significant [expr {$pos + 2}]]] == $inId) ||
+                ($k in {1 2} && $next == $colon) ||
+                (($k == $null || ($k in {1 2} && $next == $variableOperator)) &&
+                    [lindex $kinds [lindex $significant [expr {$pos - 1}]]] in $atoms)} {
+                set c(i) $pos
+                return sequential_sibling
             }
         }
         if {[dict exists $pairs $k]} {
