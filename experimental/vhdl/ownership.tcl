@@ -24,7 +24,7 @@ namespace eval ::vhdl_index::ownership {
 
 proc ::vhdl_index::ownership::sequential_profile {kind} {
     variable sequentialCapabilities
-    if {$kind in {root process function procedure}} {return $sequentialCapabilities}
+    if {$kind in {root process function procedure if_alternative}} {return $sequentialCapabilities}
     return {}
 }
 
@@ -43,7 +43,7 @@ proc ::vhdl_index::ownership::declaration_profile {kind} {
                 configuration_specifications configuration_blocks package_declarations package_instantiations package_interfaces block_interfaces generate_parameters
                 instantiations map_associations}]
         }
-        if_generate - case_generate {return {}}
+        if_generate - case_generate - if_alternative {return {}}
         for_generate {return [linsert [declaration_profile generate] end generate_parameters]}
         generate_alternative {return [declaration_profile generate]}
         component {return {component_declarations}}
@@ -91,7 +91,7 @@ proc ::vhdl_index::ownership::checkpoint {state} {
     upvar 1 $state c
     return [list [llength $c(declarationScopes)] [llength $c(coverageGaps)] \
         [llength $c(withdrawnScopes)] [llength $c(objectDiagnostics)] \
-        [llength $c(typeDiagnostics)] [llength $c(emptyRegions)] [llength $c(instantiations)] [llength $c(concurrentStatements)]]
+        [llength $c(typeDiagnostics)] [llength $c(emptyRegions)] [llength $c(instantiations)] [llength $c(concurrentStatements)] [llength $c(sequentialRegions)]]
 }
 
 proc ::vhdl_index::ownership::publish {state record} {
@@ -134,7 +134,9 @@ proc ::vhdl_index::ownership::rollback {state checkpoint kind region cause paren
         dict set child status unrecognized
         lappend contributors $child
     }
-    foreach child [lrange $c(declarationScopes) $firstScope end] {
+    set firstSequential [lindex $checkpoint 8]
+    foreach child [concat [lrange $c(declarationScopes) $firstScope end] \
+        [lrange $c(sequentialRegions) $firstSequential end]] {
         # A lost scope contributes its fence and mask without its declaration
         # payload. Unrecognized placeholders already have a loss record.
         if {[dict exists $lostChildren [dict get $child id]]} {continue}
@@ -163,7 +165,7 @@ proc ::vhdl_index::ownership::rollback {state checkpoint kind region cause paren
     if {$contributors ne {}} {
         dict set lost contributors [lsort -integer -index {3 0} $contributors]
     }
-    foreach key {declarationScopes coverageGaps withdrawnScopes objectDiagnostics typeDiagnostics emptyRegions instantiations concurrentStatements} length $checkpoint {
+    foreach key {declarationScopes coverageGaps withdrawnScopes objectDiagnostics typeDiagnostics emptyRegions instantiations concurrentStatements sequentialRegions} length $checkpoint {
         trim_suffix c $key $length
     }
     lappend c(withdrawnScopes) $lost

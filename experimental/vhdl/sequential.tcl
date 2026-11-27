@@ -31,7 +31,7 @@ proc ::vhdl_index::parser::branch_header {state marker} {
     incr c(i)
 }
 
-proc ::vhdl_index::parser::sequential_control {state depth kind name matching} {
+proc ::vhdl_index::parser::sequential_opaque_control {state depth kind name matching} {
     upvar 1 $state c
     set active {}
     if {$name ne {}} {set active [open_named_scope c $kind $name]}
@@ -53,7 +53,7 @@ proc ::vhdl_index::parser::sequential_control {state depth kind name matching} {
         } elseif {$kind eq "case" && [accept c when]} {
             branch_header c =>
         } else {
-            sequential_statement c $depth
+            sequential_statement c $depth {} {}
         }
     }
     set tail [terminator c $kind $name 1 $matching]
@@ -61,9 +61,112 @@ proc ::vhdl_index::parser::sequential_control {state depth kind name matching} {
     return $tail
 }
 
-# Walk each direct statement once for boundaries. Nested statements use the
-# same walker with no publication target.
-proc ::vhdl_index::parser::sequential_statement {state depth {owner {}} {ownerKind {}} {rowsVar {}}} {
+# A header scan proves the connector separately from its opaque payload.
+proc ::vhdl_index::parser::sequential_header {state connector issuesVar} {
+    upvar 1 $state c $issuesVar issues
+    set first $c(i)
+    set start [lindex [span c] 0]
+    set marker [scan c [list $connector {;} end begin generate elsif else when] {} {} {begin end} 0 0 header]
+    set payload {}
+    if {$c(i) > $first} {set payload [::vhdl_index::grammar::extent c $start]}
+    if {$marker ne $connector || $payload eq {}} {
+        set issue [diagnostic c INCOMPLETE_BRANCH_HEADER [list expected $connector found $marker]]
+        lappend issues $issue
+        lappend c(diagnostics) $issue
+    }
+    set connectorSpan {}
+    if {$marker eq $connector} {set connectorSpan [take c]}
+    return [list $payload $connectorSpan]
+}
+
+proc ::vhdl_index::parser::sequential_sequence {state depth owner bodyKind alternatives rowsVar} {
+    upvar 1 $state c $rowsVar rows
+    while {[peek c] ni {end elsif else when}} {
+        sequential_statement c $depth $owner $bodyKind rows $alternatives
+    }
+}
+
+proc ::vhdl_index::parser::sequential_alternative {state depth kind owner bodyKind control syntax valid issue alternatives} {
+    upvar 1 $state c
+    set anchor [lindex [dict get $syntax keyword_span] 0]
+    set bodyStart [lindex [span c previous] 1]
+    set checkpoint [::vhdl_index::ownership::checkpoint c]
+    set rows {}
+    sequential_sequence c $depth $anchor $bodyKind $alternatives rows
+    set boundary [lindex [span c] 0]
+    set extent [list $anchor $boundary]
+    if {$valid} {
+        lappend c(sequentialRegions) [dict create id $anchor parent_id $owner kind $kind span $extent \
+            sequential_span [list $bodyStart $boundary] sequential $rows syntax $syntax control_start $control]
+    } else {
+        ::vhdl_index::ownership::rollback c $checkpoint $kind $extent $issue $owner
+    }
+    return $anchor
+}
+
+proc ::vhdl_index::parser::sequential_control_end {state kind label matching} {
+    upvar 1 $state c
+    set end [span c]
+    incr c(i)
+    set keyword [span c]
+    incr c(i)
+    set marker {}
+    if {[peek c] eq "?"} {set marker [span c]}
+    set endLabel {}
+    if {$marker ne {}} {incr c(i)}
+    if {[is_name [peek c] 0]} {set endLabel [span c]}
+    incr c(i) [expr {$marker eq {} ? -2 : -3}]
+    set tail [terminator c $kind $label 1 $matching]
+    return [dict create terminator_span $tail end_keyword_span $end end_kind_span $keyword \
+        end_matching_span $marker end_label_span $endLabel semicolon_span [span c previous]]
+}
+
+proc ::vhdl_index::parser::sequential_control {state depth owner bodyKind start label colon head opener} {
+    upvar 1 $state c
+    set before [llength $c(diagnostics)]
+    set active {}
+    if {$label ne {}} {set active [open_named_scope c if $label]}
+    set form if
+    set keyword $opener
+    set sawElse 0
+    set alternatives {}
+    set partial 0
+    while {1} {
+        set issues {}
+        set condition {}
+        set connector {}
+        if {$sawElse} {
+            lappend issues [diagnostic c UNEXPECTED_ALTERNATIVE [list found $form span $keyword]]
+            lappend c(diagnostics) {*}$issues
+        }
+        set ordered [expr {!$sawElse}]
+        if {$form eq "else"} {
+            set sawElse 1
+        } else {
+            lassign [sequential_header c then issues] condition connector
+        }
+        set valid [expr {$ordered && ($connector ne {} || $form eq "else")}]
+        set syntax [dict create form $form keyword_span $keyword condition_span $condition connector_span $connector \
+            status [expr {$issues eq {} ? "parsed" : "malformed"}] diagnostics $issues]
+        lappend alternatives [sequential_alternative c $depth if_alternative $owner $bodyKind $start \
+            $syntax $valid [lindex $issues 0] {elsif else}]
+        if {!$valid} {set partial 1}
+        set form [peek c]
+        if {$form ni {elsif else}} {break}
+        set keyword [take c]
+    }
+    set closing [sequential_control_end c if $label 0]
+    if {$active ne {}} {close_named_scope c $active}
+    set issues [lrange $c(diagnostics) $before end]
+    set extent [list $start [lindex [dict get $closing terminator_span] 1]]
+    return [dict merge $closing [dict create sequential_kind sequential_control_envelope kind if span $extent \
+        owner_id $owner label [lindex $label 0] label_span [lindex $label 1] colon_span $colon opener_span $opener \
+        matching_span {} alternative_owners $alternatives interior_status [expr {$partial ? "partial" : "structured"}] \
+        status [expr {$issues eq {} ? "parsed" : "malformed"}] diagnostics $issues]]
+}
+
+# Walk each statement once. The bounded leaf grammar reuses the established fence.
+proc ::vhdl_index::parser::sequential_statement {state depth owner bodyKind {rowsVar {}} {alternatives {}}} {
     upvar 1 $state c
     if {$rowsVar ne {}} {upvar 1 $rowsVar rows}
     set start [lindex [span c] 0]
@@ -75,6 +178,11 @@ proc ::vhdl_index::parser::sequential_statement {state depth {owner {}} {ownerKi
         if - case - for - while - loop {
             set firstIssue [llength $c(diagnostics)]
             set opener [take c]
+            if {$head eq "if" && $owner ne {}} {
+                dict lappend rows control_flow_envelopes \
+                    [sequential_control c [descend c $depth] $owner $bodyKind $start $label $colon $head $opener]
+                return
+            }
             set matching {}
             set kind $head
             switch -- $head {
@@ -88,7 +196,7 @@ proc ::vhdl_index::parser::sequential_statement {state depth {owner {}} {ownerKi
                     set kind loop
                 }
             }
-            set tail [sequential_control c [descend c $depth] $kind $label [expr {$matching ne {}}]]
+            set tail [sequential_opaque_control c [descend c $depth] $kind $label [expr {$matching ne {}}]]
             if {$owner ne {}} {
                 set region [list $start [lindex $tail 1]]
                 set issues [lrange $c(diagnostics) $firstIssue end]
@@ -107,13 +215,13 @@ proc ::vhdl_index::parser::sequential_statement {state depth {owner {}} {ownerKi
         }
         else - elsif - when {fail c UNEXPECTED_ALTERNATIVE [list found $head]}
         default {
-            set row [sequential_leaf c $owner $ownerKind $start $label $colon $head]
+            set row [sequential_leaf c $owner $bodyKind $start $label $colon $head $alternatives]
             if {$row ne {}} {dict lappend rows [dict get $row capability] $row}
         }
     }
 }
 
-proc ::vhdl_index::parser::sequential_leaf {state owner ownerKind start label colon head} {
+proc ::vhdl_index::parser::sequential_leaf {state owner ownerKind start label colon head alternatives} {
     upvar 1 $state c
     set first $c(i)
     set modifier {}
@@ -130,7 +238,7 @@ proc ::vhdl_index::parser::sequential_leaf {state owner ownerKind start label co
         incr c(i)
         set marker sequential_sibling
     } else {
-        set marker [scan c {{;} end begin elsif =>} {} {} {begin end} 0 0 $head]
+        set marker [scan c {{;} end begin elsif =>} {} {} {begin end} 0 0 [list $head $alternatives]]
     }
     set fence $c(i)
     if {$marker eq "eof"} {fail c TRUNCATED_SCOPE}

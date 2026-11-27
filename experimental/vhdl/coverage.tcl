@@ -238,7 +238,11 @@ proc ::vhdl_index::coverage {snapshot tape structure} {
                 [dict get $result capabilities map_associations] [dict get $map association_validation]]
         }
     }
-    foreach scope [dict get $structure object_declarations] {
+    set scopes [dict get $structure object_declarations]
+    if {[dict exists $structure sequential_regions]} {
+        lappend scopes {*}[dict get $structure sequential_regions]
+    }
+    foreach scope $scopes {
         if {[dict exists $scope syntax interfaces]} {
             set capability [dict get $scope kind]_interfaces
             foreach clause [dict get $scope syntax interfaces] {

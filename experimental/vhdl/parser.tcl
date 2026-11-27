@@ -1005,7 +1005,7 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
     set c(activeNames) {}
     set c(generateBodies) 0
     array set c [list interfaces {} interfaceDiagnostics {} interfaceStatus parsed interfaceTime 0         interfacePending {} interfaceLexical [dict get $tape diagnostics] interfaceLexicalAt 0 componentLexicalAt 0 scopeLexicalAt 0]
-    array set c [list declarationScopes {} emptyRegions {} withdrawnScopes {} coverageGaps {} instantiations {} concurrentStatements {} withdrawalTime 0 objectDiagnostics {} objectTime 0 \
+    array set c [list declarationScopes {} sequentialRegions {} emptyRegions {} withdrawnScopes {} coverageGaps {} instantiations {} concurrentStatements {} withdrawalTime 0 objectDiagnostics {} objectTime 0 \
         declarationLexical [dict get $tape diagnostics] objectLexicalAt 0 \
         typeDiagnostics {} typeTime 0 typeLexicalAt 0 subprogramLexicalAt 0 subprogramTime 0 bodyBoundaryTime 0 protectedTime 0 declarativeTime 0 declarativeLexicalAt 0]
     set units {}
@@ -1081,7 +1081,7 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
     foreach row $c(concurrentStatements) {
         dict lappend concurrent [list [dict get $row owner_id] [dict get $row capability]] $row
     }
-    return [dict create concurrent_statements $concurrent instantiations $instances maps $maps object_declarations $scopes empty_regions $c(emptyRegions) withdrawn_scopes $c(withdrawnScopes) \
+    set result [dict create concurrent_statements $concurrent instantiations $instances maps $maps object_declarations $scopes empty_regions $c(emptyRegions) withdrawn_scopes $c(withdrawnScopes) \
         coverage_gaps [lsort -integer -index {3 0} $c(coverageGaps)] withdrawal_time_us $c(withdrawalTime) \
         object_diagnostics $c(objectDiagnostics) object_status $objectStatus object_time_us $c(objectTime) \
         type_diagnostics $c(typeDiagnostics) type_status $typeStatus type_time_us $c(typeTime) \
@@ -1089,4 +1089,8 @@ proc ::vhdl_index::parser::structure {snapshot tape edition limits} {
         declarative_time_us $c(declarativeTime) body_boundary_time_us $c(bodyBoundaryTime) protected_time_us $c(protectedTime) \
         units $units structural_diagnostics $c(diagnostics) recovery $recovery \
         unowned_context $pending entity_interfaces $c(interfaces) interface_diagnostics $c(interfaceDiagnostics)         interface_status $c(interfaceStatus) interface_time_us $c(interfaceTime)]
+    if {$c(sequentialRegions) ne {}} {
+        dict set result sequential_regions [lsort -integer -index 1 $c(sequentialRegions)]
+    }
+    return $result
 }

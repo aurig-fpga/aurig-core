@@ -91,7 +91,7 @@ foreach {input capability code} {
     check sibling_labels {before afterward} [lmap_labels [scope_rows $v $p null_statements]]
     scope_integrity $r $v
 }
-puts {Sequential leaves, wait and opaque control-flow assertions passed}
+puts {Sequential leaves, wait and scoped control-flow assertions passed}
 
 set r [scope_input {entity e is end;
     architecture a of e is

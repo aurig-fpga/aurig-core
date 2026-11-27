@@ -184,6 +184,13 @@ proc ::vhdl_index::query::direct {view id capability} {
             if {[dict exists $row sequential_kind]} {set occurrenceRole [dict get $row sequential_kind]}
             set at [lindex [dict get $row span] 0]
             set identity [::vhdl_index::regions::identity $view [list $occurrenceRole $at]]
+            if {$capability eq "control_flow_envelopes" && [dict exists $row alternative_owners]} {
+                set alternatives {}
+                foreach anchor [dict get $row alternative_owners] {
+                    lappend alternatives [::vhdl_index::regions::identity $view [list region $anchor]]
+                }
+                dict set row alternative_owner_ids $alternatives
+            }
             lappend materialized [dict merge $row [dict create occurrence_id $identity owner_occurrence_id $owner]]
         }
     }

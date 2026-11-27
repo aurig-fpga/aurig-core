@@ -119,6 +119,14 @@ proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext 
     if {$fenced} {set fence $c(grammarFence)}
     if {$sequential ne {}} {
         variable sequentialStarters
+        lassign $sequential sequential alternatives
+        set checkElse [expr {"else" in $alternatives}]
+        if {$checkElse} {
+            set elseId [dict get $c(symbols) else]
+            set whenId [dict get $c(symbols) when]
+            set conditional [expr {$sequential in {identifier extended_identifier ( <<}}]
+            set pendingElse 0
+        }
         set scanStart $pos
         set colon [dict get $c(symbols) :]
         set forId [dict get $c(symbols) for]
@@ -182,6 +190,17 @@ proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext 
             }
         }
         if {$sequential ne {} && $stack eq {} && $pos > $scanStart} {
+            if {$checkElse} {
+                if {$k == $elseId} {
+                    if {!$pendingElse} {
+                        set c(i) $pos
+                        return else
+                    }
+                    set pendingElse 0
+                } elseif {$k == $whenId && $conditional} {
+                    set pendingElse 1
+                }
+            }
             set next [lindex $kinds [lindex $significant [expr {$pos + 1}]]]
             if {($k in $sequentialStarters && !($k == $report && $sequential eq "assert")) ||
                 ($k == $forId && $next in {1 2} &&

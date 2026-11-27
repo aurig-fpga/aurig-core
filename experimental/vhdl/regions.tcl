@@ -6,7 +6,7 @@ namespace eval ::vhdl_index::regions {
     # capabilities and is checked independently of the proved-owner profile.
     variable ownerCapabilities {}
     foreach kind {root architecture entity package package_body process function procedure
-        protected protected_body configuration block generate for_generate if_generate case_generate generate_alternative} {
+        protected protected_body configuration block generate for_generate if_generate case_generate generate_alternative if_alternative} {
         set capabilities {}
         foreach capability [::vhdl_index::ownership::profile $kind] {
             if {$capability ne "entity_interfaces"} {dict set capabilities $capability 1}
@@ -97,6 +97,13 @@ proc ::vhdl_index::regions::view {result} {
             dict set rows [list type_members [lindex $span 0]]                 [list [dict get $row kind] $span $span $key proved $row]
         }
     }
+    if {[dict exists $result sequential_regions]} {
+        foreach record [dict get $result sequential_regions] {
+            set key [list region [dict get $record id]]
+            set parent [list region [dict get $record parent_id]]
+            dict set rows $key [list [dict get $record kind] [dict get $record span] {} $parent proved $record]
+        }
+    }
     foreach row [dict get $result entity_interfaces] {
         set extent [dict get $row owner_span]
         set anchor [lindex $extent 0]
@@ -172,6 +179,9 @@ proc ::vhdl_index::regions::region {view id} {
     set result [dict create id $id kind $kind span $span inventory_span $inventory         parent_id [identity $view $parent] availability $availability]
     if {$availability eq "proved" && [dict exists $payload sequential_span]} {
         dict set result sequential_span [dict get $payload sequential_span]
+        if {[dict exists $payload control_start]} {
+            dict set result control_occurrence_id [identity $view [list sequential_control_envelope [dict get $payload control_start]]]
+        }
     }
     if {$availability eq "proved" && [dict exists $payload syntax]} {
         dict set result syntax [dict get $payload syntax]
