@@ -1,0 +1,5 @@
+entity external_control is end;
+architecture rtl of external_control is
+    alias upward is << signal ^.^.upward : bit >>;
+begin
+end;
