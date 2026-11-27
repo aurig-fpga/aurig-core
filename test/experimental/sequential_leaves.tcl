@@ -91,3 +91,60 @@ foreach {input capability code} {
     scope_integrity $r $v
 }
 puts {Sequential leaves, wait and opaque control-flow assertions passed}
+
+set r [scope_input {entity e is end;
+    architecture a of e is
+        procedure helper is begin return; end procedure;
+        function f return integer is
+            procedure nested is begin return 12; end;
+        begin
+            return f2(1, 2);
+            return;
+        end function;
+    begin
+        p: process begin
+            call_label: pkg.helper(1, mode => my_fn(2, 3), value => open);
+            bare: helper;
+            indexed: inst(1).step(v => a);
+            bad: helper(missing => , good => 2, other => inertial v);
+            n: next main when a <= b;
+            exit;
+            bad_exit: exit when ;
+            return;
+        end process;
+    end;}]
+set v [::vhdl_index::regions::view $r]
+set p [scope_find $v process p:]
+set f [scope_find $v function {function f}]
+set nested [scope_find $v procedure {procedure nested}]
+lassign [scope_rows $v $p sequential_procedure_calls] named bare indexed malformed
+sequential_expect $r $named {label_span call_label called_name_span pkg.helper semicolon_span {;}}
+sequential_expect $r $bare {label_span bare called_name_span helper}
+sequential_expect $r $indexed {called_name_span {inst(1).step}}
+check parameter_commas {, ,} [lmap_spans $r [dict get $named actual_parameters separator_spans]]
+set actuals [scope_rows $v $p sequential_actual_parameter_associations]
+check actual_count 5 [llength $actuals]
+check owner $p [dict get [lindex $actuals 0] owner_occurrence_id]
+check call_identity [dict get $named occurrence_id] [dict get [lindex $actuals 0] call_occurrence_id]
+sequential_expect $r [lindex $actuals 1] {formal_span mode arrow_span => actual_span {my_fn(2, 3)}}
+sequential_expect $r [lindex $actuals 2] {formal_span value actual_span open}
+check actual_partial partial [scope_complete $v $p sequential_actual_parameter_associations]
+check map_rows {} [scope_rows $v $p map_associations]
+check concurrent_actual_rows {} [scope_rows $v $p actual_parameter_associations]
+check call_malformed malformed [dict get $malformed status]
+check call_recovered_actuals 1 [llength [dict get $malformed actual_parameters associations]]
+sequential_expect $r [lindex [scope_rows $v $p next_statements] 0] {
+    label_span n next_span next loop_label_span main when_span when condition_span {a <= b}
+}
+lassign [scope_rows $v $p exit_statements] exit bad
+sequential_expect $r $exit {exit_span exit semicolon_span {;}}
+check missing_exit_payload SEQUENTIAL_EXIT_MISSING_CONDITION [dict get [lindex [dict get $bad diagnostics] 0] code]
+lassign [scope_rows $v $f return_statements] value bare
+sequential_expect $r $value {return_span return expression_span {f2(1, 2)}}
+check function_bare_grammar parsed [dict get $bare status]
+check function_bare_context RETURN_FUNCTION_MISSING_EXPRESSION [dict get [lindex [dict get $bare context_diagnostics] 0] code]
+set out [lindex [scope_rows $v $nested return_statements] 0]
+check procedure_value_context RETURN_PROCEDURE_UNEXPECTED_EXPRESSION [dict get [lindex [dict get $out context_diagnostics] 0] code]
+check subtree_returns 3 [llength [dict get [::vhdl_index::query::subtree $v $f return_statements] rows]]
+scope_integrity $r $v
+puts {Sequential call, return, next and exit assertions passed}

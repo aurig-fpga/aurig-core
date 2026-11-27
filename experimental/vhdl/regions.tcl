@@ -316,6 +316,7 @@ proc ::vhdl_index::regions::coverage_rows {view role capability payload} {
         specification - component - type_members {lappend rows $payload}
         region {
             if {[dict exists $::vhdl_index::regions::sequentialCapabilities $capability]} {
+                if {$capability eq "sequential_actual_parameter_associations"} {set capability sequential_procedure_calls}
                 if {[dict exists $payload sequential $capability]} {
                     return [dict get $payload sequential $capability]
                 }

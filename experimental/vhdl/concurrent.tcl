@@ -312,12 +312,12 @@ proc ::vhdl_index::parser::parse_named_concurrent {state owner ownerKind opening
         ::vhdl_index::grammar::procedure_call $target $components
 }
 
-proc ::vhdl_index::grammar::procedure_call {state target components} {
+proc ::vhdl_index::grammar::procedure_call {state target components {statement 1}} {
     upvar 1 $state c
     if {$target eq {}} {reject c EXPECTED_NAME}
     set parameters {}
     if {[kind c] eq "("} {
-        set parameters [association_list c parameter 1]
+        set parameters [association_list c parameter $statement]
     }
     return [dict create called_name_span $target called_name_components $components actual_parameters $parameters]
 }
@@ -376,8 +376,10 @@ proc ::vhdl_index::parser::parse_assignment {state owner ownerKind opening head 
         {concurrent_signal_assignments} ::vhdl_index::grammar::concurrent_assignment $ownerKind $target
 }
 
-proc ::vhdl_index::grammar::assignment_target {state} {
+proc ::vhdl_index::grammar::assignment_target {state {actualsVar {}}} {
     upvar 1 $state c
+    if {$actualsVar ne {}} {upvar 1 $actualsVar actuals}
+    set actuals {}
     set first $c(i)
     if {[kind c] eq "("} {
         set item [group c 0 2]
@@ -391,7 +393,7 @@ proc ::vhdl_index::grammar::assignment_target {state} {
     } else {
         reject c MISSING_TARGET
     }
-    lassign [concurrent_name_tail c $item $components] full parts suffixes
+    lassign [concurrent_name_tail c $item $components] full parts suffixes actuals
     return [name_target $full $parts $suffixes]
 }
 

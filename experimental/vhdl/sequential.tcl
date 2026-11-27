@@ -137,6 +137,29 @@ proc ::vhdl_index::parser::sequential_leaf {state owner ownerKind start label co
                 set c(grammarDomain) SEQUENTIAL_WAIT
                 ::vhdl_index::grammar::wait_statement c
             }
+            return {
+                set family return_statement
+                set capability return_statements
+                set c(grammarDomain) SEQUENTIAL_RETURN
+                ::vhdl_index::grammar::return_statement c $ownerKind
+            }
+            next - exit {
+                set family ${head}_statement
+                set capability ${head}_statements
+                set c(grammarDomain) SEQUENTIAL_[string toupper $head]
+                ::vhdl_index::grammar::loop_transfer c $head
+            }
+            identifier - extended_identifier - << {
+                set c(grammarDomain) SEQUENTIAL_CALL
+                set target [::vhdl_index::grammar::assignment_target c actuals]
+                if {[::vhdl_index::grammar::kind c] ne "eof"} {
+                    dict create
+                } else {
+                    set family sequential_procedure_call
+                    set capability sequential_procedure_calls
+                    ::vhdl_index::grammar::sequential_call c $target $actuals
+                }
+            }
             default {dict create}
         }
     } fields options]
@@ -209,4 +232,55 @@ proc ::vhdl_index::grammar::wait_statement {state} {
     }
     if {[kind c] in $clauses} {reject c CLAUSE_ORDER}
     return $row
+}
+
+proc ::vhdl_index::grammar::sequential_call {state target actuals} {
+    upvar 1 $state c
+    set called [dict get $target span]
+    if {$actuals ne {}} {
+        set c(i) $actuals
+        set called [extent c [lindex $called 0]]
+    }
+    set result [procedure_call c $called [dict get $target components] 0]
+    dict set result called_name_status opaque
+    if {$actuals ne {}} {
+        dict set result diagnostics [dict get $result actual_parameters association_diagnostics]
+    }
+    return $result
+}
+
+proc ::vhdl_index::grammar::return_statement {state ownerKind} {
+    upvar 1 $state c
+    set keyword [take c]
+    set value {}
+    if {[kind c] ne "eof"} {
+        set value [concurrent_payload c {} MISSING_EXPRESSION]
+    }
+    set code {}
+    switch -- $ownerKind {
+        function {
+            if {$value eq {}} {set code RETURN_FUNCTION_MISSING_EXPRESSION}
+        }
+        procedure {
+            if {$value ne {}} {set code RETURN_PROCEDURE_UNEXPECTED_EXPRESSION}
+        }
+        process {set code RETURN_OUTSIDE_SUBPROGRAM}
+    }
+    set issues {}
+    if {$code ne {}} {lappend issues [diagnostic c $code [list span $keyword phase context]]}
+    return [dict create return_span $keyword expression_span $value context_diagnostics $issues]
+}
+
+proc ::vhdl_index::grammar::loop_transfer {state head} {
+    upvar 1 $state c
+    set keyword [take c]
+    set target {}
+    if {[is_name [kind c] 0]} {set target [name_span c]}
+    set when {}
+    set condition {}
+    if {[kind c] eq "when"} {
+        set when [take c]
+        set condition [concurrent_payload c {when} MISSING_CONDITION]
+    }
+    return [dict create ${head}_span $keyword loop_label_span $target when_span $when condition_span $condition]
 }

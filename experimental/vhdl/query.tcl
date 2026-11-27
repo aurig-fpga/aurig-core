@@ -36,13 +36,21 @@ proc ::vhdl_index::query::items {view address capability payload} {
         }
         return $rows
     }
-    if {$capability eq "actual_parameter_associations"} {
+    if {$capability in {actual_parameter_associations sequential_actual_parameter_associations}} {
         set rows {}
-        foreach call [::vhdl_index::concurrent_at $result $address concurrent_procedure_calls] {
+        if {$capability eq "actual_parameter_associations"} {
+            set calls [::vhdl_index::concurrent_at $result $address concurrent_procedure_calls]
+            set caller concurrent_procedure_call
+        } else {
+            set calls [::vhdl_index::regions::coverage_rows $view region $capability $payload]
+            set caller sequential_procedure_call
+        }
+        foreach call $calls {
+            if {![dict exists $call actual_parameters]} {continue}
             set parameters [dict get $call actual_parameters]
             if {$parameters eq {}} {continue}
             set at [lindex [dict get $call span] 0]
-            set id [::vhdl_index::regions::identity $view [list concurrent_procedure_call $at]]
+            set id [::vhdl_index::regions::identity $view [list $caller $at]]
             foreach row [dict get $parameters associations] {
                 dict set row call_occurrence_id $id
                 dict set row parameter_list_span [dict get $parameters association_group_span]
@@ -162,6 +170,7 @@ proc ::vhdl_index::query::direct {view id capability} {
             concurrent_signal_assignments {set occurrenceRole concurrent_signal_assignment}
             concurrent_procedure_calls {set occurrenceRole concurrent_procedure_call}
             actual_parameter_associations {set occurrenceRole actual_parameter_association}
+            sequential_actual_parameter_associations {set occurrenceRole sequential_actual_parameter_association}
         }
         if {$capability eq "map_associations"} {set occurrenceRole association}
         set owner $id
