@@ -154,8 +154,15 @@ proc ::vhdl_index::payload::visit {collection address} {
         }
         type_members {
             if {$kind eq "record"} {
-                dict set state proved 1
-                foreach member [candidate_rows [dict get $row fields] [lindex $wanted 1]] {
+                set fields [field $row fields]
+                if {[dict get $row status] ne "parsed"} {
+                    set id [dict get $state owner]
+                    record_evidence state $id [dict create evidence_id $id owner_id $id kind record_fields \
+                        span [dict get $row span] status [dict get $row status] availability uncertain \
+                        diagnostics [dict get $row diagnostics]]
+                }
+                if {$fields ne {} || [dict get $row status] eq "parsed"} {dict set state proved 1}
+                foreach member [candidate_rows $fields [lindex $wanted 1]] {
                     range_constraint state [list record_field [lindex [dict get $member span] 0]] $member
                 }
             }

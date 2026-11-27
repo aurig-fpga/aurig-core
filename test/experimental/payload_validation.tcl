@@ -247,6 +247,17 @@ set badBatch [validate $badView [list [list $badArch subtree]] {diagnostics 1}]
 same [dict get $badBatch status] incomplete {diagnostic budget}
 same [dict get $badBatch limit] diagnostics {diagnostic budget reason}
 
+# A typed record can keep its owner even when recovery retained no fields.
+set recordModel [::vhdl_index::analyze_file [file join $tests fixtures records-recovery.vhd.fixture] 1993]
+set recordView [::vhdl_index::regions::view $recordModel]
+set recordAt [string first {type empty_record} [dict get $recordModel snapshot text]]
+set recordOwner [list [dict get $recordModel source_id] type_members $recordAt]
+set missingFields [inventory $recordView $recordOwner]
+same [dict get $missingFields availability] proved {record boundary survives}
+same [dict get $missingFields completeness] unavailable {unproved record field inventory}
+same [dict get $missingFields rows] {} {no proved field slot}
+same [dict get [lindex [dict get $missingFields evidence] 0] kind] record_fields {record recovery evidence}
+
 # Simulate compatible retained projections to exercise the batch equivalence
 # relation even though ordinary grammar rarely gives different slots one fence.
 set shared $view
