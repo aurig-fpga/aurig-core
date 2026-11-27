@@ -1,0 +1,29 @@
+entity payload_recovery is
+  generic (broken : integer := ; survivor : integer := 2 + 3);
+end entity;
+architecture rtl of payload_recovery is
+  type historical is range 0 to 3 natural;
+  constant bad : integer := a + * b;
+  constant good : integer := a(i);
+  constant missing : integer := ;
+  signal s : bit;
+begin
+  assert and a or b;
+  assert x(2 downto 0) = y;
+  assert f(1, 2) > 0;
+  assert x'left(1) = 0;
+  assert a report;
+  g: if a generate
+    p: process is
+      variable gone : integer := 12;
+    begin
+      if a then
+        gone := 14;
+      end if;
+    end process wrong;
+    assert 42 > 1;
+  end generate;
+  h: block begin
+    assert 17 > 3;
+  end block;
+end architecture;

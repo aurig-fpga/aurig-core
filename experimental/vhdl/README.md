@@ -51,7 +51,26 @@ Configuration-block interiors, unsupported concurrent forms including PSL and ex
 
 The private P-A engine can parse one caller-fenced name, expression or discrete range on the existing significant-token tape. Load `bounded.tcl` explicitly after the experimental frontend to use it. The result retains compact syntax rows with normalized source spans, ordered children and connectors, and unresolved syntax candidates for ambiguous forms. The standalone grammar harness also covers edition differences, lexical boundaries, malformed inputs and resource limits. [Grammar profile](BOUNDED_GRAMMAR.md)
 
-Ordinary `analyze_file` and its query projections continue to report the existing opaque expression coverage. Integration with declaration and statement payload spans will be reviewed separately.
+Ordinary `analyze_file` and its queries keep opaque expression coverage. Source `payload.tcl` explicitly for owner-aware payload inventories, selective parsing and transient batch validation. These operations use the original snapshot and significant-token tape.
+
+~~~tcl
+source [file join $core experimental vhdl payload.tcl]
+set unit [lindex [::vhdl_index::query::units $view] 0]
+set owner [dict get $unit occurrence_id]
+set inventory [::vhdl_index::payload::inventory $view $owner subtree]
+foreach slot [dict get $inventory rows] {
+    if {[dict get $slot presence] ne "present"} {continue}
+    set selected [::vhdl_index::payload::select $view [dict get $slot owner_id] \
+        [dict get $slot occurrence_id] [dict get $slot role]]
+    puts [dict get $selected status]
+    break
+}
+set batch [::vhdl_index::payload::validate $view [list [list $owner subtree]]]
+~~~
+
+Selective results keep a compact arena for that payload. Call `payload::nodes` with selected arena ordinals to materialize node dictionaries. Batch results retain shared status and diagnostic summaries and release each arena during validation. Budget exhaustion returns an incomplete batch and explicit remaining work. Inventory completeness describes the proved structural payload roles in the request. Bounded syntax and semantic denotation have separate outcomes.
+
+Admitted carriers include defaults, initializers, attribute and file expressions, disconnect times, block and generate headers, assertions, sequential conditions and selectors, assignment alternatives, waveform values and times, and proved discrete ranges. Assignment targets, choice roles, sensitivity names, and map or call arguments with contextual grammar need dedicated adapters. Existing markers such as `open`, `others`, `unaffected`, waveform `null`, and process `all` keep their owning syntax. Semantic resolution, unsupported syntax and VHDL-2019 remain outside this experimental profile. [Bounded grammar](BOUNDED_GRAMMAR.md)
 
 ## Run an experiment
 
@@ -68,4 +87,4 @@ The focused repository-contained tests include candidate families, selected-name
 
 ## Qualification
 
-The experimental workflow uses pinned Tcl 8.5.19 and 8.6.14 sources. Published O at `c7387013e27a705f74e64f6dc36ca8afc261838f` passed both hosted experimental Linux jobs and the inherited Core Linux, Windows and pre-commit jobs. P-A hosted and native Windows experimental qualification require separate verification on the reviewed revision. Use Core's production vhdlscan for production consumers.
+The experimental workflow uses pinned Tcl 8.5.19 and 8.6.14 sources. Published P-A at `889a55b83fff83efe13e930c691de4a740186336` passed both hosted experimental Linux jobs and the inherited Core Linux, Windows and pre-commit jobs. Hosted and native Windows experimental qualification are specific to the tested revision. Use Core's production vhdlscan for production consumers.

@@ -1,0 +1,88 @@
+entity payload_demo is
+  generic (G, J : natural := 2 + 3 * 4; H : natural := f(i); K : natural);
+  port (d : in bit := '0'; q : out bit);
+end entity;
+
+architecture rtl of payload_demo is
+  type bounded_t is range 0 to 15;
+  type time_t is range 0 to 8 units ps; ns = 2 ps; end units;
+  subtype index_t is natural range 1 to 9;
+  subtype plain_t is natural;
+  type data_t is array (index_t range 2 to 6, 9 downto 3) of bit;
+  type open_t is array (natural range <>) of bit;
+  type rec_t is record i : natural range 3 to 8; end record;
+  type access_t is access natural range 9 to 12;
+  type element_t is array (1 to 2) of natural range 15 to 25;
+  type input_t is file of character;
+  signal s : bit := '1';
+  signal guarded_s : bit bus;
+  attribute weight : natural;
+  attribute weight of s : signal is 8 - 1;
+  file f1 : input_t open read_mode is "a";
+  file f2 : input_t is "b";
+  file f3 : input_t;
+  disconnect guarded_s : bit after 4 ns;
+  procedure proc(x : integer := pkg.f(i); y : integer) is
+  begin
+    return;
+  end procedure;
+  function value return natural is
+  begin
+    return 9 ** 2;
+  end function;
+begin
+  assert G > 0 report "asserted" severity warning;
+  assert G /= 0;
+  b: block (G = 14)
+    generic (M : natural := 8);
+  begin
+    s <= reject 1 ns inertial '1', '0' after 3 ns when G = 2 else unaffected;
+  end block;
+  h: block begin
+    with G select s <= '1' when 0, null after 2 ns when others;
+  end block;
+  g: if G = 3 generate
+    assert H > 0;
+  elsif J = 3 generate
+    assert H < 9;
+  else generate
+  end generate;
+  cg: case G mod 3 generate
+    when 0 => assert G > 0;
+    when others =>
+  end generate;
+  fg: for n in natural range 0 to 7 generate
+    p: process (all)
+      variable v : natural := 3 + 5;
+    begin
+      assert v > 1 report "seq" severity note;
+      report "r" & "s" severity warning;
+      report "alone";
+      wait until v /= 8 for 2 ns;
+      wait;
+      if v = 0 then
+        v := 7;
+      elsif v < 2 then
+        v := 3 when G > 2 else 5;
+      end if;
+      case v + 2 is
+        when 0 => null;
+        when others => null;
+      end case;
+      while v < 7 loop
+        next when v = 1;
+        exit when v = 5;
+        next;
+        exit;
+      end loop;
+      for ii in 7 downto 4 loop
+        v := ii;
+      end loop;
+      s <= force '1';
+      s <= release;
+      s <= '0' after 4 ns;
+      with v select v := 6 when 0, 9 when others;
+      with v select s <= force '0' when 0, '1' when others;
+    end process;
+  end generate;
+end architecture;
