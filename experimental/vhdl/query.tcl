@@ -51,7 +51,7 @@ proc ::vhdl_index::query::items {view address capability payload} {
         }
         return $rows
     }
-    if {$capability in [::vhdl_index::ownership::concurrent_profile root]} {
+    if {[dict exists $::vhdl_index::regions::concurrentCapabilities $capability]} {
         return [::vhdl_index::concurrent_at $result $address $capability]
     }
     if {$capability eq "instantiations"} {

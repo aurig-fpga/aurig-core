@@ -1,7 +1,24 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2024-2026 LogiMentor S.r.l.
 
-namespace eval ::vhdl_index::regions {}
+namespace eval ::vhdl_index::regions {
+    # Syntax capabilities depend on owner kind. Evidence can carry additional
+    # capabilities and is checked independently of the proved-owner profile.
+    variable ownerCapabilities {}
+    foreach kind {root architecture entity package package_body process function procedure
+        protected protected_body configuration block generate for_generate if_generate case_generate generate_alternative} {
+        set capabilities {}
+        foreach capability [::vhdl_index::ownership::profile $kind] {
+            if {$capability ne "entity_interfaces"} {dict set capabilities $capability 1}
+        }
+        dict set ownerCapabilities $kind $capabilities
+    }
+    variable concurrentCapabilities {}
+    foreach capability [::vhdl_index::ownership::concurrent_profile root] {
+        dict set concurrentCapabilities $capability 1
+    }
+    unset kind capability capabilities
+}
 
 # A navigation view is requested explicitly. Source and syntax payloads are
 # shared with the result. Local addresses stay compact until returned.
@@ -163,7 +180,11 @@ proc ::vhdl_index::regions::applicable {role kind capability} {
                 ($kind eq "physical" && $capability eq "physical_units")}]
         }
         region {
-            return [expr {$capability ni {entity_interfaces} &&
+            variable ownerCapabilities
+            if {[dict exists $ownerCapabilities $kind]} {
+                return [dict exists $ownerCapabilities $kind $capability]
+            }
+            return [expr {$capability ne "entity_interfaces" &&
                 $capability in [::vhdl_index::ownership::profile $kind]}]
         }
     }
@@ -232,7 +253,7 @@ proc ::vhdl_index::regions::coverage {view id capability} {
                         diagnostics [dict get $map association_diagnostics]]
                 }
             }
-        } elseif {$capability in [::vhdl_index::ownership::concurrent_profile root]} {
+        } elseif {[dict exists $::vhdl_index::regions::concurrentCapabilities $capability]} {
             set checked [::vhdl_index::concurrent_at [dict get $view result] $key $capability]
         } elseif {$capability ne "instantiations"} {
             set checked [coverage_rows $view $role $capability $payload]

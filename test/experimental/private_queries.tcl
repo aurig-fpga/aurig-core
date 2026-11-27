@@ -94,3 +94,5 @@ set newer [::vhdl_index::regions::view [input $text]]
 check foreign_query [catch {::vhdl_index::query::direct $newer $p type_declarations}] 1
 check foreign_span [catch {::vhdl_index::query::text $newer $snapshot {0 2}}] 1
 puts "Private queries passed on Tcl [info patchlevel]"
+
+source [file join $tests query_equivalence.tcl]
