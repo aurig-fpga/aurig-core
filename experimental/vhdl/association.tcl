@@ -77,7 +77,7 @@ proc ::vhdl_index::grammar::association_elements {state context statement rowsVa
                 set actualStart [lindex [span c] 0]
                 set parts {}
                 set allocator 0
-                set named 1
+                association_order named 1
                 continue
             }
             if {$issue eq {}} {
@@ -99,7 +99,7 @@ proc ::vhdl_index::grammar::association_elements {state context statement rowsVa
                 set issue [problem c $code]
             } elseif {$actualFirst == $c(i)} {
                 set issue [problem c MISSING_ACTUAL]
-            } elseif {$arrow eq {} && $named} {
+            } elseif {$arrow eq {} && [association_order named 0]} {
                 set issue [problem c POSITIONAL_AFTER_NAMED [list span [extent c $start]]]
             } else {
                 set issue [association_actual c $parts $context [extent c $actualStart]]
@@ -123,6 +123,16 @@ proc ::vhdl_index::grammar::association_elements {state context statement rowsVa
         if {$next eq ")"} {return}
         lappend separators [take c]
     }
+}
+
+# A positional prefix may precede named associations in either list grammar.
+proc ::vhdl_index::grammar::association_order {namedVar nextNamed} {
+    upvar 1 $namedVar named
+    if {$nextNamed} {
+        set named 1
+        return 0
+    }
+    return $named
 }
 
 # Replay only the formal side with a local fence. This validates a name-shaped

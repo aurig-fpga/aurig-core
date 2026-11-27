@@ -1,0 +1,43 @@
+a + b * c
+-2 ** 3 * 4 + 5 & z sll 1 <= lim and ok and more
+abs x * not y
+(a and b) or (c nor d)
+a ?<= b
+?? (a and b)
+xor word
+(a + b) * c
+foo(i)
+unsigned(data)
+pkg.f(x)
+pkg.f(1, 2)
+pkg.f(data => a, mode => open)
+pkg."+"(a, b)
+a(7 downto 0)
+a(a'reverse_range(2))
+pkg.ptr.all.field'event
+f[integer, bit return boolean]'simple_name
+pkg.';'
+word'(a + b)
+word'(0 | 1 => (a, b), others => (c, d))
+((a, b), (others => c))
+3 natural
+1.25E-2 work.phys_units.ns
+16#D.E#E-1
+B"0110"
+8UX"1F"
+T'('(')
+"(:; => ' << >> )"
+\foo.bar(0)\
+<< signal ^.^.gen(2).x : bits.std_logic_vector(3 downto 0) >>
+<< constant @lib.pkg.obj : integer >>
+<< variable .top.x : integer range 1 to 5 >>
+new work.p.t
+new t'(others => '0')
+new vec(3 downto 0)
+new outer(open)(2 downto 1)
+f(1, x => (a, b))
+f(x => y).field
+a(i).z
+a(foo)(2)
+a'left(1)
+pkg.v'subtype'(1)

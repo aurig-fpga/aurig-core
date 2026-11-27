@@ -47,6 +47,12 @@ The concurrent region supports direct or subtree inventories through `concurrent
 
 Configuration-block interiors, unsupported concurrent forms including PSL and expression internals remain opaque. Semantic binding, visibility, type resolution, staticness and elaboration are outside this structural index. VHDL-2019 is unsupported.
 
+## Bounded name and expression experiment
+
+The private P-A engine can parse one caller-fenced name, expression or discrete range on the existing significant-token tape. Load `bounded.tcl` explicitly after the experimental frontend to use it. The result retains compact syntax rows with normalized source spans, ordered children and connectors, and unresolved syntax candidates for ambiguous forms. The standalone grammar harness also covers edition differences, lexical boundaries, malformed inputs and resource limits. [Grammar profile](BOUNDED_GRAMMAR.md)
+
+Ordinary `analyze_file` and its query projections continue to report the existing opaque expression coverage. Integration with declaration and statement payload spans will be reviewed separately.
+
 ## Run an experiment
 
 From the repository root, select an explicit Tcl interpreter and a scratch directory outside the checkout.
@@ -62,4 +68,4 @@ The focused repository-contained tests include candidate families, selected-name
 
 ## Qualification
 
-The experimental workflow uses pinned Tcl 8.5.19 and 8.6.14 sources. The published L-R1 baseline `3b993ecc937fcebd19072ce8a76eff55c2c89350` passed both hosted experimental Linux jobs and the inherited Core Linux and Windows jobs. The concurrent grammar increment requires separate qualification. Native Windows and hosted results qualify the revision actually tested. Use the coordinator's verification evidence for the exact revision under review. Use Core's production vhdlscan for production consumers.
+The experimental workflow uses pinned Tcl 8.5.19 and 8.6.14 sources. Published O at `c7387013e27a705f74e64f6dc36ca8afc261838f` passed both hosted experimental Linux jobs and the inherited Core Linux, Windows and pre-commit jobs. P-A hosted and native Windows experimental qualification require separate verification on the reviewed revision. Use Core's production vhdlscan for production consumers.

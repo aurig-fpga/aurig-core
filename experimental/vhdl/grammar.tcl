@@ -43,16 +43,22 @@ proc ::vhdl_index::grammar::name_span {state {operator 0}} {
 # Validate the operator image while retaining the caller's exact source span.
 proc ::vhdl_index::grammar::validate_operator {state extent} {
     upvar 1 $state c
+    set problem [operator_problem c $extent]
+    if {$problem ne {}} {reject c $problem [list span $extent designator_span $extent]}
+}
+
+proc ::vhdl_index::grammar::operator_problem {state extent} {
+    upvar 1 $state c
     set image [::vhdl_index::slice $c(snapshot) $extent]
     set symbol [string tolower [string range $image 1 end-1]]
-    set details [list span $extent designator_span $extent]
     if {$symbol ni {** abs not * / mod rem + - & sll srl sla sra rol ror
         = /= < <= > >= and or nand nor xor xnor ?= ?/= ?< ?<= ?> ?>= ??}} {
-        reject c INVALID_OPERATOR $details
+        return INVALID_OPERATOR
     }
     if {$c(edition) < 2008 && [string index $symbol 0] eq "?"} {
-        reject c EDITION_OPERATOR $details
+        return EDITION_OPERATOR
     }
+    return {}
 }
 
 proc ::vhdl_index::grammar::extent {state start} {
@@ -332,6 +338,13 @@ proc ::vhdl_index::grammar::signature {state} {
 
 # These two attributes can constitute the whole range. A name prefix may
 # contain selected components, indices, calls and other attributes.
+proc ::vhdl_index::grammar::is_range_attribute {state} {
+    upvar 1 $state c
+    set attribute [kind c]
+    return [expr {$attribute eq "range" || ($attribute eq "identifier" &&
+        [string equal -nocase reverse_range [::vhdl_index::slice $c(snapshot) [span c]]])}]
+}
+
 proc ::vhdl_index::grammar::range_attribute {state stops} {
     upvar 1 $state c
     set start [lindex [span c] 0]
@@ -346,9 +359,7 @@ proc ::vhdl_index::grammar::range_attribute {state stops} {
             ' {
                 incr c(i)
                 set attribute [kind c]
-                set attributeSpan [span c]
-                if {$attribute eq "range" || ($attribute eq "identifier" &&
-                    [string equal -nocase reverse_range [::vhdl_index::slice $c(snapshot) $attributeSpan]])} {
+                if {[is_range_attribute c]} {
                     incr c(i)
                     if {[kind c] eq "("} {group c}
                     if {[kind c] in $stops} {return [extent c $start]}
