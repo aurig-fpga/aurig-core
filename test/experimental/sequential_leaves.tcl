@@ -75,6 +75,7 @@ foreach {input capability code} {
     {wait on all;} wait_statements SEQUENTIAL_WAIT_MISSING_TARGET
     {wait until ;} wait_statements SEQUENTIAL_WAIT_MISSING_CONDITION
     {wait for ;} wait_statements SEQUENTIAL_WAIT_MISSING_TIMEOUT
+    {wait for guarded;} wait_statements SEQUENTIAL_WAIT_INVALID_PAYLOAD_START
     {wait for 1 ns until a;} wait_statements SEQUENTIAL_WAIT_CLAUSE_ORDER
     {wait until a until b;} wait_statements SEQUENTIAL_WAIT_CLAUSE_ORDER
     {postponed wait;} wait_statements SEQUENTIAL_WAIT_ILLEGAL_MODIFIER
@@ -324,3 +325,37 @@ foreach {fixture edition counts} {
     scope_integrity $r $v
 }
 puts {Sequential recovery, withdrawal and fixture isolation assertions passed}
+
+# Truncated and token-limited bodies cannot publish earlier buffered leaves.
+foreach {limit source tailCode} {
+    {} {entity e is end; architecture a of e is begin p: process begin null; assert b} TRUNCATED_SCOPE
+    {tokens 30} {entity e is end; architecture a of e is begin p: process begin null; wait for 2 ns; report "more"; end process; end;} TOKEN_LIMIT
+} {
+    set r [scope_input $source 2008 $limit]
+    set v [::vhdl_index::regions::view $r]
+    set p [scope_find $v process p:]
+    check unavailable unavailable [scope_complete $v $p null_statements]
+    check no_premature_publication {} [scope_rows $v $p null_statements]
+    set diagnostics [concat [dict get $r lexical_diagnostics] [dict get $r structural_diagnostics]]
+    set codes {}
+    foreach diagnostic $diagnostics {lappend codes [dict get $diagnostic code]}
+    check loss_diagnostic 1 [expr {$tailCode in $codes}]
+    scope_integrity $r $v
+
+    set text {}
+    set starts [dict get $r tape starts]
+    set last [lindex $starts 0]
+    foreach start [lrange $starts 1 end] {
+        append text [surface $r [list $last $start]]
+        set last $start
+    }
+    check tape_reconstruction $source $text
+}
+
+set r [sequential_input {unexpected. + junk; null;}]
+set v [::vhdl_index::regions::view $r]
+set p [scope_find $v process p:]
+set gap [scope_find $v sequential_statement unexpected]
+check uncertain uncertain [dict get [::vhdl_index::regions::region $v $gap] availability]
+check uncertain_inventory partial [scope_complete $v $p variable_assignments]
+check bounded_null 1 [llength [scope_rows $v $p null_statements]]

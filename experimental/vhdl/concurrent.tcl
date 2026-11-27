@@ -200,7 +200,13 @@ proc ::vhdl_index::grammar::concurrent_payload {state stops missing} {
     set start [lindex [span c] 0]
     set mode 2
     set fenced [info exists c(sequentialGrammar)]
-    if {$fenced} {set mode 0}
+    if {$fenced} {
+        set mode 0
+        if {[kind c] ni {identifier extended_identifier number string bit_string character null ( << new + - abs not ?? eof} &&
+            [kind c] ni [concat $stops {{;} end begin elsif => := :}]} {
+            reject c INVALID_PAYLOAD_START [list found [kind c]]
+        }
+    }
     set marker [scan c [concat $stops {{;} end begin elsif => := :}] {} {} {begin end} $mode $fenced]
     if {$marker eq "adjacent_payload"} {fail c UNPROVEN_CONCURRENT_BOUNDARY [list found [peek c]]}
     if {$c(i) == $first} {reject c $missing}
