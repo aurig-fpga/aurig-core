@@ -312,7 +312,8 @@ proc ::vhdl_index::lexer::lex {snapshot edition limits} {
     lappend kinds 0
     lappend starts $length
     lappend significant $idx
-    return [dict create kinds $kinds starts $starts significant $significant diagnostics $diagnostics]
+    return [dict create kinds $kinds starts $starts significant $significant diagnostics $diagnostics \
+        provenance [list [dict get $snapshot id] $edition]]
 }
 
 proc ::vhdl_index::lexer::name {kind} {
