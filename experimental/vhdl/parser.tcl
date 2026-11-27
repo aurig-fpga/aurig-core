@@ -329,7 +329,7 @@ proc ::vhdl_index::parser::declaration {state depth {owner {}} {recordVar {}} {o
                             set formals [dict get $subprogram parameters]
                         }
                         set boundaryStarted [scope_clock c]
-                        set tail [scope c $kind $name $nextDepth require $child shape $formals]
+                        set tail [sequential_scope c $kind $name $nextDepth $child shape $formals {}]
                         incr c(bodyBoundaryTime) [expr {[scope_clock c] - $boundaryStarted}]
                         dict set subprogram span [list $opening [lindex $tail 1]]
                         dict set subprogram terminator_span $tail
@@ -525,15 +525,6 @@ proc ::vhdl_index::parser::optional_label {state} {
         return $name
     }
     return {}
-}
-
-proc ::vhdl_index::parser::branch_header {state marker} {
-    upvar 1 $state c
-    set start $c(i)
-    if {[boundary c [list $marker {;} end begin]] ne $marker || $start == $c(i)} {
-        fail c INCOMPLETE_BRANCH_HEADER [list expected $marker]
-    }
-    incr c(i)
 }
 
 proc ::vhdl_index::parser::statement {state depth owner ownerKind} {

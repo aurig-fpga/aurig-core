@@ -18,7 +18,7 @@ proc ::vhdl_index::ownership::concurrent_profile {kind} {
 namespace eval ::vhdl_index::ownership {
     variable sequentialCapabilities {
         sequential_assertions report_statements null_statements wait_statements control_flow_envelopes
-        sequential_procedure_calls sequential_actual_parameter_associations return_statements next_statements exit_statements
+        sequential_procedure_calls sequential_actual_parameter_associations return_statements next_statements exit_statements variable_assignments sequential_signal_assignments
     }
 }
 

@@ -256,6 +256,11 @@ proc ::vhdl_index::coverage {snapshot tape structure} {
                     if {[dict get $row status] eq "parsed"} {continue}
                     dict set result capabilities $capability [::vhdl_index::grammar::combine \
                         [dict get $result capabilities $capability] [dict get $row status]]
+                    if {$capability eq "sequential_procedure_calls"} {
+                        set actuals sequential_actual_parameter_associations
+                        dict set result capabilities $actuals [::vhdl_index::grammar::combine \
+                            [dict get $result capabilities $actuals] [dict get $row status]]
+                    }
                 }
             }
         }

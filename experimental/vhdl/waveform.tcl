@@ -83,12 +83,12 @@ proc ::vhdl_index::grammar::selected_choices {state} {
     return [list $choices $bars $others]
 }
 
-proc ::vhdl_index::grammar::selected_waveforms {state} {
+proc ::vhdl_index::grammar::selected_values {state {valueGrammar waveform_value} {concurrent 1}} {
     upvar 1 $state c
     set rows {}
     while {1} {
-        set wave [waveform c {when else}]
-        if {[generate_alternative_start c]} {reject c EXPECTED_WHEN}
+        lassign [$valueGrammar c] valueSpan value
+        if {$concurrent && [generate_alternative_start c]} {reject c EXPECTED_WHEN}
         set when [require c when EXPECTED_WHEN]
         lassign [selected_choices c] choices bars others
         set comma {}
@@ -96,30 +96,36 @@ proc ::vhdl_index::grammar::selected_waveforms {state} {
             if {$others} {reject c OTHERS_MUST_BE_FINAL}
             set comma [take c]
         }
-        set waveSpan [dict get $wave span]
-        lappend rows [dict merge $wave [dict create waveform_span $waveSpan span [extent c [lindex $waveSpan 0]] when_span $when choices $choices \
+        lappend rows [dict merge $value [dict create span [extent c [lindex $valueSpan 0]] when_span $when choices $choices \
             choice_separator_spans $bars alternative_separator_span $comma]]
         if {$comma eq {}} {return $rows}
     }
 }
 
-proc ::vhdl_index::grammar::conditional_waveforms {state} {
+proc ::vhdl_index::grammar::conditional_values {state {valueGrammar waveform_value} {concurrent 1}} {
     upvar 1 $state c
     set rows {}
     set category simple
     while {1} {
-        set wave [waveform c {when else}]
+        lassign [$valueGrammar c] valueSpan value
         set when {}
         set condition {}
         set alternative {}
-        if {[kind c] eq "when" && ![generate_alternative_start c]} {
+        if {[kind c] eq "when" && (!$concurrent || ![generate_alternative_start c])} {
             set category conditional
             set when [take c]
             set condition [concurrent_payload c {when else ,} MISSING_CONDITION]
-            if {[kind c] eq "else" && ![generate_alternative_start c]} {set alternative [take c]}
+            if {[kind c] eq "else" && (!$concurrent || ![generate_alternative_start c])} {set alternative [take c]}
         }
-        set waveSpan [dict get $wave span]
-        lappend rows [dict merge $wave [dict create waveform_span $waveSpan span [extent c [lindex $waveSpan 0]] when_span $when condition_span $condition else_span $alternative]]
+        lappend rows [dict merge $value [dict create span [extent c [lindex $valueSpan 0]] when_span $when condition_span $condition else_span $alternative]]
         if {$alternative eq {}} {return [list $category $rows]}
     }
+}
+
+proc ::vhdl_index::grammar::waveform_value {state} {
+    upvar 1 $state c
+    set wave [waveform c {when else}]
+    set extent [dict get $wave span]
+    dict set wave waveform_span $extent
+    return [list $extent $wave]
 }

@@ -21,7 +21,7 @@ proc ::vhdl_index::parser::process_statement {state depth owner opening label co
     set syntax [dict create label [lindex $label 0] label_span [lindex $label 1] colon_span $colon \
         postponed_span $postponed process_span $process is_span $is sensitivity $sensitivity \
         header_span [::vhdl_index::grammar::extent c $opening]]
-    scope c process $label $depth require [list $opening $owner] {} {} $syntax
+    sequential_scope c process $label $depth [list $opening $owner] {} {} $syntax
 }
 
 # The existing typed terminator has already consumed and checked these

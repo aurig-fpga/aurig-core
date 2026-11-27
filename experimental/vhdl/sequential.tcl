@@ -1,8 +1,40 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2024-2026 LogiMentor S.r.l.
 
+# The opening proves a sequential owner candidate. If the typed boundary
+# fails, preserve its loss and any enclosed evidence for the outer rollback.
+proc ::vhdl_index::parser::sequential_scope {state kind name depth ownership shapeVar formals syntax} {
+    upvar 1 $state c
+    if {$shapeVar ne {}} {
+        upvar 1 $shapeVar shape
+        set shapeVar shape
+    }
+    set checkpoint [::vhdl_index::ownership::checkpoint c]
+    set failed [catch {scope c $kind $name $depth require $ownership $shapeVar $formals $syntax} tail options]
+    if {$failed && [dict get $options -errorcode] eq {VHDL_INDEX STRUCTURE}} {
+        lassign $ownership owner parent
+        set extent [list $owner [lindex [span c] 0]]
+        ::vhdl_index::ownership::rollback c $checkpoint $kind $extent $tail $parent
+    }
+    return -options $options $tail
+}
+
+proc ::vhdl_index::parser::branch_header {state marker} {
+    upvar 1 $state c
+    set start $c(i)
+    if {[boundary c [list $marker {;} end begin generate elsif else when]] ne $marker} {
+        fail c INCOMPLETE_BRANCH_HEADER [list expected $marker]
+    }
+    if {$start == $c(i)} {
+        lappend c(diagnostics) [diagnostic c INCOMPLETE_BRANCH_HEADER [list expected $marker]]
+    }
+    incr c(i)
+}
+
 proc ::vhdl_index::parser::sequential_control {state depth kind name matching} {
     upvar 1 $state c
+    set active {}
+    if {$name ne {}} {set active [open_named_scope c $kind $name]}
     if {$kind eq "case"} {
         expect c when
         branch_header c =>
@@ -24,7 +56,9 @@ proc ::vhdl_index::parser::sequential_control {state depth kind name matching} {
             sequential_statement c $depth
         }
     }
-    return [terminator c $kind $name 1 $matching]
+    set tail [terminator c $kind $name 1 $matching]
+    if {$active ne {}} {close_named_scope c $active}
+    return $tail
 }
 
 # Walk each direct statement once for boundaries. Nested statements use the
@@ -39,6 +73,7 @@ proc ::vhdl_index::parser::sequential_statement {state depth {owner {}} {ownerKi
     set head [peek c]
     switch -- $head {
         if - case - for - while - loop {
+            set firstIssue [llength $c(diagnostics)]
             set opener [take c]
             set matching {}
             set kind $head
@@ -53,14 +88,13 @@ proc ::vhdl_index::parser::sequential_statement {state depth {owner {}} {ownerKi
                     set kind loop
                 }
             }
-            set firstIssue [llength $c(diagnostics)]
             set tail [sequential_control c [descend c $depth] $kind $label [expr {$matching ne {}}]]
             if {$owner ne {}} {
                 set region [list $start [lindex $tail 1]]
                 set issues [lrange $c(diagnostics) $firstIssue end]
                 set status [expr {$issues eq {} ? "parsed" : "malformed"}]
                 dict lappend rows control_flow_envelopes [dict create sequential_kind sequential_control_envelope \
-                    kind $kind span $region owner_id $owner label_span [lindex $label 1] colon_span $colon \
+                    kind $kind span $region owner_id $owner label [lindex $label 0] label_span [lindex $label 1] colon_span $colon \
                     opener_span $opener matching_span $matching terminator_span $tail interior_status opaque \
                     status $status diagnostics $issues]
                 ::vhdl_index::ownership::gap c sequential_control $region recognized-but-unsupported \
@@ -86,9 +120,18 @@ proc ::vhdl_index::parser::sequential_leaf {state owner ownerKind start label co
     if {$head eq "postponed"} {
         set modifier [take c]
         set head [peek c]
+        if {$head in {block process if case for while loop postponed}} {
+            fail c UNPROVEN_SEQUENTIAL_BOUNDARY [list found $head]
+        }
     }
     set body $c(i)
-    set marker [scan c {{;} end begin elsif =>} {} {} {begin end} 0 0 $head]
+    if {$head eq "null" && [peek c 1] in {identifier extended_identifier ( <<}} {
+        # NULL has no payload. A name or target-shaped prefix is a possible sibling.
+        incr c(i)
+        set marker sequential_sibling
+    } else {
+        set marker [scan c {{;} end begin elsif =>} {} {} {begin end} 0 0 $head]
+    }
     set fence $c(i)
     if {$marker eq "eof"} {fail c TRUNCATED_SCOPE}
     if {$marker in {begin =>}} {fail c UNPROVEN_SEQUENTIAL_BOUNDARY [list found $marker]}
@@ -111,6 +154,8 @@ proc ::vhdl_index::parser::sequential_leaf {state owner ownerKind start label co
     set c(sequentialGrammar) 1
     set family {}
     set capability {}
+    set prefix {}
+    set c(grammarDomain) SEQUENTIAL_STATEMENT
     set failed [catch {
         switch -- $head {
             assert {
@@ -149,15 +194,39 @@ proc ::vhdl_index::parser::sequential_leaf {state owner ownerKind start label co
                 set c(grammarDomain) SEQUENTIAL_[string toupper $head]
                 ::vhdl_index::grammar::loop_transfer c $head
             }
-            identifier - extended_identifier - << {
-                set c(grammarDomain) SEQUENTIAL_CALL
-                set target [::vhdl_index::grammar::assignment_target c actuals]
-                if {[::vhdl_index::grammar::kind c] ne "eof"} {
-                    dict create
-                } else {
+            with - identifier - extended_identifier - << - ( - := - <= {
+                set c(grammarDomain) SEQUENTIAL_STATEMENT
+                set selection {}
+                set target {}
+                set actuals {}
+                if {$head eq "with"} {set selection [::vhdl_index::grammar::selection_header c]}
+                set next [::vhdl_index::grammar::kind c]
+                if {$next ni {:= <=}} {
+                    set target [::vhdl_index::grammar::assignment_target c actuals]
+                    set next [::vhdl_index::grammar::kind c]
+                }
+                if {$next in {:= <=}} {
+                    if {$next eq ":="} {
+                        set family variable_assignment
+                        set capability variable_assignments
+                        set c(grammarDomain) VARIABLE_ASSIGNMENT
+                    } else {
+                        set family sequential_signal_assignment
+                        set capability sequential_signal_assignments
+                        set c(grammarDomain) SEQUENTIAL_SIGNAL_ASSIGNMENT
+                    }
+                    lassign $selection with selector select matching
+                    set prefix [dict create target $target target_span {} operator_span [span c] \
+                        with_span $with selector_span $selector select_span $select matching_span $matching]
+                    if {$target ne {}} {dict set prefix target_span [dict get $target span]}
+                    ::vhdl_index::grammar::sequential_assignment c $target $selection $next
+                } elseif {$selection eq {} && $next eq "eof" && $head in {identifier extended_identifier}} {
                     set family sequential_procedure_call
                     set capability sequential_procedure_calls
+                    set c(grammarDomain) SEQUENTIAL_CALL
                     ::vhdl_index::grammar::sequential_call c $target $actuals
+                } else {
+                    ::vhdl_index::grammar::reject c UNSUPPORTED_NAME_FORM
                 }
             }
             default {dict create}
@@ -173,9 +242,25 @@ proc ::vhdl_index::parser::sequential_leaf {state owner ownerKind start label co
             return -options $options $fields
         }
         lappend issues $fields
-        set fields {}
+        set fields $prefix
     }
-    if {$family eq {}} {return {}}
+    if {$family eq {}} {
+        set status unrecognized
+        if {$head in {<< string} || ($head in {identifier extended_identifier} && $semicolon ne {} &&
+            [llength $issues] == 1 && [dict get [lindex $issues 0] code] eq "SEQUENTIAL_STATEMENT_UNSUPPORTED_NAME_FORM")} {
+            set status recognized-but-unsupported
+        }
+        set affected [::vhdl_index::ownership::sequential_profile root]
+        if {$head in {with identifier extended_identifier << ( string}} {
+            set affected {variable_assignments sequential_signal_assignments}
+            if {$head ni {with (}} {lappend affected sequential_procedure_calls sequential_actual_parameter_associations}
+        }
+        if {$issues eq {}} {
+            lappend issues [diagnostic c UNRECOGNIZED_SEQUENTIAL_STATEMENT [list span $region found $head]]
+        }
+        ::vhdl_index::ownership::gap c sequential_statement $region $status $affected $owner $issues
+        return {}
+    }
     if {$modifier ne {}} {
         lappend issues [::vhdl_index::grammar::problem c ILLEGAL_MODIFIER [list span $modifier]]
     }
@@ -283,4 +368,71 @@ proc ::vhdl_index::grammar::loop_transfer {state head} {
         set condition [concurrent_payload c {when} MISSING_CONDITION]
     }
     return [dict create ${head}_span $keyword loop_label_span $target when_span $when condition_span $condition]
+}
+
+proc ::vhdl_index::grammar::expression_assignment_value {state} {
+    upvar 1 $state c
+    if {[kind c] in {guarded unaffected after transport inertial reject force release}} {
+        reject c ILLEGAL_MODIFIER [list found [kind c]]
+    }
+    set value [concurrent_payload c {when else ,} MISSING_EXPRESSION]
+    return [list $value [dict create expression_span $value]]
+}
+
+proc ::vhdl_index::grammar::sequential_assignment {state target selection op} {
+    upvar 1 $state c
+    if {$target eq {}} {reject c MISSING_TARGET}
+    validate_assignment_target c $target
+    set operator [take c]
+    lassign $selection with selector select matching
+    if {$with ne {} && $c(edition) < 2008} {reject c EDITION_SEQUENTIAL_SELECTED [list span $with]}
+    set delay {}
+    set force {}
+    set release {}
+    set forceMode {}
+    set valueGrammar expression_assignment_value
+    set mode [kind c]
+    if {$op eq "<="} {
+        set valueGrammar waveform_value
+        if {$mode eq "guarded"} {reject c ILLEGAL_MODIFIER [list found $mode]}
+        if {$c(edition) < 2008 && $mode eq "identifier" &&
+            [kind c 1] in {in out identifier extended_identifier number string character bit_string null}} {
+            set spelling [string tolower [::vhdl_index::slice $c(snapshot) [span c]]]
+            if {$spelling in {force release}} {reject c EDITION_SEQUENTIAL_FORCE_RELEASE}
+        }
+        if {$mode eq "force"} {
+            set force [take c]
+            set valueGrammar expression_assignment_value
+        } elseif {$mode eq "release"} {
+            set release [take c]
+        } else {
+            set delay [delay_mechanism c]
+            if {[kind c] in {guarded force release transport inertial reject}} {
+                reject c ILLEGAL_MODIFIER [list found [kind c]]
+            }
+        }
+        if {($force ne {} || $release ne {}) && [kind c] in {in out}} {set forceMode [take c]}
+    }
+    if {$release ne {}} {
+        if {$with ne {} || [kind c] ne "eof"} {reject c INVALID_RELEASE}
+        set category simple
+        set rows {}
+    } elseif {$with ne {}} {
+        set category selected
+        set rows [selected_values c $valueGrammar 0]
+    } else {
+        lassign [conditional_values c $valueGrammar 0] category rows
+        if {$category eq "conditional" && $c(edition) < 2008} {reject c EDITION_SEQUENTIAL_CONDITIONAL}
+    }
+    set expression {}
+    set waveform {}
+    if {$category eq "simple" && $rows ne {}} {
+        set value [lindex $rows 0]
+        if {[dict exists $value expression_span]} {set expression [dict get $value expression_span]}
+        if {[dict exists $value waveform_span]} {set waveform [dict get $value waveform_span]}
+    }
+    return [dict create category $category target $target target_span [dict get $target span] \
+        operator_span $operator delay $delay alternatives $rows expression_span $expression waveform_span $waveform \
+        with_span $with selector_span $selector select_span $select matching_span $matching \
+        force_span $force release_span $release force_mode_span $forceMode]
 }

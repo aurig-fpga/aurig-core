@@ -1,0 +1,32 @@
+entity sequential_common is
+end entity;
+
+architecture rtl of sequential_common is
+  signal s, t : boolean := false;
+  procedure check_value(x : in boolean := true) is
+  begin
+    assert x report "x" severity note;
+    return;
+  end procedure;
+
+  function value(x : boolean) return boolean is
+  begin
+    return not x;
+  end function;
+begin
+  p : process is
+    variable x : boolean;
+  begin
+    check_value(x => open);
+    x := value(s = t);
+    s <= transport true after 1 ns, false after 2 ns;
+    report "ready";
+    spin : for i in 1 to 2 loop
+      next spin when i = 1;
+      exit spin;
+    end loop spin;
+    wait_label : wait on s, t until s = t for 3 ns;
+    null;
+    wait;
+  end process p;
+end architecture;

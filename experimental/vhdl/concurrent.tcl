@@ -397,24 +397,21 @@ proc ::vhdl_index::grammar::assignment_target {state {actualsVar {}}} {
     return [name_target $full $parts $suffixes]
 }
 
-proc ::vhdl_index::grammar::concurrent_assignment {state ownerKind target} {
+proc ::vhdl_index::grammar::selection_header {state} {
     upvar 1 $state c
-    set with {}
-    set selector {}
-    set select {}
+    set with [require c with EXPECTED_WITH]
+    set selector [concurrent_payload c {select , when else} MISSING_SELECTOR]
+    set select [require c select EXPECTED_SELECT]
     set matching {}
-    if {[kind c] eq "with"} {
-        set with [take c]
-        set selector [concurrent_payload c {select , when else} MISSING_SELECTOR]
-        set select [require c select EXPECTED_SELECT]
-        if {[kind c] eq "?" ||
-            ([kind c] eq "invalid" && [::vhdl_index::slice $c(snapshot) [span c]] eq "?")} {
-            set matching [take c]
-            if {$c(edition) < 2008} {reject c EDITION_MATCHING_SELECTION [list span $matching]}
-        }
-        set target [assignment_target c]
+    if {[kind c] eq "?" ||
+        ([kind c] eq "invalid" && [::vhdl_index::slice $c(snapshot) [span c]] eq "?")} {
+        set matching [take c]
     }
-    if {$target eq {}} {set target [assignment_target c]}
+    return [list $with $selector $select $matching]
+}
+
+proc ::vhdl_index::grammar::validate_assignment_target {state target} {
+    upvar 1 $state c
     if {[dict exists $target empty] && [dict get $target empty]} {
         reject c EMPTY_TARGET [list span [dict get $target span]]
     }
@@ -425,16 +422,28 @@ proc ::vhdl_index::grammar::concurrent_assignment {state ownerKind target} {
             }
         }
     }
+}
+
+proc ::vhdl_index::grammar::concurrent_assignment {state ownerKind target} {
+    upvar 1 $state c
+    lassign {{} {} {} {}} with selector select matching
+    if {[kind c] eq "with"} {
+        lassign [selection_header c] with selector select matching
+        if {$matching ne {} && $c(edition) < 2008} {reject c EDITION_MATCHING_SELECTION [list span $matching]}
+        set target [assignment_target c]
+    }
+    if {$target eq {}} {set target [assignment_target c]}
+    validate_assignment_target c $target
     set op [require c <= EXPECTED_OPERATOR]
     set guarded {}
     if {[kind c] eq "guarded"} {set guarded [take c]}
     set delay [delay_mechanism c]
     if {[kind c] in {force release}} {reject c CONCURRENT_FORCE_RELEASE}
     if {$with eq {}} {
-        lassign [conditional_waveforms c] category rows
+        lassign [conditional_values c] category rows
     } else {
         set category selected
-        set rows [selected_waveforms c]
+        set rows [selected_values c]
     }
     if {$ownerKind eq "entity"} {reject c OUT_OF_CONTEXT [list span $op]}
     return [dict create category $category target $target target_span [dict get $target span] \
