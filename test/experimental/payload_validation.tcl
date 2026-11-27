@@ -200,6 +200,9 @@ failure {select_row $spliced $firstRow} PAYLOAD_PROVENANCE
 set spliced $view
 dict set spliced result tape [::vhdl_index::lexer::lex [dict get $result snapshot] 1993 [dict get $result limits]]
 failure {validate $spliced $selections} PAYLOAD_PROVENANCE
+set spliced $view
+dict set spliced result tape [::vhdl_index::lexer::lex [dict get $result snapshot] 2008 {tokens 1}]
+failure {select_row $spliced $firstRow} PAYLOAD_PROVENANCE
 unset other foreign spliced
 
 set bad [::vhdl_index::analyze_file [file join $tests fixtures payload-recovery.vhd.fixture] 2008]

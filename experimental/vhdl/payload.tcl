@@ -28,11 +28,12 @@ proc ::vhdl_index::payload::field {row key {fallback {}}} {
 proc ::vhdl_index::payload::qualified_result {view} {
     set result [dict get $view result]
     set sourceId [dict get $view source_id]
+    set tapeIdentity [list $sourceId [dict get $result edition] [dict get $result limits tokens]]
     if {[dict get $result source_id] ne $sourceId ||
         [dict get $result snapshot id] ne $sourceId ||
-        [field [dict get $result tape] provenance] ne [list $sourceId [dict get $result edition]]} {
+        [field [dict get $result tape] provenance] ne $tapeIdentity} {
         return -code error -errorcode {VHDL_INDEX PAYLOAD_PROVENANCE} \
-            "Expected a view, snapshot and token tape from the same analysis and edition"
+            "Expected a view, snapshot and token tape from the same analysis, edition and token budget"
     }
     return $result
 }
