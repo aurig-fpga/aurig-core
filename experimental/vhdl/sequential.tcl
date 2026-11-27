@@ -24,7 +24,7 @@ proc ::vhdl_index::parser::sequential_payload {state stops} {
     upvar 1 $state c
     set first $c(i)
     set start [lindex [span c] 0]
-    set marker [scan c [concat $stops {{;} end begin generate elsif else when}] {} {} {begin end} 0 0 header]
+    set marker [scan c [concat $stops {{;} end begin generate elsif else when}] {} {} {} 0 0 header]
     set payload {}
     if {$c(i) > $first} {set payload [::vhdl_index::grammar::extent c $start]}
     return [list $marker $payload]
@@ -318,6 +318,9 @@ proc ::vhdl_index::parser::sequential_ancestor_boundary {state frames kind label
     foreach frame [lreverse $frames] {
         lassign $frame outer outerName
         if {$outer ne $typed} {continue}
+        # A process or subprogram ending without an explicit matching name
+        # cannot establish recovery of a design-unit suffix.
+        if {$outer in {process procedure function} && $actual eq {}} {continue}
         if {$actual ne {} && [lindex $actual 2] ne $outerName} {continue}
         if {$typed eq $kind} {
             return [diagnostic c ANCESTOR_END_NAME [list expected [lindex $label 0] found [lindex $actual 0] span [lindex $actual 1]]]
