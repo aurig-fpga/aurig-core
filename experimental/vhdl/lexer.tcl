@@ -18,7 +18,8 @@ namespace eval ::vhdl_index::lexer {
         release restrict restrict_guarantee sequence strong vmode vprop vunit
     }
     variable sym93 {** := /= >= <= => <>}
-    variable sym08 {? @ ^ << >> ?= ?/= ?< ?<= ?> ?>= ??}
+    # Append edition tokens to preserve the existing immutable tape tags.
+    variable sym08 {? @ << >> ?= ?/= ?< ?<= ?> ?>= ?? ^}
     variable symbols
     foreach word [concat $words93 $extra02 $extra08 $baseSymbols $sym93 $sym08] {
         dict set symbols $word [llength $labels]

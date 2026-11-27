@@ -5,6 +5,13 @@ source [file join [file dirname [info script]] startup.tcl]
 set fixture [file join $tests fixtures relative-external.vhd.fixture]
 set decoded [::aurig::core::util::read_vhdl_source $fixture]
 set snapshot [::vhdl_index::snapshot relative-external-lexing $decoded]
+set inheritedTags {}
+foreach delimiter {? @ << >> ?= ?/= ?< ?<= ?> ?>= ??} {
+    lappend inheritedTags [dict get $::vhdl_index::lexer::symbols $delimiter]
+}
+if {$inheritedTags ne {151 152 153 154 155 156 157 158 159 160 161}} {
+    error "Changed inherited VHDL-2008 token tape tags: $inheritedTags"
+}
 foreach edition {1993 2002 2008} {
     set tape [::vhdl_index::lexer::lex $snapshot $edition [::vhdl_index::limits {}]]
     set carets {}
