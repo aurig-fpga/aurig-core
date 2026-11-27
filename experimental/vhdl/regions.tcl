@@ -129,20 +129,26 @@ proc ::vhdl_index::regions::view {result} {
         }
     }
     set ordinals {}
+    set sequentialOrdinals {}
     foreach gap [dict get $result coverage_gaps] {
         set kind [dict get $gap kind]
         set span [dict get $gap span]
         set owner [dict get $gap owner_id]
         if {$owner eq {}} {set parent {}} else {set parent [list region $owner]}
-        set address [list gap [lindex $span 0]]
-        if {[dict exists $rows $address]} {
-            set anchor [lindex $span 0]
+        set anchor [lindex $span 0]
+        set address [list gap $anchor]
+        if {$kind in {sequential_control sequential_subtree sequential_statement}} {
+            dict incr sequentialOrdinals $anchor
+            lappend address sequential[dict get $sequentialOrdinals $anchor]
+        } elseif {[dict exists $rows $address]} {
             dict incr ordinals $anchor
             lappend address [dict get $ordinals $anchor]
         }
         set availability [expr {[dict get $gap status] eq "recognized-but-unsupported" ? "unsupported" : "uncertain"}]
         dict set rows $address [list $kind $span {} $parent $availability $gap]
-        if {$parent ne {}} {dict lappend gaps $parent $address}
+        if {$parent ne {} && $kind ni {sequential_control sequential_subtree}} {
+            dict lappend gaps $parent $address
+        }
     }
     return [dict create result $result source_id [dict get $result source_id] rows $rows gaps $gaps]
 }
@@ -244,7 +250,7 @@ proc ::vhdl_index::regions::coverage {view id capability} {
         if {[dict exists $view gaps $key]} {
             foreach address [dict get $view gaps $key] {
                 lassign [dict get $view rows $address] gapKind gapSpan _ _ boundary gap
-                if {$gapKind in {sequential_control sequential_subtree} || $capability ni [dict get $gap capabilities] ||
+                if {$capability ni [dict get $gap capabilities] ||
                     ($boundary eq "unsupported" && $gapKind in {package block generate configuration_block configuration_block_item}
                      && $capability ne "configuration_blocks")} {continue}
                 set validation [::vhdl_index::grammar::combine $validation [dict get $gap status]]

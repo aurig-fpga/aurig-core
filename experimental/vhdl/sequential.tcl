@@ -134,6 +134,7 @@ proc ::vhdl_index::parser::sequential_leaf {state owner ownerKind start label co
     }
     set fence $c(i)
     if {$marker eq "eof"} {fail c TRUNCATED_SCOPE}
+    if {$marker eq "begin" && $c(i) == $first} {fail c UNEXPECTED_BOUNDARY [list found $marker]}
     if {$marker in {begin =>}} {fail c UNPROVEN_SEQUENTIAL_BOUNDARY [list found $marker]}
     set semicolon {}
     set issues {}
