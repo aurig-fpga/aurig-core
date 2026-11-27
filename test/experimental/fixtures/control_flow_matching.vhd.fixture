@@ -1,0 +1,20 @@
+entity control_flow_matching is
+end entity;
+
+architecture rtl of control_flow_matching is
+begin
+    p : process
+        variable bits : bit_vector(1 downto 0) := "00";
+    begin
+        pick : case ? bits is
+            when "00" | "01" =>
+                if true then
+                    for i in bits'reverse_range loop
+                        bits(i) := '1';
+                    end loop;
+                end if;
+            when others =>
+        end case ? pick;
+        wait;
+    end process p;
+end architecture;

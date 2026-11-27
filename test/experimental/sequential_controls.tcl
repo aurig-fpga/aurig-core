@@ -248,3 +248,130 @@ foreach {body code} {
     check label_recovery 2 [llength [control_subtree $v $p null_statements]]
     scope_integrity $r $v
 }
+
+proc verify_control_inventory {r v root expected} {
+    set seen {}
+    dict for {cap spans} $expected {
+        set actual {}
+        foreach row [control_subtree $v $root $cap] {
+            set id [dict get $row occurrence_id]
+            check unique_occurrence 0 [dict exists $seen $id]
+            dict set seen $id 1
+            set owner [::vhdl_index::regions::region $v [dict get $row owner_occurrence_id]]
+            check owner_proof proved [dict get $owner availability]
+            set span [dict get $row span]
+            lassign [dict get $owner span] first last
+            check row_containment 1 [expr {$first <= [lindex $span 0] && [lindex $span 1] <= $last}]
+            lappend actual [surface $r $span]
+        }
+        check "$cap independent surfaces" $spans $actual
+    }
+    scope_integrity $r $v
+}
+
+foreach {file editions expectations} {
+    control_flow_common {1993 2002 2008} {
+        variable_assignments {{acc := acc + 1;}}
+        sequential_signal_assignments {{q <= acc;}}
+        next_statements {{next when acc < 2;}}
+        exit_statements {{exit;} {exit \Main Loop\;}}
+        sequential_procedure_calls {{work_item(value => acc);}}
+        sequential_actual_parameter_associations {{value => acc}}
+        wait_statements {{wait;}}
+        loop_parameters {{i in 0 to 2}}
+    }
+    control_flow_matching {2008} {
+        variable_assignments {{bits(i) := '1';}}
+        wait_statements {{wait;}}
+        loop_parameters {{i in bits'reverse_range}}
+    }
+} {
+    foreach edition $editions {
+        set r [::vhdl_index::analyze_file [file join $tests fixtures $file.vhd.fixture] $edition]
+        check fixture_diagnostics {} [concat [dict get $r structural_diagnostics] [dict get $r lexical_diagnostics]]
+        set v [::vhdl_index::regions::view $r]
+        set p [scope_find $v process {p :}]
+        verify_control_inventory $r $v $p $expectations
+    }
+}
+foreach edition {1993 2002} {
+    set r [::vhdl_index::analyze_file [file join $tests fixtures control_flow_matching.vhd.fixture] $edition]
+    check earlier_marker INVALID_CHARACTER [dict get [lindex [dict get $r lexical_diagnostics] 0] code]
+}
+
+# Progress, reconstruction and owner containment for each source prefix.
+set source {entity e is end; architecture a of e is begin
+    p: process begin
+        outer: if test("end case;") then
+            case ? bits is when "00" | "01" =>
+                for i in a'range loop call_it(i); end loop;
+            when others => null; end case ?;
+        else null; end if outer;
+    end process p; end architecture;}
+foreach edition {1993 2002 2008} {
+    for {set n 0} {$n < [string length $source]} {incr n} {
+        set input [string range $source 0 $n]
+        set r [scope_input $input $edition]
+        set v [::vhdl_index::regions::view $r]
+        scope_integrity $r $v
+        set reconstructed {}
+        foreach first [lrange [dict get $r tape starts] 0 end-1] last [lrange [dict get $r tape starts] 1 end] {
+            append reconstructed [surface $r [list $first $last]]
+        }
+        check token_reconstruction $input $reconstructed
+    }
+}
+foreach {limits code} {
+    {scopes 3} SCOPE_LIMIT
+    {tokens 40} TOKEN_LIMIT
+    {delimiters 1} DELIMITER_LIMIT
+} {
+    set r [control_input {if test((1)) then case flag is when others => loop null; end loop; end case; end if;} 2008 $limits]
+    set codes {}
+    foreach issue [concat [dict get $r structural_diagnostics] [dict get $r lexical_diagnostics]] {
+        lappend codes [dict get $issue code]
+    }
+    check limit 1 [expr {$code in $codes}]
+    set v [::vhdl_index::regions::view $r]
+    set p [scope_find $v process p:]
+    check limit_withdrawal unavailable [scope_complete $v $p loop_parameters]
+    check limit_empty {} [scope_rows $v $p control_flow_envelopes]
+    scope_integrity $r $v
+}
+puts {Control-flow fixtures, prefix truncation and resource limits passed}
+
+# Substitute one grammar slot at a time while keeping a known tail.
+foreach {template edits} {
+    {if @1@ @2@ held: null; elsif true then sibling: null; end if;} {
+        {{} then} {held sibling}
+        {true {}} {sibling}
+    }
+    {case @1@ @2@ when others => held: null; when 1 => sibling: null; end case;} {
+        {{} is} {held sibling}
+        {0 {}} {held sibling}
+    }
+    {case 0 is when @1@ @2@ held: null; when others => sibling: null; end case;} {
+        {{} =>} {held sibling}
+        {0 {}} {sibling}
+    }
+    {for @1@ @2@ 0 to 1 loop held: null; end loop;} {
+        {{} in} {held}
+        {i {}} {held}
+    }
+} {
+    foreach {values labels} $edits {
+        lassign $values first second
+        set body [string map [list @1@ $first @2@ $second] $template]
+        set r [control_input "$body tail: null;"]
+        set v [::vhdl_index::regions::view $r]
+        set p [scope_find $v process p:]
+        check mutation_coverage partial [scope_complete $v $p control_flow_envelopes]
+        set actual {}
+        foreach row [dict get [::vhdl_index::query::subtree $v $p null_statements] rows] {
+            lappend actual [dict get $row label]
+        }
+        check mutation_inventory [linsert $labels end tail] $actual
+        scope_integrity $r $v
+    }
+}
+puts {Grammar-slot mutation assertions passed}

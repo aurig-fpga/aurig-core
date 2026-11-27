@@ -41,11 +41,11 @@ Process, function and procedure bodies retain a sequential span distinct from th
 
 Wait preserves explicit on, until and for clauses. Assignments retain target and value spans, connectors and waveform elements. VHDL-2008 adds conditional and selected sequential assignments, matching selection, force assignments and simple release. Older editions accept the simple assignment forms. Expression and name interiors remain opaque within the supported structural envelopes. Context checks on returns are reported separately from their grammar results.
 
-Typed if, case and loop envelopes retain their extent and leave their interiors opaque. A direct inventory can be complete with an opaque child envelope. A subtree query carries that envelope as coverage evidence and cannot establish the absence of descendant leaves. Unproved body endings withdraw affected records. Evaluation, binding, timing semantics and elaboration remain deferred.
+Sequential if and elsif conditions, else clauses, ordinary and VHDL-2008 matching case alternatives, and unconditional, while and for loops retain their headers, typed endings and nested statement sequences. Each alternative or loop body has a snapshot-qualified syntax owner. A for-loop parameter has a distinct role and a bounded discrete range with structural fields where supported. Direct queries return statements in the requested owner. Subtree queries include nested statements in source order. Proved empty sequences have complete inventories. Unproved sequence boundaries withdraw their records and contribute loss evidence while independently fenced siblings can survive. Expressions and names inside these productions remain opaque or partially structured.
 
 The concurrent region supports direct or subtree inventories through `concurrent_assertions`, `concurrent_procedure_calls`, `actual_parameter_associations`, `concurrent_signal_assignments`, `process_headers` and `sensitivity_lists`. A bounded malformed parameter or sensitivity list can retain its independently established elements. A failed owner fence withdraws its claims and records loss in the affected inventories.
 
-Configuration-block interiors, unsupported concurrent forms including PSL, sequential statements and expression internals remain opaque. Semantic binding, visibility, type resolution, staticness and elaboration are outside this structural index. VHDL-2019 is unsupported.
+Configuration-block interiors, unsupported concurrent forms including PSL and expression internals remain opaque. Semantic binding, visibility, type resolution, staticness and elaboration are outside this structural index. VHDL-2019 is unsupported.
 
 ## Run an experiment
 
@@ -58,7 +58,7 @@ env -u AURIG_EXPERIMENTAL_FRONTEND AURIG_EXPERIMENTAL_SCRATCH="$scratch" \
     "$runtime" test/experimental/private_queries.tcl
 ~~~
 
-The focused repository-contained tests include candidate families, selected-name policy, owner regions, private queries, nested packages, blocks, generate scopes, instantiation ownership, association-list recovery, shared map sites, concurrent statement families, sensitivity lists, sequential leaves and composed coverage. Experimental source fixtures use the .vhd.fixture suffix. Some inherited whole-corpus differential and resource harnesses also need review archives and corpora kept separately from the Git branch. Record which tests and interpreter builds were used. Use the coordinator's qualification kit for native Windows smoke on the exact reviewed revision.
+The focused repository-contained tests include candidate families, selected-name policy, owner regions, private queries, nested packages, blocks, generate scopes, instantiation ownership, association-list recovery, shared map sites, concurrent statement families, sensitivity lists, sequential leaves, nested control flow and composed coverage. Experimental source fixtures use the .vhd.fixture suffix. Some inherited whole-corpus differential and resource harnesses also need review archives and corpora kept separately from the Git branch. Record which tests and interpreter builds were used. Use the coordinator's qualification kit for native Windows smoke on the exact reviewed revision.
 
 ## Qualification
 

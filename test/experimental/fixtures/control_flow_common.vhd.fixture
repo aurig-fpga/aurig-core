@@ -1,0 +1,39 @@
+entity control_flow_common is
+end entity;
+
+architecture rtl of control_flow_common is
+    signal q : integer;
+    procedure work_item(value : integer) is
+    begin
+        if value < 0 then
+            return;
+        elsif value = 0 then
+        else
+            assert value > 0 report "end if; when others =>";
+        end if;
+    end procedure;
+begin
+    p : process
+        variable acc : integer := 0;
+    begin
+        \Main Loop\ : for i in 0 to 2 loop
+            case i is
+                when 0 | 1 =>
+                    while acc < 3 loop
+                        acc := acc + 1;
+                        next when acc < 2;
+                    end loop;
+                when others =>
+                    loop
+                        work_item(value => acc);
+                        exit;
+                    end loop;
+            end case;
+            if acc > 1 then
+                q <= acc;
+                exit \Main Loop\;
+            end if;
+        end loop \Main Loop\;
+        wait;
+    end process p;
+end architecture;
