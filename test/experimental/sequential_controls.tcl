@@ -130,3 +130,68 @@ foreach {body diagnostic expected} {
     scope_integrity $r $v
 }
 puts {Case choices, matching markers and recovery assertions passed}
+
+foreach edition {1993 2002 2008} {
+    set r [control_input {outer: for \Unused Param\ in 1 to 3 loop null; end loop outer;
+        while ready(1) loop next outer when done; end loop;
+        loop exit when done; end loop;
+        for j in pkg.index_type loop end loop;
+        for k in obj.member'range(1) loop end loop;} $edition]
+    set v [::vhdl_index::regions::view $r]
+    set p [scope_find $v process p:]
+    set forms {}
+    foreach row [scope_rows $v $p control_flow_envelopes] {
+        lappend forms [dict get $row iteration_kind]
+        control_fields $r $row {loop_span loop end_kind_span loop}
+        set id [dict get $row body_owner_id]
+        check loop_link [dict get $row occurrence_id] [dict get [::vhdl_index::regions::region $v $id] control_occurrence_id]
+        check objects_not_applicable not_applicable [scope_complete $v $id object_declarations]
+    }
+    check forms {for while unconditional for for} $forms
+    lassign [control_subtree $v $p loop_parameters] one two three
+    control_fields $r $one {in_span in}
+    check parameter_role loop_parameter [lindex [dict get $one occurrence_id] 1]
+    check direction to [dict get $one range direction]
+    control_fields $r [dict get $two range] {type_mark_span pkg.index_type}
+    control_fields $r [dict get $three range] {range_attribute_span {obj.member'range(1)}}
+    control_fields $r [lindex [control_subtree $v $p next_statements] 0] {loop_label_span outer condition_span done}
+    check retained_null 1 [llength [control_subtree $v $p null_statements]]
+    scope_integrity $r $v
+}
+
+foreach {body diagnostic completion expected} {
+    {while loop carried: null; end loop; after_loop: null;} INCOMPLETE_BRANCH_HEADER complete {carried after_loop}
+    {for in 1 to 2 loop carried: null; end loop; after_loop: null;} LOOP_EXPECTED_PARAMETER complete {carried after_loop}
+    {for i 1 to 2 loop carried: null; end loop; after_loop: null;} LOOP_EXPECTED_IN complete {carried after_loop}
+    {for i in loop carried: null; end loop; after_loop: null;} INCOMPLETE_BRANCH_HEADER complete {carried after_loop}
+    {for i in 1 to 2 lost: null; end loop; after_loop: null;} INCOMPLETE_BRANCH_HEADER partial {after_loop}
+} {
+    set r [control_input $body]
+    set v [::vhdl_index::regions::view $r]
+    set p [scope_find $v process p:]
+    check loop_diagnostic $diagnostic [scope_error $r]
+    check loop_coverage partial [scope_complete $v $p control_flow_envelopes]
+    set labels {}
+    foreach item [control_subtree $v $p null_statements $completion] {lappend labels [dict get $item label]}
+    check loop_recovery $expected $labels
+    scope_integrity $r $v
+}
+
+set r [scope_input {entity e is end;
+    architecture a of e is
+        function f return boolean is begin if true then loop return; end loop; end if; end function;
+        procedure pr is begin case 0 is when others => if true then return 1; end if; end case; end procedure;
+    begin p: process begin for i in 0 to 1 loop return; end loop; end process; end;}]
+set v [::vhdl_index::regions::view $r]
+foreach {kind prefix expected} {
+    function {function f} RETURN_FUNCTION_MISSING_EXPRESSION
+    procedure {procedure pr} RETURN_PROCEDURE_UNEXPECTED_EXPRESSION
+    process p: RETURN_OUTSIDE_SUBPROGRAM
+} {
+    set owner [scope_find $v $kind $prefix]
+    check direct_returns {} [scope_rows $v $owner return_statements]
+    set row [lindex [control_subtree $v $owner return_statements] 0]
+    check context $expected [dict get [lindex [dict get $row context_diagnostics] 0] code]
+}
+scope_integrity $r $v
+puts {Loop schemes, parameter roles and enclosing body context assertions passed}

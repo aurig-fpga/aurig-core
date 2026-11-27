@@ -18,13 +18,13 @@ proc ::vhdl_index::ownership::concurrent_profile {kind} {
 namespace eval ::vhdl_index::ownership {
     variable sequentialCapabilities {
         sequential_assertions report_statements null_statements wait_statements control_flow_envelopes
-        sequential_procedure_calls sequential_actual_parameter_associations return_statements next_statements exit_statements variable_assignments sequential_signal_assignments
+        sequential_procedure_calls sequential_actual_parameter_associations return_statements next_statements exit_statements variable_assignments sequential_signal_assignments loop_parameters
     }
 }
 
 proc ::vhdl_index::ownership::sequential_profile {kind} {
     variable sequentialCapabilities
-    if {$kind in {root process function procedure if_alternative case_alternative}} {return $sequentialCapabilities}
+    if {$kind in {root process function procedure if_alternative case_alternative loop_body}} {return $sequentialCapabilities}
     return {}
 }
 
@@ -43,7 +43,7 @@ proc ::vhdl_index::ownership::declaration_profile {kind} {
                 configuration_specifications configuration_blocks package_declarations package_instantiations package_interfaces block_interfaces generate_parameters
                 instantiations map_associations}]
         }
-        if_generate - case_generate - if_alternative - case_alternative {return {}}
+        if_generate - case_generate - if_alternative - case_alternative - loop_body {return {}}
         for_generate {return [linsert [declaration_profile generate] end generate_parameters]}
         generate_alternative {return [declaration_profile generate]}
         component {return {component_declarations}}

@@ -191,6 +191,13 @@ proc ::vhdl_index::query::direct {view id capability} {
                 }
                 dict set row alternative_owner_ids $alternatives
             }
+            if {$capability eq "control_flow_envelopes" && [dict exists $row body_owner]} {
+                dict set row body_owner_id [::vhdl_index::regions::identity $view [list region [dict get $row body_owner]]]
+                if {[dict exists $row parameter_start]} {
+                    dict set row parameter_occurrence_id \
+                        [::vhdl_index::regions::identity $view [list loop_parameter [dict get $row parameter_start]]]
+                }
+            }
             lappend materialized [dict merge $row [dict create occurrence_id $identity owner_occurrence_id $owner]]
         }
     }

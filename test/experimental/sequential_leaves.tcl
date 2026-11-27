@@ -48,8 +48,8 @@ foreach edition {1993 2002 2008} {
     }
     sequential_expect $r $keep {label_span keep span {keep: assert true;}}
     check direct_complete complete [scope_complete $v $p sequential_assertions]
-    check subtree_partial partial [dict get [::vhdl_index::query::subtree $v $p sequential_assertions] completeness]
-    check subtree_rows 2 [llength [dict get [::vhdl_index::query::subtree $v $a sequential_assertions] rows]]
+    check subtree_complete complete [dict get [::vhdl_index::query::subtree $v $p sequential_assertions] completeness]
+    check subtree_rows 3 [llength [dict get [::vhdl_index::query::subtree $v $a sequential_assertions] rows]]
     sequential_expect $r [lindex [scope_rows $v $p report_statements] 0] {
         report_keyword_span report report_span {"status"} severity_span note label_span msg
     }
@@ -250,9 +250,9 @@ set r [sequential_input {a: null; wrong: if flag then loop null; end loop; end i
 set v [::vhdl_index::regions::view $r]
 set p [scope_find $v process p:]
 check siblings {a z} [lmap_labels [scope_rows $v $p null_statements]]
-check opaque_body malformed [dict get [lindex [scope_rows $v $p control_flow_envelopes] 0] status]
+check malformed_control malformed [dict get [lindex [scope_rows $v $p control_flow_envelopes] 0] status]
 check verified_empty complete [scope_complete $v $p wait_statements]
-check nested_unknown partial [dict get [::vhdl_index::query::subtree $v $p wait_statements] completeness]
+check nested_empty complete [dict get [::vhdl_index::query::subtree $v $p wait_statements] completeness]
 check unsupported_calls partial [scope_complete $v $p sequential_procedure_calls]
 check known_call 1 [llength [scope_rows $v $p sequential_procedure_calls]]
 set gap [scope_find $v sequential_statement {unknown[}]
