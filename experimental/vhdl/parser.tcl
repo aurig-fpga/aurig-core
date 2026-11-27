@@ -40,7 +40,7 @@ proc ::vhdl_index::parser::terminator {state kind name {allowName 1} {matching 0
     set end [span c]
     set start [lindex $end 0]
     expect c end
-    set keyword [span c]
+    if {$closingVar ne {}} {set endKind [span c]}
     set explicit 0
     if {$kind eq "process"} {accept c postponed}
     if {$kind in {package_body protected_body}} {
@@ -70,7 +70,8 @@ proc ::vhdl_index::parser::terminator {state kind name {allowName 1} {matching 0
         }
     }
     set endLabel {}
-    if {$allowName && [peek c] in {identifier extended_identifier string}} {
+    if {$allowName && [peek c] in {identifier extended_identifier string} &&
+        ($closingVar eq {} || [peek c 1] ni {: := <= ( . {[} '})} {
         if {$kind ni {function procedure} && [peek c] eq "string"} {
             fail c EXPECTED_NAME
         }
@@ -95,11 +96,20 @@ proc ::vhdl_index::parser::terminator {state kind name {allowName 1} {matching 0
             return [list $start [lindex [span c previous] 1]]
         }
     }
-    expect c {;}
-    if {$closingVar ne {}} {
+    if {$closingVar eq {}} {
+        expect c {;}
+    } else {
+        set semi {}
+        if {[peek c] eq ";"} {
+            set semi [take c]
+        } elseif {[sequential_following c]} {
+            lappend c(diagnostics) [diagnostic c MISSING_SEMICOLON [list span [list $start [lindex [span c] 0]]]]
+        } else {
+            expect c {;}
+        }
         upvar 1 $closingVar closing
-        set closing [dict create end_keyword_span $end end_kind_span $keyword end_matching_span $marker \
-            end_label_span $endLabel semicolon_span [span c previous]]
+        set closing [dict create end_keyword_span $end end_kind_span $endKind end_matching_span $marker \
+            end_label_span $endLabel semicolon_span $semi]
     }
     return [list $start [lindex [span c previous] 1]]
 }
@@ -778,6 +788,7 @@ proc ::vhdl_index::parser::scope {state kind name depth beginPolicy {ownership {
             incr c(i)
             if {$kind in {process procedure function}} {
                 set phase sequential
+                set c(sequentialFrames) [list [list $kind [lindex $name 2] {}]]
                 set sequentialStart [lindex [span c previous] 1]
             } else {
                 set phase concurrent

@@ -24,6 +24,15 @@ namespace eval ::vhdl_index::regions {
     unset kind capability capabilities
 }
 
+proc ::vhdl_index::regions::loss_role {kind} {
+    switch -- $kind {
+        root {return recovery}
+        component {return component}
+        sequential_control_loss {return control_loss}
+        default {return region}
+    }
+}
+
 # A navigation view is requested explicitly. Source and syntax payloads are
 # shared with the result. Local addresses stay compact until returned.
 proc ::vhdl_index::regions::view {result} {
@@ -35,7 +44,7 @@ proc ::vhdl_index::regions::view {result} {
         set parent [dict get $loss parent_id]
         set span [dict get $loss span]
         set at [lindex $span 0]
-        set role [expr {$kind eq "component" ? "component" : "region"}]
+        set role [loss_role $kind]
         if {$kind eq "root"} {
             set role recovery
             set availability uncertain
@@ -111,13 +120,13 @@ proc ::vhdl_index::regions::view {result} {
     }
     foreach loss [dict get $result withdrawn_scopes] {
         if {![dict exists $loss contributors]} {continue}
-        set topRole [expr {[dict get $loss scope_kind] eq "root" ? "recovery" : "region"}]
+        set topRole [loss_role [dict get $loss scope_kind]]
         set top [list $topRole [lindex [dict get $loss span] 0]]
         foreach child [dict get $loss contributors] {
             if {![dict exists $child scope_kind]} {continue}
             set span [dict get $child span]
             set kind [dict get $child scope_kind]
-            set role [expr {$kind eq "component" ? "component" : "region"}]
+            set role [loss_role $kind]
             set key [list $role [lindex $span 0]]
             if {[dict exists $rows $key]} {continue}
             set parent [dict get $child parent_id]
@@ -126,10 +135,11 @@ proc ::vhdl_index::regions::view {result} {
         }
         foreach child [dict get $loss contributors] {
             if {![dict exists $child scope_kind]} {continue}
-            set role [expr {[dict get $child scope_kind] eq "component" ? "component" : "region"}]
+            set role [loss_role [dict get $child scope_kind]]
             set key [list $role [lindex [dict get $child span] 0]]
             set row [dict get $rows $key]
-            if {![dict exists $rows [lindex $row 3]]} {
+            if {![dict exists $rows [lindex $row 3]] ||
+                ($topRole eq "control_loss" && [lindex $row 3] eq [lindex [dict get $rows $top] 3])} {
                 lset row 3 $top
                 dict set rows $key $row
             }

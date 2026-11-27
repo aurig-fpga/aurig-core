@@ -195,3 +195,56 @@ foreach {kind prefix expected} {
 }
 scope_integrity $r $v
 puts {Loop schemes, parameter roles and enclosing body context assertions passed}
+
+foreach {body expected} {
+    {if ready then loop gone: null; else keep: null; end if; done: null;} {keep done}
+    {if ready then case key is when others => gone: null; else keep: null; end if; done: null;} {keep done}
+    {case key is when 0 => loop gone: null; when others => keep: null; end case; done: null;} {keep done}
+    {outer: if ready then inner: if test then gone: null; end if outer; done: null;} {done}
+    {loop gone: null;} {}
+} {
+    set r [control_input $body]
+    set v [::vhdl_index::regions::view $r]
+    set p [scope_find $v process p:]
+    set labels {}
+    foreach item [control_subtree $v $p null_statements partial] {lappend labels [dict get $item label]}
+    check ancestor_recovery $expected $labels
+    set loss [scope_find $v sequential_control_loss [expr {[string first inner: $body] >= 0 ? "inner:" :
+        [string first "case key is when others" $body] >= 0 ? "case key" : "loop"}]]
+    foreach capability {control_flow_envelopes loop_parameters null_statements} {
+        check lost_coverage unavailable [scope_complete $v $loss $capability]
+    }
+    scope_integrity $r $v
+}
+
+set r [control_input {assert ready if ready then
+        s <= a when first else b
+    else null; end if
+    case key is when 0 => null
+        when others => null; end case
+    call_it(1); tail: null;}]
+set v [::vhdl_index::regions::view $r]
+set p [scope_find $v process p:]
+set control [scope_rows $v $p control_flow_envelopes]
+check recovered_controls 2 [llength $control]
+foreach row $control {control_fields $r $row {semicolon_span {}}}
+foreach {cap count} {null_statements 4 sequential_signal_assignments 1} {
+    check "[set cap] preserved" $count [llength [control_subtree $v $p $cap partial]]
+}
+check recovered_call 1 [llength [scope_rows $v $p sequential_procedure_calls]]
+check last_leaf 1 [llength [scope_rows $v $p null_statements]]
+scope_integrity $r $v
+puts {Nested typed boundaries and statement separator recovery assertions passed}
+
+foreach {body code} {
+    {1: if ok then null; end if; tail: null;} INVALID_SEQUENTIAL_LABEL
+    {if x then elsif branch: y then null; end if; tail: null;} INVALID_SEQUENTIAL_ALTERNATIVE_LABEL
+    {case sel is when choice: others => null; end case; tail: null;} INVALID_SEQUENTIAL_ALTERNATIVE_LABEL
+} {
+    set r [control_input $body]
+    set v [::vhdl_index::regions::view $r]
+    set p [scope_find $v process p:]
+    check invalid_label $code [scope_error $r]
+    check label_recovery 2 [llength [control_subtree $v $p null_statements]]
+    scope_integrity $r $v
+}

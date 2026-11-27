@@ -209,7 +209,7 @@ proc ::vhdl_index::query::direct {view id capability} {
 # Member and interface records use their dedicated direct owners.
 proc ::vhdl_index::query::subtree {view id capability} {
     set root [::vhdl_index::regions::address $view $id]
-    if {[lindex $root 0] ni {region unit gap recovery} ||
+    if {[lindex $root 0] ni {region unit gap recovery control_loss} ||
         ![dict exists $::vhdl_index::regions::ownerCapabilities root $capability] ||
         $capability in {entity_interfaces package_interfaces block_interfaces}} {
         return -code error -errorcode {VHDL_INDEX SUBTREE} "Expected an owner and subtree inventory capability"
@@ -230,7 +230,7 @@ proc ::vhdl_index::query::subtree {view id capability} {
     for {set i 0} {$i < [llength $pending]} {incr i} {
         set address [lindex $pending $i]
         if {[dict exists $children $address]} {lappend pending {*}[dict get $children $address]}
-        if {[lindex $address 0] ni {region unit gap recovery}} {continue}
+        if {[lindex $address 0] ni {region unit gap recovery control_loss}} {continue}
         set outcome [direct $view [::vhdl_index::regions::identity $view $address] $capability]
         set status [dict get $outcome completeness]
         if {$status in {not_applicable absent}} {continue}

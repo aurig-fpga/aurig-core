@@ -261,7 +261,6 @@ scope_integrity $r $v
 
 foreach {input limits code} {
     {outer: if a then inner: if b then null; end if outer; end if;} {} ANCESTOR_END_NAME
-    {if a then loop null; end if;} {} MISMATCHED_END_KIND
     {if a then if b then null; end if; end if;} {scopes 2} SCOPE_LIMIT
     {helper(f(g(1)));} {delimiters 2} DELIMITER_LIMIT
 } {

@@ -121,9 +121,14 @@ proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext 
         variable sequentialStarters
         lassign $sequential sequential alternatives
         set checkElse [expr {"else" in $alternatives}]
+        set checkWhen [expr {"when" in $alternatives}]
+        if {$checkElse || $checkWhen} {set whenId [dict get $c(symbols) when]}
+        if {$checkWhen} {
+            set arrowId [dict get $c(symbols) =>]
+            set lastWhen {}
+        }
         if {$checkElse} {
             set elseId [dict get $c(symbols) else]
-            set whenId [dict get $c(symbols) when]
             set conditional [expr {$sequential in {identifier extended_identifier ( <<}}]
             set pendingElse 0
         }
@@ -170,6 +175,10 @@ proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext 
             set c(i) $pos
             if {$stack ne {}} {fail c UNCLOSED_DELIMITER}
             if {$k == 8} {fail c UNSUPPORTED_TOKEN}
+            if {$sequential ne {} && $checkWhen && $k == $arrowId && $lastWhen ne {}} {
+                set c(i) $lastWhen
+                return when
+            }
             return [lindex $c(labels) $k]
         }
         if {$concurrent && ($pos > $scanStart || $concurrent == 2) &&
@@ -190,6 +199,7 @@ proc ::vhdl_index::parser::scan {state stops {groupMode {}} {declarationContext 
             }
         }
         if {$sequential ne {} && $stack eq {} && $pos > $scanStart} {
+            if {$checkWhen && $k == $whenId} {set lastWhen $pos}
             if {$checkElse} {
                 if {$k == $elseId} {
                     if {!$pendingElse} {
