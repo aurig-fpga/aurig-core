@@ -61,18 +61,23 @@ proc ::vhdl_index::parser::sequential_opaque_control {state depth kind name matc
     return $tail
 }
 
-# A header scan proves the connector separately from its opaque payload.
-proc ::vhdl_index::parser::sequential_header {state connector issuesVar} {
-    upvar 1 $state c $issuesVar issues
+# Prove the connector separately from the opaque payload.
+proc ::vhdl_index::parser::sequential_payload {state stops} {
+    upvar 1 $state c
     set first $c(i)
     set start [lindex [span c] 0]
-    set marker [scan c [list $connector {;} end begin generate elsif else when] {} {} {begin end} 0 0 header]
+    set marker [scan c [concat $stops {{;} end begin generate elsif else when}] {} {} {begin end} 0 0 header]
     set payload {}
     if {$c(i) > $first} {set payload [::vhdl_index::grammar::extent c $start]}
+    return [list $marker $payload]
+}
+
+proc ::vhdl_index::parser::sequential_header {state connector issuesVar} {
+    upvar 1 $state c $issuesVar issues
+    lassign [sequential_payload c [list $connector]] marker payload
     if {$marker ne $connector || $payload eq {}} {
-        set issue [diagnostic c INCOMPLETE_BRANCH_HEADER [list expected $connector found $marker]]
-        lappend issues $issue
-        lappend c(diagnostics) $issue
+        lappend issues [diagnostic c INCOMPLETE_BRANCH_HEADER [list expected $connector found $marker]]
+        lappend c(diagnostics) [lindex $issues end]
     }
     set connectorSpan {}
     if {$marker eq $connector} {set connectorSpan [take c]}
@@ -104,28 +109,8 @@ proc ::vhdl_index::parser::sequential_alternative {state depth kind owner bodyKi
     return $anchor
 }
 
-proc ::vhdl_index::parser::sequential_control_end {state kind label matching} {
-    upvar 1 $state c
-    set end [span c]
-    incr c(i)
-    set keyword [span c]
-    incr c(i)
-    set marker {}
-    if {[peek c] eq "?"} {set marker [span c]}
-    set endLabel {}
-    if {$marker ne {}} {incr c(i)}
-    if {[is_name [peek c] 0]} {set endLabel [span c]}
-    incr c(i) [expr {$marker eq {} ? -2 : -3}]
-    set tail [terminator c $kind $label 1 $matching]
-    return [dict create terminator_span $tail end_keyword_span $end end_kind_span $keyword \
-        end_matching_span $marker end_label_span $endLabel semicolon_span [span c previous]]
-}
-
-proc ::vhdl_index::parser::sequential_control {state depth owner bodyKind start label colon head opener} {
-    upvar 1 $state c
-    set before [llength $c(diagnostics)]
-    set active {}
-    if {$label ne {}} {set active [open_named_scope c if $label]}
+proc ::vhdl_index::parser::sequential_if {state depth owner bodyKind start opener issuesVar} {
+    upvar 1 $state c $issuesVar controlIssues
     set form if
     set keyword $opener
     set sawElse 0
@@ -151,18 +136,98 @@ proc ::vhdl_index::parser::sequential_control {state depth owner bodyKind start 
         lappend alternatives [sequential_alternative c $depth if_alternative $owner $bodyKind $start \
             $syntax $valid [lindex $issues 0] {elsif else}]
         if {!$valid} {set partial 1}
+        lappend controlIssues {*}$issues
         set form [peek c]
         if {$form ni {elsif else}} {break}
         set keyword [take c]
     }
-    set closing [sequential_control_end c if $label 0]
+    return [dict create matching_span {} alternative_owners $alternatives \
+        interior_status [expr {$partial ? "partial" : "structured"}]]
+}
+
+proc ::vhdl_index::parser::sequential_choices {state issuesVar} {
+    upvar 1 $state c $issuesVar issues
+    set choices {}
+    set separators {}
+    while {1} {
+        set soleOthers [expr {[peek c] eq "others" && [peek c 1] in {| =>}}]
+        lassign [sequential_payload c {| =>}] marker extent
+        if {$extent eq {}} {
+            lappend issues [diagnostic c CASE_MISSING_CHOICE {}]
+        } else {
+            lappend choices [dict create kind [expr {$soleOthers ? "others" : "opaque"}] span $extent]
+        }
+        if {$marker ne "|"} {break}
+        lappend separators [take c]
+    }
+    set arrow {}
+    if {$marker eq "=>"} {
+        set arrow [take c]
+    } else {
+        lappend issues [diagnostic c CASE_MISSING_ARROW [list found $marker]]
+    }
+    lappend c(diagnostics) {*}$issues
+    return [list $choices $separators $arrow]
+}
+
+proc ::vhdl_index::parser::sequential_case {state depth owner bodyKind start opener issuesVar} {
+    upvar 1 $state c $issuesVar controlIssues
+    set matching {}
+    if {[peek c] eq "?"} {
+        set matching [take c]
+        while {[peek c] eq "?"} {
+            set issue [diagnostic c DUPLICATE_CASE_MARKER {}]
+            lappend controlIssues $issue
+            lappend c(diagnostics) $issue
+            incr c(i)
+        }
+    }
+    lassign [sequential_header c is controlIssues] selector connector
+    set partial 0
+    if {[peek c] ne "when"} {
+        set issue [diagnostic c CASE_EXPECTED_WHEN {}]
+        lappend controlIssues $issue
+        lappend c(diagnostics) $issue
+        set begin [lindex [span c] 0]
+        set ignored {}
+        sequential_sequence c $depth {} $bodyKind {when} ignored
+        if {$begin < [lindex [span c] 0]} {
+            set partial 1
+            ::vhdl_index::ownership::gap c sequential_subtree [list $begin [lindex [span c] 0]] \
+                unrecognized [::vhdl_index::ownership::sequential_profile root] $owner [list $issue]
+        }
+    }
+    set alternatives {}
+    while {[peek c] eq "when"} {
+        set keyword [take c]
+        set issues {}
+        lassign [sequential_choices c issues] choices separators arrow
+        set valid [expr {$arrow ne {}}]
+        set syntax [dict create form when keyword_span $keyword choices $choices choice_separator_spans $separators \
+            arrow_span $arrow status [expr {$issues eq {} ? "parsed" : "malformed"}] diagnostics $issues]
+        lappend alternatives [sequential_alternative c $depth case_alternative $owner $bodyKind $start \
+            $syntax $valid [lindex $issues end] {when}]
+        if {!$valid} {set partial 1}
+        lappend controlIssues {*}$issues
+    }
+    return [dict create matching_span $matching selector_span $selector is_span $connector alternative_owners $alternatives \
+        interior_status [expr {$partial ? "partial" : "structured"}]]
+}
+
+proc ::vhdl_index::parser::sequential_control {state depth owner bodyKind start label colon kind opener} {
+    upvar 1 $state c
+    set active {}
+    if {$label ne {}} {set active [open_named_scope c $kind $label]}
+    set issues {}
+    set shape [sequential_$kind c $depth $owner $bodyKind $start $opener issues]
+    set before [llength $c(diagnostics)]
+    set tail [terminator c $kind $label 1 [expr {[dict get $shape matching_span] ne {}}] 0 0 closing]
     if {$active ne {}} {close_named_scope c $active}
-    set issues [lrange $c(diagnostics) $before end]
-    set extent [list $start [lindex [dict get $closing terminator_span] 1]]
-    return [dict merge $closing [dict create sequential_kind sequential_control_envelope kind if span $extent \
+    lappend issues {*}[lrange $c(diagnostics) $before end]
+    set extent [list $start [lindex $tail 1]]
+    return [dict merge $shape $closing [dict create sequential_kind sequential_control_envelope kind $kind span $extent \
         owner_id $owner label [lindex $label 0] label_span [lindex $label 1] colon_span $colon opener_span $opener \
-        matching_span {} alternative_owners $alternatives interior_status [expr {$partial ? "partial" : "structured"}] \
-        status [expr {$issues eq {} ? "parsed" : "malformed"}] diagnostics $issues]]
+        terminator_span $tail status [expr {$issues eq {} ? "parsed" : "malformed"}] diagnostics $issues]]
 }
 
 # Walk each statement once. The bounded leaf grammar reuses the established fence.
@@ -178,7 +243,7 @@ proc ::vhdl_index::parser::sequential_statement {state depth owner bodyKind {row
         if - case - for - while - loop {
             set firstIssue [llength $c(diagnostics)]
             set opener [take c]
-            if {$head eq "if" && $owner ne {}} {
+            if {$head in {if case} && $owner ne {}} {
                 dict lappend rows control_flow_envelopes \
                     [sequential_control c [descend c $depth] $owner $bodyKind $start $label $colon $head $opener]
                 return

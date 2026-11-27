@@ -35,10 +35,12 @@ proc ::vhdl_index::parser::is_context_item {state} {
     return [expr {$kind in {library use} || ($kind eq "context" && [peek c 2] ne "is")}]
 }
 
-proc ::vhdl_index::parser::terminator {state kind name {allowName 1} {matching 0} {recoverTypedSeparator 0} {boundedAlternative 0}} {
+proc ::vhdl_index::parser::terminator {state kind name {allowName 1} {matching 0} {recoverTypedSeparator 0} {boundedAlternative 0} {closingVar {}}} {
     upvar 1 $state c
-    set start [lindex [span c] 0]
+    set end [span c]
+    set start [lindex $end 0]
     expect c end
+    set keyword [span c]
     set explicit 0
     if {$kind eq "process"} {accept c postponed}
     if {$kind in {package_body protected_body}} {
@@ -53,14 +55,27 @@ proc ::vhdl_index::parser::terminator {state kind name {allowName 1} {matching 0
     if {!$explicit && $kind ni {entity architecture package package_body configuration context function procedure alternative}} {
         fail c MISMATCHED_END_KIND [list expected $kind found [peek c]]
     }
-    if {$kind eq "case" && [accept c ?] != $matching} {
-        fail c MISMATCHED_CASE_MARKER
+    set marker {}
+    if {$kind eq "case"} {
+        if {[accept c ?]} {set marker [span c previous]}
+        if {($marker ne {}) != $matching} {
+            if {$closingVar eq {}} {fail c MISMATCHED_CASE_MARKER}
+            lappend c(diagnostics) [diagnostic c MISMATCHED_CASE_MARKER {}]
+        }
+        if {$closingVar ne {}} {
+            while {[peek c] in {? ??}} {
+                lappend c(diagnostics) [diagnostic c DUPLICATE_CASE_MARKER {}]
+                incr c(i)
+            }
+        }
     }
+    set endLabel {}
     if {$allowName && [peek c] in {identifier extended_identifier string}} {
         if {$kind ni {function procedure} && [peek c] eq "string"} {
             fail c EXPECTED_NAME
         }
         lassign [read_name c 1] spelling extent key
+        set endLabel $extent
         if {[lindex $name 2] ne $key || $name eq {}} {
             if {!$explicit && !$boundedAlternative} {
                 fail c UNCERTAIN_END_NAME [list actual_span $extent expected [lindex $name 0] found $spelling]
@@ -81,6 +96,11 @@ proc ::vhdl_index::parser::terminator {state kind name {allowName 1} {matching 0
         }
     }
     expect c {;}
+    if {$closingVar ne {}} {
+        upvar 1 $closingVar closing
+        set closing [dict create end_keyword_span $end end_kind_span $keyword end_matching_span $marker \
+            end_label_span $endLabel semicolon_span [span c previous]]
+    }
     return [list $start [lindex [span c previous] 1]]
 }
 

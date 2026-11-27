@@ -24,7 +24,7 @@ namespace eval ::vhdl_index::ownership {
 
 proc ::vhdl_index::ownership::sequential_profile {kind} {
     variable sequentialCapabilities
-    if {$kind in {root process function procedure if_alternative}} {return $sequentialCapabilities}
+    if {$kind in {root process function procedure if_alternative case_alternative}} {return $sequentialCapabilities}
     return {}
 }
 
@@ -43,7 +43,7 @@ proc ::vhdl_index::ownership::declaration_profile {kind} {
                 configuration_specifications configuration_blocks package_declarations package_instantiations package_interfaces block_interfaces generate_parameters
                 instantiations map_associations}]
         }
-        if_generate - case_generate - if_alternative {return {}}
+        if_generate - case_generate - if_alternative - case_alternative {return {}}
         for_generate {return [linsert [declaration_profile generate] end generate_parameters]}
         generate_alternative {return [declaration_profile generate]}
         component {return {component_declarations}}

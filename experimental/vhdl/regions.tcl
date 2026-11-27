@@ -6,7 +6,7 @@ namespace eval ::vhdl_index::regions {
     # capabilities and is checked independently of the proved-owner profile.
     variable ownerCapabilities {}
     foreach kind {root architecture entity package package_body process function procedure
-        protected protected_body configuration block generate for_generate if_generate case_generate generate_alternative if_alternative} {
+        protected protected_body configuration block generate for_generate if_generate case_generate generate_alternative if_alternative case_alternative} {
         set capabilities {}
         foreach capability [::vhdl_index::ownership::profile $kind] {
             if {$capability ne "entity_interfaces"} {dict set capabilities $capability 1}

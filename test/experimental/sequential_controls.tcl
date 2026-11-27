@@ -78,3 +78,55 @@ foreach {body expected} {
     scope_integrity $r $v
 }
 puts {If alternatives and nested sequential ownership assertions passed}
+
+proc lmap_control_spans {r spans} {
+    set text {}
+    foreach span $spans {lappend text [surface $r $span]}
+    return $text
+}
+
+foreach {edition opening closing} {1993 {} {} 2002 {} {} 2008 {} {} 2008 ? ?} {
+    set r [control_input "pick: case $opening pick_fn(1, 2) is
+        when 0 | 1 to 3 | ((1 => 2, 2 => 4)) => inside: null;
+        when others =>
+        end case $closing pick; after_case: null;" $edition]
+    set v [::vhdl_index::regions::view $r]
+    set p [scope_find $v process p:]
+    set row [lindex [scope_rows $v $p control_flow_envelopes] 0]
+    check case_kind case [dict get $row kind]
+    control_fields $r $row [list opener_span case matching_span $opening selector_span {pick_fn(1, 2)} \
+        is_span is end_kind_span case end_matching_span $closing end_label_span pick semicolon_span {;}]
+    lassign [dict get $row alternative_owner_ids] one two
+    set first [scope_shape $v $one]
+    set last [scope_shape $v $two]
+    control_fields $r $first {keyword_span when arrow_span =>}
+    check choices {0 {1 to 3} {((1 => 2, 2 => 4))}} [choice_surfaces $r [dict get $first choices]]
+    check separators {| |} [lmap_control_spans $r [dict get $first choice_separator_spans]]
+    check others others [dict get [lindex [dict get $last choices] 0] kind]
+    check empty complete [scope_complete $v $two null_statements]
+    check case_subtree 2 [llength [control_subtree $v $p null_statements]]
+    scope_integrity $r $v
+}
+
+foreach {body diagnostic expected} {
+    {case is when others => ok: null; end case; last: null;} INCOMPLETE_BRANCH_HEADER {ok last}
+    {case key when others => ok: null; end case; last: null;} INCOMPLETE_BRANCH_HEADER {ok last}
+    {case key is end case; last: null;} CASE_EXPECTED_WHEN {last}
+    {case key is when | 1 | => ok: null; end case; last: null;} CASE_MISSING_CHOICE {ok last}
+    {case key is when 0 lost: null; when others => ok: null; end case; last: null;} CASE_MISSING_ARROW {ok last}
+    {case ? flag is when others => ok: null; end case; last: null;} MISMATCHED_CASE_MARKER {ok last}
+    {case flag is when others => ok: null; end case ?; last: null;} MISMATCHED_CASE_MARKER {ok last}
+    {case ? ? flag is when others => ok: null; end case ? ?; last: null;} DUPLICATE_CASE_MARKER {ok last}
+} {
+    set r [control_input $body]
+    set v [::vhdl_index::regions::view $r]
+    set p [scope_find $v process p:]
+    check case_diagnostic $diagnostic [scope_error $r]
+    check case_coverage partial [scope_complete $v $p control_flow_envelopes]
+    set expectedCoverage [expr {$diagnostic eq "CASE_MISSING_ARROW" ? "partial" : "complete"}]
+    set labels {}
+    foreach item [control_subtree $v $p null_statements $expectedCoverage] {lappend labels [dict get $item label]}
+    check case_recovery $expected $labels
+    scope_integrity $r $v
+}
+puts {Case choices, matching markers and recovery assertions passed}
