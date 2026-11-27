@@ -29,6 +29,9 @@ proc ::vhdl_index::bounded::name {state mode} {
         }
         return [leaf c character_literal]
     } else {
+        if {$next eq "character" && $c(edition) < 2008} {
+            stop c malformed EDITION_CHARACTER_NAME
+        }
         set prefix [designator_node c $mode]
     }
 
@@ -52,7 +55,7 @@ proc ::vhdl_index::bounded::name {state mode} {
                 [list $prefix $suffix] [list $dot]]
         } elseif {$mode eq "unit"} {
             return $prefix
-        } elseif {$mode eq "mark" && !($next eq "'" && $c(edition) == 2008 && [kind c 1] eq "subtype")} {
+        } elseif {$mode eq "mark" && !($next eq "'" && [subtype_designator c 1])} {
             return $prefix
         } elseif {$next eq "'"} {
             set tick [token c]
@@ -71,6 +74,19 @@ proc ::vhdl_index::bounded::name {state mode} {
     }
 }
 
+proc ::vhdl_index::bounded::subtype_designator {state ahead} {
+    upvar 1 $state c
+    if {$c(edition) < 2008} {return 0}
+    set next [kind c $ahead]
+    if {$next eq "subtype"} {return 1}
+    if {$next ne "identifier"} {return 0}
+    set current $c(i)
+    incr c(i) $ahead
+    set spelling [::vhdl_index::slice $c(snapshot) [span c]]
+    set c(i) $current
+    return [string equal -nocase $spelling element]
+}
+
 proc ::vhdl_index::bounded::is_type_mark {state id} {
     upvar 1 $state c
     return [expr {[lindex $c(rows) $id 0] in {identifier extended_identifier selected subtype_attribute}}]
@@ -83,9 +99,9 @@ proc ::vhdl_index::bounded::attribute {state prefix tick} {
     if {[is_range_attribute c]} {
         set type range_attribute
         set designator [leaf c $next]
-    } elseif {$next eq "subtype" && $c(edition) == 2008} {
+    } elseif {[subtype_designator c 0]} {
         set type subtype_attribute
-        set designator [leaf c subtype]
+        set designator [leaf c $next]
     } else {
         lassign [name_span c] start end
         set designator [add c $next $start $end]
@@ -150,7 +166,7 @@ proc ::vhdl_index::bounded::name_group {state prefix mode} {
             set formal $value
             set arrow [token c]
             set value [actual c]
-        } elseif {$arguments eq {} && ([kind c] in {range to downto} || $type in {range_attribute parameterized_range_attribute})} {
+        } elseif {$arguments eq {} && [range_shape c $value]} {
             if {$type eq "open"} {stop c malformed EXPECTED_RANGE_BOUND}
             set range [discrete c $value]
             set close [close_group c )]
@@ -231,17 +247,32 @@ proc ::vhdl_index::bounded::conversion_operand {state value} {
     return [expr {[lindex $c(rows) $value 0] ni {string null aggregate allocator}}]
 }
 
+proc ::vhdl_index::bounded::range_shape {state left} {
+    upvar 1 $state c
+    return [expr {[kind c] in {range to downto} ||
+        [lindex $c(rows) $left 0] in {range_attribute parameterized_range_attribute} ||
+        ([is_type_mark c $left] && [is_name [kind c] 0])}]
+}
+
 proc ::vhdl_index::bounded::discrete {state left} {
     upvar 1 $state c
     set type [lindex $c(rows) $left 0]
     if {$type in {relation shift logical condition reduction}} {stop c malformed EXPECTED_SIMPLE_RANGE_BOUND}
     set start [lindex $c(rows) $left 1]
+    set marks [list $left]
+    if {[is_type_mark c $left] && [is_name [kind c] 0]} {
+        set left [name c mark]
+        lappend marks $left
+    }
     if {[kind c] eq "range"} {
         if {![is_type_mark c $left]} {stop c malformed EXPECTED_DISCRETE_TYPE_MARK}
         set keyword [token c]
         set bound [simple c]
         set range [explicit_range c $bound]
-        return [add c discrete_subtype $start [lindex $c(rows) $range 2] [list $left $range] [list $keyword]]
+        return [add c discrete_subtype $start [lindex $c(rows) $range 2] [linsert $marks end $range] [list $keyword]]
+    }
+    if {[llength $marks] == 2} {
+        return [add c discrete_subtype $start [lindex $c(rows) $left 2] $marks]
     }
     if {[kind c] in {to downto} || $type in {range_attribute parameterized_range_attribute}} {
         return [explicit_range c $left]

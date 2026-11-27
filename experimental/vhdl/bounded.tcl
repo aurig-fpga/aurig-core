@@ -335,7 +335,7 @@ proc ::vhdl_index::bounded::grouped_primary {state} {
         set arrow {}
         set choices {}
         set bars {}
-        if {[kind c] in {=> | range to downto} || [lindex $c(rows) $value 0] eq "others"} {
+        if {[kind c] in {=> |} || [range_shape c $value] || [lindex $c(rows) $value 0] eq "others"} {
             while {1} {
                 set choice [choice c $value]
                 if {[lindex $c(rows) $choice 0] eq "others"} {set seenOthers 1}
@@ -371,7 +371,7 @@ proc ::vhdl_index::bounded::choice {state value} {
     set type [lindex $c(rows) $value 0]
     if {$type eq "others"} {return $value}
     if {$type in {relation shift logical condition reduction}} {stop c malformed EXPECTED_SIMPLE_CHOICE}
-    if {[kind c] in {range to downto} || $type eq "range_attribute"} {return [discrete c $value]}
+    if {[range_shape c $value]} {return [discrete c $value]}
     set candidates {}
     if {$type in {identifier extended_identifier}} {set candidates {simple_expression element_simple_name discrete_subtype}}
     return [add c choice [lindex $c(rows) $value 1] [lindex $c(rows) $value 2] [list $value] {} $candidates]

@@ -166,7 +166,7 @@ set malformed {
     {a * -b} {a + +b} {a + -b} {a sll b srl c} {a < b = c}
     {a and b or c} {a nand b nand c} {a nor b nor c} {a xor b xnor c}
     {?? a and b} {a and ?? b} {?? ?? a} {a ?= b = c}
-    {a +} {pkg.} {f()} {f(x y)} {f(,x)} {f(x,)} {f((a, b)} {f(x =>)}
+    {a +} {pkg.} {f()} {f(1 2)} {f(x y z)} {f(,x)} {f(x,)} {f((a, b)} {f(x =>)}
     {f(x => a, b)} {f(a + b => c)} {f(inertial x)} {f(open to 1)}
     {(x = y => a)} {(others | 1 => a)} {(1 | others => a)}
     {(others => a, b)} {(0 => a, b)} {(a, b,)} {t'()} {t'('x'} {a[bit]}
@@ -207,7 +207,16 @@ foreach edition {1993 2002 2008} {
     equal [ast $historical [dict get $historical root]] {range to number {physical number identifier}} "historical range"
     equal [dict get [probe {f[return boolean]'simple_name} $edition name] complete] 1 "signature $edition"
     equal [dict get [probe {a nor b} $edition] complete] 1 "older binary $edition"
+    set resolved [probe {v(resolver index_t range 1 to 2)} $edition]
+    equal [ast $resolved [dict get $resolved root]] \
+        {slice ( ) identifier {discrete_subtype range identifier identifier {range to number number}}} "slice resolution $edition"
+    equal [dict get [probe {'a'} $edition name] complete] [expr {$edition == 2008}] "character name $edition"
+    equal [dict get [probe {'a'} $edition] complete] 1 "character expression $edition"
+    equal [dict get [probe {pkg.'a'} $edition name] complete] 1 "character suffix $edition"
 }
+set element [probe {array_t'element'(a)} 2008]
+equal [ast $element [dict get $element root]] \
+    {qualified ' {subtype_attribute ' identifier identifier} {group ( ) identifier}} "element type mark"
 set flat [join [lrepeat 4096 x] { + }]
 set parsed [probe $flat 1993 expression {depth 1}]
 equal [llength [dict get $parsed rows]] 8191 "flat nodes"
