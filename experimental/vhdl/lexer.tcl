@@ -68,9 +68,14 @@ proc ::vhdl_index::lexer::diagnostic {code start end} {
 
 proc ::vhdl_index::lexer::valid_number {spelling} {
     if {[string first # $spelling] < 0} {
-        return [regexp {^[0-9](?:_?[0-9])*(?:\.[0-9](?:_?[0-9])*)?(?:[eE][+-]?[0-9](?:_?[0-9])*)?$} $spelling]
+        if {![regexp {^[0-9](?:_?[0-9])*(\.[0-9](?:_?[0-9])*)?(?:[eE]([+-]?)[0-9](?:_?[0-9])*)?$} \
+            $spelling _ fraction sign]} {
+            return 0
+        }
+        return [expr {$sign ne "-" || $fraction ne {}}]
     }
-    if {![regexp {^([0-9](?:_?[0-9])*)#([[:xdigit:]](?:_?[[:xdigit:]])*(?:\.[[:xdigit:]](?:_?[[:xdigit:]])*)?)#(?:[eE][+-]?[0-9](?:_?[0-9])*)?$} $spelling _ base digits]} {
+    if {![regexp {^([0-9](?:_?[0-9])*)#([[:xdigit:]](?:_?[[:xdigit:]])*(\.[[:xdigit:]](?:_?[[:xdigit:]])*)?)#(?:[eE]([+-]?)[0-9](?:_?[0-9])*)?$} \
+        $spelling _ base digits fraction sign] || ($sign eq "-" && $fraction eq {})} {
         return 0
     }
     set base [string trimleft [string map {_ {}} $base] 0]
