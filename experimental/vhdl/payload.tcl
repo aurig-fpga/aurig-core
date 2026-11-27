@@ -307,3 +307,147 @@ proc ::vhdl_index::payload::nodes {outcome ids} {
     foreach id $ids {lappend rows [::vhdl_index::bounded::node $parsed $id]}
     return $rows
 }
+
+proc ::vhdl_index::payload::batch_limits {requested} {
+    variable batchLimits
+    set limits $batchLimits
+    dict for {key value} $requested {
+        if {![dict exists $limits $key] || ![string is integer -strict $value] ||
+            $value < 1 || $value > [dict get $limits $key]} {
+            return -code error -errorcode {VHDL_INDEX PAYLOAD_LIMIT} "Invalid batch limit $key=$value"
+        }
+        dict set limits $key $value
+    }
+    return $limits
+}
+
+# Retain each diagnostic once. Every requesting role can still reference it.
+proc ::vhdl_index::payload::diagnostic_ids {registryVar countVar issues limit} {
+    upvar 1 $registryVar registry $countVar references
+    set ids {}
+    foreach issue $issues {
+        if {[dict exists $registry $issue] && [dict exists $ids [dict get $registry $issue]]} {continue}
+        if {$references >= $limit} {return [list [dict keys $ids] 0]}
+        if {![dict exists $registry $issue]} {
+            dict set registry $issue [dict size $registry]
+        }
+        dict set ids [dict get $registry $issue] 1
+        incr references
+    }
+    return [list [dict keys $ids] 1]
+}
+
+# The parser's arena goes out of scope here. Even successful work leaves only
+# status, precise failure evidence and a node count in the batch.
+proc ::vhdl_index::payload::summarize_parse {result descriptor interval limits registryVar countVar diagnosticLimit} {
+    upvar 1 $registryVar registry $countVar references
+    set parsed [parse_slot $result $descriptor $interval $limits]
+    lassign [diagnostic_ids registry references [dict get $parsed diagnostics] $diagnosticLimit] ids complete
+    set span [dict get $parsed span]
+    return [list [dict create status [dict get $parsed status] token_interval $interval token_span $span \
+        unresolved [dict get $parsed unresolved] diagnostic_ids $ids node_count [llength [dict get $parsed rows]]] $complete]
+}
+
+proc ::vhdl_index::payload::validate {view selections {requested {}} {intervalLimits {}}} {
+    set result [qualified_result $view]
+    set limits [batch_limits $requested]
+    set state [new_collection $view $result {} [dict get $limits rows]]
+    set reason {}
+    set summaries {}
+    set associations {}
+    set outcomes {}
+    set parsedTokens 0
+    set parsedNodes 0
+    set reused 0
+    set unattempted 0
+    set unavailable 0
+    set evidence {}
+    set diagnostics {}
+    set references 0
+    if {[llength $selections] > [dict get $limits selections]} {
+        set reason selections
+    } elseif {[catch {collect state $selections} summaries options]} {
+        if {[dict get $options -errorcode] ne {VHDL_INDEX PAYLOAD_ROW_LIMIT}} {
+            return -options $options $summaries
+        }
+        set summaries {}
+        set reason rows
+    }
+    set knownRows [dict size [dict get $state rows]]
+    set diagnosticLimit [dict get $limits diagnostics]
+    if {$reason eq {}} {
+        foreach proof [ordered_evidence $state] {
+            set id [dict get $proof evidence_id]
+            set issues [field $proof diagnostics]
+            if {[dict exists $proof diagnostic]} {lappend issues [dict get $proof diagnostic]}
+            lassign [diagnostic_ids diagnostics references $issues $diagnosticLimit] ids complete
+            lappend evidence [dict create evidence_id $id owner_id [dict get $proof owner_id] \
+                span [dict get $proof span] availability [field $proof availability unavailable] diagnostic_ids $ids]
+            if {!$complete} {
+                set reason diagnostics
+                break
+            }
+        }
+    }
+    if {$reason eq {}} {
+        set tape [dict get $result tape]
+        set cache {}
+        foreach descriptor [ordered $state] {
+            set presence [dict get $descriptor presence]
+            set outcomeId {}
+            set unresolved {}
+            if {$presence eq "present"} {
+                set interval [::vhdl_index::bounded::interval $tape [dict get $descriptor span]]
+                set key [list [dict get $descriptor entry] $interval]
+                if {[dict exists $cache $key]} {
+                    set outcomeId [dict get $cache $key]
+                    incr reused
+                } else {
+                    lassign $interval first last
+                    if {[llength $outcomes] >= [dict get $limits parses]} {
+                        set reason parses
+                        break
+                    }
+                    if {$parsedTokens + $last - $first > [dict get $limits tokens]} {
+                        set reason tokens
+                        break
+                    }
+                    set outcomeId [llength $outcomes]
+                    lassign [summarize_parse $result $descriptor $interval $intervalLimits diagnostics references $diagnosticLimit] \
+                        outcome complete
+                    dict set cache $key $outcomeId
+                    incr parsedTokens [expr {$last - $first}]
+                    incr parsedNodes [dict get $outcome node_count]
+                    lappend outcomes $outcome
+                    if {!$complete} {
+                        set reason diagnostics
+                    }
+                }
+                set status [dict get [lindex $outcomes $outcomeId] status]
+                if {$status eq "unavailable"} {incr unavailable}
+                if {$status ni {parsed ambiguous}} {set unresolved [list [dict get $descriptor span]]}
+            } elseif {$presence eq "unavailable"} {
+                incr unavailable
+                set span [dict get $descriptor span]
+                if {$span ne {}} {set unresolved [list $span]}
+            }
+            lassign [diagnostic_ids diagnostics references [dict get $descriptor diagnostics] $diagnosticLimit] ids complete
+            dict unset descriptor diagnostics
+            dict set descriptor diagnostic_ids $ids
+            dict set descriptor outcome $outcomeId
+            dict set descriptor unresolved $unresolved
+            lappend associations $descriptor
+            if {!$complete} {set reason diagnostics}
+            if {$reason ne {}} {break}
+        }
+    }
+    set unattempted [expr {$knownRows - [llength $associations]}]
+    if {$reason in {rows selections}} {set unattempted unknown}
+    set coverage [expr {$reason in {rows selections} ? "unavailable" : [coverage $state]}]
+    return [dict create status [expr {$reason eq {} ? "finished" : "incomplete"}] limit $reason \
+        source_id [dict get $result source_id] edition [dict get $result edition] selections $summaries \
+        completeness $coverage rows $associations outcomes $outcomes evidence $evidence \
+        diagnostics [dict keys $diagnostics] remaining $unattempted unavailable $unavailable \
+        parsed_tokens $parsedTokens parsed_nodes $parsedNodes retained_nodes 0 reused $reused \
+        duplicate_visits [dict get $state duplicate_visits] diagnostic_references $references]
+}
